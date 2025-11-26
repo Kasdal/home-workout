@@ -2,6 +2,7 @@ package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.data.local.dao.WorkoutDao
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import kotlinx.coroutines.flow.Flow
@@ -43,4 +44,8 @@ class WorkoutRepositoryImpl @Inject constructor(
     override fun getSessions(): Flow<List<WorkoutSession>> = dao.getAllSessions()
 
     override suspend fun saveSession(session: WorkoutSession) = dao.insertSession(session)
+    
+    override fun getSettings() = dao.getSettings()
+    
+    override suspend fun saveSettings(settings: Settings) = dao.insertSettings(settings)
 }

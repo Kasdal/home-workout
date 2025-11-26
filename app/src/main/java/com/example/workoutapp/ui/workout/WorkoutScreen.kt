@@ -123,6 +123,13 @@ fun WorkoutScreen(
                 ) {
                     Text("Manage Profiles")
                 }
+                Button(
+                    onClick = { navController.navigate(Screen.Settings.route) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Text("Settings")
+                }
             }
         },
 

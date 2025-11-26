@@ -1,6 +1,7 @@
 package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import kotlinx.coroutines.flow.Flow
@@ -22,4 +23,7 @@ interface WorkoutRepository {
 
     fun getSessions(): Flow<List<WorkoutSession>>
     suspend fun saveSession(session: WorkoutSession)
+    
+    fun getSettings(): Flow<Settings?>
+    suspend fun saveSettings(settings: Settings)
 }
