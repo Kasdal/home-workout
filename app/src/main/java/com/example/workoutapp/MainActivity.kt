@@ -59,6 +59,9 @@ class MainActivity : ComponentActivity() {
                             composable(Screen.Settings.route) {
                                 com.example.workoutapp.ui.settings.SettingsScreen(navController = navController)
                             }
+                            composable(Screen.Tutorial.route) {
+                                com.example.workoutapp.ui.tutorial.TutorialScreen(navController = navController)
+                            }
                         }
 
                     }
