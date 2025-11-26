@@ -1,0 +1,267 @@
+package com.example.workoutapp.ui.workout
+
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.ui.theme.NeonGreen
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun ExerciseCard(
+    exercise: Exercise,
+    completedSetCount: Int,
+    isCompleted: Boolean,
+    onCompleteSet: () -> Unit,
+    onUpdate: (Exercise) -> Unit,
+    onDelete: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var holdProgress by remember { mutableStateOf(0f) }
+    var isHolding by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isHolding) 0.95f else 1f,
+        animationSpec = tween(200), label = ""
+    )
+
+    LaunchedEffect(isHolding) {
+        if (isHolding) {
+            val startTime = System.currentTimeMillis()
+            while (isHolding) {
+                val elapsed = System.currentTimeMillis() - startTime
+                holdProgress = (elapsed / 2000f).coerceIn(0f, 1f)
+                
+                if (holdProgress >= 1f) {
+                    onCompleteSet()
+                    holdProgress = 0f
+                    isHolding = false
+                }
+                delay(16)
+            }
+        } else {
+            holdProgress = 0f
+        }
+    }
+
+    if (showEditDialog) {
+        ExerciseEditDialog(
+            exercise = exercise,
+            onDismiss = { showEditDialog = false },
+            onSave = { name, weight ->
+                onUpdate(exercise.copy(name = name, weight = weight))
+                showEditDialog = false
+            }
+        )
+    }
+
+    // Hide if completed
+    if (!isCompleted) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                // Exercise Name and Weight on Top
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .combinedClickable(
+                            onClick = {},
+                            onLongClick = { showEditDialog = true }
+                        ),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = exercise.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${exercise.weight} kg",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = NeonGreen,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(onClick = { showEditDialog = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
+                        }
+                        IconButton(onClick = { expanded = !expanded }) {
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                contentDescription = "Expand"
+                            )
+                        }
+                    }
+                }
+
+                // Checkmark indicators
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (i in 0 until 4) {
+                        Box(
+                            modifier = Modifier
+                                .size(45.dp)
+                                .padding(4.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (i < completedSetCount) NeonGreen
+                                    else Color.Gray.copy(alpha = 0.3f)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (i < completedSetCount) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = null,
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Large "Next Set" Button with Hold Progress
+                Spacer(modifier = Modifier.height(16.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(80.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(if (completedSetCount >= 4) Color.Gray else NeonGreen) // Green when available
+                        .pointerInput(completedSetCount) {
+                            detectTapGestures(
+                                onPress = {
+                                    if (completedSetCount < 4) {
+                                        isHolding = true
+                                        tryAwaitRelease()
+                                        isHolding = false
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Dark overlay that shrinks as you hold (visual feedback)
+                    if (holdProgress > 0f && completedSetCount < 4) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(1f - holdProgress) // Shrinks from right
+                                .fillMaxHeight()
+                                .background(Color.Black.copy(alpha = 0.5f))
+                                .align(Alignment.CenterEnd)
+                        )
+                    }
+                    
+                    Text(
+                        text = if (completedSetCount >= 4) "COMPLETED" else "NEXT SET",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        color = if (completedSetCount >= 4) Color.White else Color.Black,
+                        modifier = Modifier.scale(scale)
+                    )
+                }
+
+                // Expanded Content (Delete option)
+                if (expanded) {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        Divider()
+                        TextButton(
+                            onClick = onDelete,
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Remove Exercise")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ExerciseEditDialog(
+    exercise: Exercise,
+    onDismiss: () -> Unit,
+    onSave: (String, Float) -> Unit
+) {
+    var name by remember { mutableStateOf(exercise.name) }
+    var weight by remember { mutableStateOf(exercise.weight.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Exercise") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Exercise Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = { Text("Weight (kg)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val w = weight.toFloatOrNull() ?: exercise.weight
+                    onSave(name, w)
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
