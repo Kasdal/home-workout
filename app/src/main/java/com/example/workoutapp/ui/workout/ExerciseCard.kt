@@ -3,6 +3,7 @@ package com.example.workoutapp.ui.workout
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
@@ -38,6 +39,7 @@ fun ExerciseCard(
     completedSetCount: Int,
     isCompleted: Boolean,
     onCompleteSet: () -> Unit,
+    onUndoSet: () -> Unit,
     onUpdate: (Exercise) -> Unit,
     onDelete: () -> Unit
 ) {
@@ -175,7 +177,11 @@ fun ExerciseCard(
                                 .background(
                                     if (i < completedSetCount) NeonGreen
                                     else Color.Gray.copy(alpha = 0.3f)
-                                ),
+                                )
+                                .clickable(enabled = i < completedSetCount) {
+                                    // Tap completed checkmark to undo
+                                    onUndoSet()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             if (i < completedSetCount) {

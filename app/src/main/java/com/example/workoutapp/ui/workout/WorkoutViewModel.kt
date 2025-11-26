@@ -134,6 +134,23 @@ class WorkoutViewModel @Inject constructor(
             onComplete(session)
         }
     }
+    
+    // Pause session timer
+    fun pauseSession() {
+        sessionTimerJob?.cancel()
+    }
+    
+    // Resume session timer
+    fun resumeSession() {
+        if (_sessionStarted.value) {
+            sessionTimerJob = viewModelScope.launch {
+                while (_sessionStarted.value) {
+                    delay(1000L)
+                    _sessionElapsedSeconds.value++
+                }
+            }
+        }
+    }
 
     // --- Timer Logic ---
     fun setRestTimerDuration(seconds: Int) {
@@ -203,6 +220,16 @@ class WorkoutViewModel @Inject constructor(
                 // Regular set - start 30s rest timer
                 startTimer(_restTimerDuration.value)
             }
+        }
+    }
+    
+    // Undo last set
+    fun undoSet(exerciseId: Int) {
+        val current = _completedSets.value.toMutableMap()
+        val currentCount = current[exerciseId] ?: 0
+        if (currentCount > 0) {
+            current[exerciseId] = currentCount - 1
+            _completedSets.value = current
         }
     }
 

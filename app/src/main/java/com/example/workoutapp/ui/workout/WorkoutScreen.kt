@@ -177,6 +177,7 @@ fun WorkoutScreen(
                     completedSetCount = setCount,
                     isCompleted = isCompleted,
                     onCompleteSet = { viewModel.completeNextSet(exercise.id) },
+                    onUndoSet = { viewModel.undoSet(exercise.id) },
                     onUpdate = { viewModel.updateExercise(it) },
                     onDelete = { viewModel.deleteExercise(exercise.id) }
                 )
