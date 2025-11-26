@@ -6,6 +6,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.RestDay
+import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import kotlinx.coroutines.flow.Flow
@@ -55,4 +57,24 @@ interface WorkoutDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WorkoutSession)
+
+    // --- Settings ---
+    @Query("SELECT * FROM settings WHERE id = 1")
+    fun getSettings(): Flow<Settings?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSettings(settings: Settings)
+
+    // --- Rest Days ---
+    @Query("SELECT * FROM rest_days ORDER BY date DESC")
+    fun getAllRestDays(): Flow<List<RestDay>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRestDay(restDay: RestDay)
+
+    @Query("DELETE FROM rest_days WHERE id = :restDayId")
+    suspend fun deleteRestDay(restDayId: Int)
+
+    @Query("SELECT * FROM rest_days WHERE date = :date LIMIT 1")
+    suspend fun getRestDayByDate(date: Long): RestDay?
 }

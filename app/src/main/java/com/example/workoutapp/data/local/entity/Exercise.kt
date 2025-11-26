@@ -8,7 +8,7 @@ data class Exercise(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
     val weight: Float,
-    val sets: Int = 4,
-    val reps: Int = 13,
+    val reps: Int = 13, // Customizable reps per set
+    val sets: Int = 4,  // Customizable number of sets
     val isDeleted: Boolean = false
 )

@@ -8,11 +8,13 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,8 +75,8 @@ fun ExerciseCard(
         ExerciseEditDialog(
             exercise = exercise,
             onDismiss = { showEditDialog = false },
-            onSave = { name, weight ->
-                onUpdate(exercise.copy(name = name, weight = weight))
+            onSave = { name, weight, reps, sets ->
+                onUpdate(exercise.copy(name = name, weight = weight, reps = reps, sets = sets))
                 showEditDialog = false
             }
         )
@@ -107,12 +109,41 @@ fun ExerciseCard(
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "${exercise.weight} kg",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = NeonGreen,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // -5kg button
+                            IconButton(
+                                onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Remove,
+                                    contentDescription = "-5kg",
+                                    tint = Color.Red
+                                )
+                            }
+                            
+                            Text(
+                                text = "${exercise.weight} kg",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = NeonGreen,
+                                fontWeight = FontWeight.Bold
+                            )
+                            
+                            // +5kg button
+                            IconButton(
+                                onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "+5kg",
+                                    tint = NeonGreen
+                                )
+                            }
+                        }
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -128,14 +159,14 @@ fun ExerciseCard(
                     }
                 }
 
-                // Checkmark indicators
+                // Checkmark indicators (dynamic based on exercise.sets)
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    for (i in 0 until 4) {
+                    for (i in 0 until exercise.sets) {
                         Box(
                             modifier = Modifier
                                 .size(45.dp)
@@ -166,11 +197,11 @@ fun ExerciseCard(
                         .fillMaxWidth()
                         .height(80.dp)
                         .clip(MaterialTheme.shapes.medium)
-                        .background(if (completedSetCount >= 4) Color.Gray else NeonGreen) // Green when available
+                        .background(if (completedSetCount >= exercise.sets) Color.Gray else NeonGreen) // Green when available
                         .pointerInput(completedSetCount) {
                             detectTapGestures(
                                 onPress = {
-                                    if (completedSetCount < 4) {
+                                    if (completedSetCount < exercise.sets) {
                                         isHolding = true
                                         tryAwaitRelease()
                                         isHolding = false
@@ -181,7 +212,7 @@ fun ExerciseCard(
                     contentAlignment = Alignment.Center
                 ) {
                     // Dark overlay that shrinks as you hold (visual feedback)
-                    if (holdProgress > 0f && completedSetCount < 4) {
+                    if (holdProgress > 0f && completedSetCount < exercise.sets) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth(1f - holdProgress) // Shrinks from right
@@ -192,11 +223,11 @@ fun ExerciseCard(
                     }
                     
                     Text(
-                        text = if (completedSetCount >= 4) "COMPLETED" else "NEXT SET",
+                        text = if (completedSetCount >= exercise.sets) "COMPLETED" else "NEXT SET",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        color = if (completedSetCount >= 4) Color.White else Color.Black,
+                        color = if (completedSetCount >= exercise.sets) Color.White else Color.Black,
                         modifier = Modifier.scale(scale)
                     )
                 }
@@ -224,10 +255,12 @@ fun ExerciseCard(
 fun ExerciseEditDialog(
     exercise: Exercise,
     onDismiss: () -> Unit,
-    onSave: (String, Float) -> Unit
+    onSave: (String, Float, Int, Int) -> Unit
 ) {
     var name by remember { mutableStateOf(exercise.name) }
     var weight by remember { mutableStateOf(exercise.weight.toString()) }
+    var reps by remember { mutableStateOf(exercise.reps.toString()) }
+    var sets by remember { mutableStateOf(exercise.sets.toString()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -246,13 +279,27 @@ fun ExerciseEditDialog(
                     label = { Text("Weight (kg)") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                OutlinedTextField(
+                    value = reps,
+                    onValueChange = { reps = it },
+                    label = { Text("Reps per Set") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = sets,
+                    onValueChange = { sets = it },
+                    label = { Text("Number of Sets") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     val w = weight.toFloatOrNull() ?: exercise.weight
-                    onSave(name, w)
+                    val r = reps.toIntOrNull() ?: exercise.reps
+                    val s = sets.toIntOrNull() ?: exercise.sets
+                    onSave(name, w, r, s)
                 }
             ) {
                 Text("Save")
