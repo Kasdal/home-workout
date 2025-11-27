@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,11 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun WorkoutScreen(
@@ -36,6 +38,9 @@ fun WorkoutScreen(
     
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<com.example.workoutapp.data.local.entity.WorkoutSession?>(null) }
+    
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     // Keep screen on during workout
     val context = LocalContext.current
@@ -54,7 +59,7 @@ fun WorkoutScreen(
     if (showSummary && lastSession != null) {
         AlertDialog(
             onDismissRequest = { showSummary = false },
-            title = { Text("Workout Completed! \uD83D\uDCAA") },
+            title = { Text("Workout Completed! 💪") },
             text = {
                 Column {
                     Text("Total Weight: ${lastSession?.totalWeightLifted} kg")
@@ -70,9 +75,75 @@ fun WorkoutScreen(
         )
     }
 
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Menu",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Divider()
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.History, null) },
+                    label = { Text("History") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.History.route)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Settings, null) },
+                    label = { Text("Settings") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.Settings.route)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.HelpOutline, null) },
+                    label = { Text("Tutorial") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.Tutorial.route)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.EventAvailable, null) },
+                    label = { Text("Rest Days") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.RestDays.route)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            }
+        }
+    ) {
     Scaffold(
         topBar = {
             Column {
+                // Hamburger menu icon
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                        Icon(Icons.Default.Menu, "Menu", tint = NeonGreen)
+                    }
+                }
+                
                 // Session Timer Display
                 if (sessionStarted) {
                     Surface(
@@ -109,38 +180,20 @@ fun WorkoutScreen(
                     onSetRestDuration = { viewModel.setRestTimerDuration(it) },
                     onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) }
                 )
-                Button(
-                    onClick = { navController.navigate(Screen.History.route) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Text("View History")
-                }
-                Button(
-                    onClick = { navController.navigate(Screen.Profile.route) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Text("Manage Profiles")
-                }
-                Button(
-                    onClick = { navController.navigate(Screen.Settings.route) },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Text("Settings")
-                }
             }
         },
 
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.addExercise() }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Exercise")
+            if (!sessionStarted) {
+                FloatingActionButton(onClick = { viewModel.addExercise() }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Exercise")
+                }
             }
         },
+
         bottomBar = {
             Button(
-                onClick = { 
+                onClick = {
                     if (sessionStarted) {
                         viewModel.completeSession { session ->
                             lastSession = session
@@ -168,43 +221,91 @@ fun WorkoutScreen(
         }
     ) { padding ->
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
-            items(exercises) { exercise ->
-                val setCount = completedSets[exercise.id] ?: 0
-                val isCompleted = setCount >= 4
-                
-                ExerciseCard(
-                    exercise = exercise,
-                    completedSetCount = setCount,
-                    isCompleted = isCompleted,
-                    onCompleteSet = { viewModel.completeNextSet(exercise.id) },
-                    onUndoSet = { viewModel.undoSet(exercise.id) },
-                    onUpdate = { viewModel.updateExercise(it) },
-                    onDelete = { viewModel.deleteExercise(exercise.id) }
-                )
+        if (sessionStarted) {
+            // Focus Mode: Show only active exercise
+            val activeExercise = exercises.firstOrNull { exercise ->
+                (completedSets[exercise.id] ?: 0) < exercise.sets
             }
-            
-            // Footer
-            item {
+
+            if (activeExercise != null) {
+                val setCount = completedSets[activeExercise.id] ?: 0
+                
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(16.dp)
+                ) {
+                    ExerciseCard(
+                        exercise = activeExercise,
+                        completedSetCount = setCount,
+                        isCompleted = false,
+                        onCompleteSet = { viewModel.completeNextSet(activeExercise.id) },
+                        onUndoSet = { viewModel.undoSet(activeExercise.id) },
+                        onUpdate = { viewModel.updateExercise(it) },
+                        onDelete = { viewModel.deleteExercise(activeExercise.id) },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            } else {
+                // All exercises completed in this session
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Developed by Milan Ples @2025",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        text = "All exercises completed! 🎉",
+                        style = MaterialTheme.typography.headlineMedium,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
+        } else {
+            // Normal Mode: List all exercises
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+                items(exercises) { exercise ->
+                    val setCount = completedSets[exercise.id] ?: 0
+                    val isCompleted = setCount >= 4
+                    
+                    ExerciseCard(
+                        exercise = exercise,
+                        completedSetCount = setCount,
+                        isCompleted = isCompleted,
+                        onCompleteSet = { viewModel.completeNextSet(exercise.id) },
+                        onUndoSet = { viewModel.undoSet(exercise.id) },
+                        onUpdate = { viewModel.updateExercise(it) },
+                        onDelete = { viewModel.deleteExercise(exercise.id) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    )
+                }
+                
+                // Footer
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Developed by Milan Ples @2025",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
         }
+    }
     }
 }

@@ -41,7 +41,8 @@ fun ExerciseCard(
     onCompleteSet: () -> Unit,
     onUndoSet: () -> Unit,
     onUpdate: (Exercise) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
@@ -87,9 +88,7 @@ fun ExerciseCard(
     // Hide if completed
     if (!isCompleted) {
         Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
+            modifier = modifier,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
