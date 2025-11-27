@@ -34,13 +34,13 @@ private val LightColorScheme = lightColorScheme(
     primary = NeonGreen,
     secondary = NeonGreen,
     tertiary = Pink80,
-    background = DarkGrey, // Keep dark bg even in light mode for consistency if desired, or standard light
-    surface = SurfaceGrey,
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = TextWhite,
-    onSurface = TextWhite,
+    background = LightBackground,
+    surface = LightSurface,
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
+    onBackground = TextBlack,
+    onSurface = TextBlack,
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
