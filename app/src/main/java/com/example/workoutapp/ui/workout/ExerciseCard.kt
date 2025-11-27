@@ -59,7 +59,7 @@ fun ExerciseCard(
             val startTime = System.currentTimeMillis()
             while (isHolding) {
                 val elapsed = System.currentTimeMillis() - startTime
-                holdProgress = (elapsed / 2000f).coerceIn(0f, 1f)
+                holdProgress = (elapsed / 1000f).coerceIn(0f, 1f)
                 
                 if (holdProgress >= 1f) {
                     onCompleteSet()

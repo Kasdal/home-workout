@@ -37,127 +37,152 @@ fun HistoryScreen(
     var selectedDate by remember { mutableStateOf<Calendar?>(null) }
     var currentMonth by remember { mutableStateOf(Calendar.getInstance()) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text(
-            text = "Workout Calendar",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        contentPadding = PaddingValues(bottom = 16.dp)
+    ) {
+        item {
+            Text(
+                text = "Workout Calendar",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
 
         // Calendar Header (Month Navigation)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {
-                val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                currentMonth = newMonth
-            }) {
-                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
-            }
-            
-            Text(
-                text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentMonth.time),
-                style = MaterialTheme.typography.titleLarge
-            )
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                    currentMonth = newMonth
+                }) {
+                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
+                }
+                
+                Text(
+                    text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentMonth.time),
+                    style = MaterialTheme.typography.titleLarge
+                )
 
-            IconButton(onClick = {
-                val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                currentMonth = newMonth
-            }) {
-                Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
+                IconButton(onClick = {
+                    val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                    currentMonth = newMonth
+                }) {
+                    Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
+                }
             }
+            Spacer(modifier = Modifier.height(8.dp))
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
 
         // Days of Week Header
-        Row(modifier = Modifier.fillMaxWidth()) {
-            val daysOfWeek = listOf("S", "M", "T", "W", "T", "F", "S")
-            daysOfWeek.forEach { day ->
-                Text(
-                    text = day,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Calendar Grid
-        val daysInMonth = getDaysInMonth(currentMonth)
-        val sessionsInMonth = sessions.filter { session ->
-            val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
-            sessionCal.get(Calendar.YEAR) == currentMonth.get(Calendar.YEAR) &&
-            sessionCal.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
-        }
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(7),
-            modifier = Modifier.height(300.dp)
-        ) {
-            // Empty cells for offset
-            val firstDayOfWeek = daysInMonth.firstOrNull()?.get(Calendar.DAY_OF_WEEK) ?: 1
-            items(firstDayOfWeek - 1) {
-                Box(modifier = Modifier.aspectRatio(1f))
-            }
-
-            items(daysInMonth) { day ->
-                val isToday = isSameDay(day, Calendar.getInstance())
-                val hasWorkout = sessionsInMonth.any { isSameDay(it.date, day) }
-                val isSelected = selectedDate != null && isSameDay(selectedDate!!, day)
-
-                Box(
-                    modifier = Modifier
-                        .aspectRatio(1f)
-                        .padding(4.dp)
-                        .clip(CircleShape)
-                        .background(
-                            when {
-                                isSelected -> NeonGreen
-                                hasWorkout -> NeonGreen.copy(alpha = 0.5f)
-                                isToday -> Color.Gray.copy(alpha = 0.3f)
-                                else -> Color.Transparent
-                            }
-                        )
-                        .clickable { selectedDate = day },
-                    contentAlignment = Alignment.Center
-                ) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                val daysOfWeek = listOf("S", "M", "T", "W", "T", "F", "S")
+                daysOfWeek.forEach { day ->
                     Text(
-                        text = day.get(Calendar.DAY_OF_MONTH).toString(),
-                        color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onBackground
+                        text = day,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Divider()
-        Spacer(modifier = Modifier.height(16.dp))
+        // Calendar Grid
+        item {
+            val daysInMonth = getDaysInMonth(currentMonth)
+            val sessionsInMonth = sessions.filter { session ->
+                val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
+                sessionCal.get(Calendar.YEAR) == currentMonth.get(Calendar.YEAR) &&
+                sessionCal.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(7),
+                modifier = Modifier.height(300.dp)
+            ) {
+                // Empty cells for offset
+                val firstDayOfWeek = daysInMonth.firstOrNull()?.get(Calendar.DAY_OF_WEEK) ?: 1
+                items(firstDayOfWeek - 1) {
+                    Box(modifier = Modifier.aspectRatio(1f))
+                }
+
+                items(daysInMonth) { day ->
+                    val isToday = isSameDay(day, Calendar.getInstance())
+                    val hasWorkout = sessionsInMonth.any { isSameDay(it.date, day) }
+                    val isSelected = selectedDate != null && isSameDay(selectedDate!!, day)
+
+                    Box(
+                        modifier = Modifier
+                            .aspectRatio(1f)
+                            .padding(4.dp)
+                            .clip(CircleShape)
+                            .background(
+                                when {
+                                    isSelected -> NeonGreen
+                                    hasWorkout -> NeonGreen.copy(alpha = 0.5f)
+                                    isToday -> Color.Gray.copy(alpha = 0.3f)
+                                    else -> Color.Transparent
+                                }
+                            )
+                            .clickable { selectedDate = day },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = day.get(Calendar.DAY_OF_MONTH).toString(),
+                            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onBackground
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider()
+            Spacer(modifier = Modifier.height(16.dp))
+        }
 
         // Selected Date Sessions
         if (selectedDate != null) {
             val dateSessions = sessions.filter { isSameDay(it.date, selectedDate!!) }
-            Text(
-                text = "Sessions on ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(selectedDate!!.time)}",
-                style = MaterialTheme.typography.titleMedium
-            )
+            item {
+                Text(
+                    text = "Sessions on ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(selectedDate!!.time)}",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
             
             if (dateSessions.isEmpty()) {
-                Text("No workouts recorded.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
+                item {
+                    Text("No workouts recorded.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
+                }
             } else {
-                LazyColumn(modifier = Modifier.padding(top = 8.dp)) {
-                    items(dateSessions) { session ->
-                        SessionCard(session)
-                    }
+                items(dateSessions) { session ->
+                    SessionCard(session)
                 }
             }
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Divider()
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         } else {
-            Text("Select a date to view details.", color = Color.Gray)
+            item {
+                Text("Select a date to view details.", color = Color.Gray)
+                Spacer(modifier = Modifier.height(16.dp))
+                Divider()
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+        }
+
+        // Statistics Section (Moved to bottom)
+        item {
+            StatisticsSection(sessions = sessions)
         }
     }
 }
@@ -212,4 +237,154 @@ fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
 fun isSameDay(timestamp: Long, cal: Calendar): Boolean {
     val c = Calendar.getInstance().apply { timeInMillis = timestamp }
     return isSameDay(c, cal)
+}
+
+@Composable
+fun StatisticsSection(sessions: List<WorkoutSession>) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Trends",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Volume Chart
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Total Volume (Last 10 Sessions)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = NeonGreen
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                VolumeChart(sessions = sessions)
+            }
+        }
+
+        // Frequency Chart
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Weekly Frequency (Last 4 Weeks)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = NeonGreen
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                FrequencyChart(sessions = sessions)
+            }
+        }
+    }
+}
+
+@Composable
+fun VolumeChart(sessions: List<WorkoutSession>) {
+    val sortedSessions = sessions.sortedBy { it.date }.takeLast(10)
+    if (sortedSessions.isEmpty()) {
+        Text("No data available", style = MaterialTheme.typography.bodyMedium)
+        return
+    }
+
+    val maxVolume = sortedSessions.maxOfOrNull { it.totalWeightLifted } ?: 1f
+    
+    androidx.compose.foundation.Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp)
+    ) {
+        val width = size.width
+        val height = size.height
+        val spacing = width / (sortedSessions.size - 1).coerceAtLeast(1)
+        
+        // Draw lines
+        val path = androidx.compose.ui.graphics.Path()
+        sortedSessions.forEachIndexed { index, session ->
+            val x = index * spacing
+            val y = height - (session.totalWeightLifted / maxVolume * height)
+            
+            if (index == 0) {
+                path.moveTo(x, y)
+            } else {
+                path.lineTo(x, y)
+            }
+            
+            // Draw point
+            drawCircle(
+                color = NeonGreen,
+                radius = 4.dp.toPx(),
+                center = androidx.compose.ui.geometry.Offset(x, y)
+            )
+        }
+        
+        drawPath(
+            path = path,
+            color = NeonGreen,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+        )
+    }
+}
+
+@Composable
+fun FrequencyChart(sessions: List<WorkoutSession>) {
+    val currentCal = Calendar.getInstance()
+    // Group sessions by week (last 4 weeks)
+    val weeks = (0..3).map { offset ->
+        val weekStart = currentCal.clone() as Calendar
+        weekStart.add(Calendar.WEEK_OF_YEAR, -offset)
+        weekStart.set(Calendar.DAY_OF_WEEK, weekStart.getFirstDayOfWeek())
+        
+        val weekEnd = weekStart.clone() as Calendar
+        weekEnd.add(Calendar.DAY_OF_WEEK, 6)
+        
+        val count = sessions.count { session ->
+            val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
+            sessionCal.timeInMillis >= weekStart.timeInMillis && 
+            sessionCal.timeInMillis <= weekEnd.timeInMillis
+        }
+        count
+    }.reversed()
+
+    val maxFreq = weeks.maxOrNull()?.coerceAtLeast(1) ?: 1
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        weeks.forEachIndexed { index, count ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier.fillMaxHeight()
+            ) {
+                Text(
+                    text = count.toString(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeonGreen
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .width(20.dp)
+                        .fillMaxHeight(count.toFloat() / maxFreq)
+                        .background(NeonGreen, shape = MaterialTheme.shapes.small)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "W${4-index}",
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+    }
 }

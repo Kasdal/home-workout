@@ -3,6 +3,7 @@ package com.example.workoutapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,7 +29,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            WorkoutAppTheme {
+            WorkoutAppTheme(
+                darkTheme = when (hiltViewModel<MainViewModel>().settings.collectAsState(initial = null).value?.themeMode) {
+                    "light" -> false
+                    "dark" -> true
+                    else -> isSystemInDarkTheme() // "auto" or null
+                }
+            ) {
                 val mainViewModel: MainViewModel = hiltViewModel()
                 val startDestination by mainViewModel.startDestination.collectAsState()
                 var showSplash by remember { mutableStateOf(true) }
@@ -61,6 +68,9 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(Screen.Tutorial.route) {
                                 com.example.workoutapp.ui.tutorial.TutorialScreen(navController = navController)
+                            }
+                            composable(Screen.RestDays.route) {
+                                com.example.workoutapp.ui.restdays.RestDaysScreen(navController = navController)
                             }
                         }
 

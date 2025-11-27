@@ -19,6 +19,8 @@ class MainViewModel @Inject constructor(
     private val _startDestination = MutableStateFlow<String?>(null)
     val startDestination: StateFlow<String?> = _startDestination.asStateFlow()
 
+    val settings = repository.getSettings()
+
     init {
         checkUserMetrics()
     }

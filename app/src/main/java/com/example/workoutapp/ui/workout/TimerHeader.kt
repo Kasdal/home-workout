@@ -1,5 +1,6 @@
 package com.example.workoutapp.ui.workout
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
@@ -31,6 +32,18 @@ fun TimerHeader(
 ) {
     var showRestDialog by remember { mutableStateOf(false) }
     var showExerciseDialog by remember { mutableStateOf(false) }
+    
+    // Flash effect
+    val infiniteTransition = rememberInfiniteTransition(label = "flash")
+    val flashAlpha by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = if (isRunning && seconds <= 3 && seconds > 0) 0.6f else 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "flashAlpha"
+    )
 
     if (showRestDialog) {
         TimerCustomDialog(
@@ -57,7 +70,10 @@ fun TimerHeader(
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = if (isRunning && seconds <= 3 && seconds > 0) 
+            NeonGreen.copy(alpha = flashAlpha) 
+        else 
+            MaterialTheme.colorScheme.surface,
         shadowElevation = 4.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
