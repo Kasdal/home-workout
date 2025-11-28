@@ -60,7 +60,7 @@ fun ExerciseCard(
             val startTime = System.currentTimeMillis()
             while (isHolding) {
                 val elapsed = System.currentTimeMillis() - startTime
-                holdProgress = (elapsed / 1000f).coerceIn(0f, 1f)
+                holdProgress = (elapsed / 500f).coerceIn(0f, 1f)
                 
                 if (holdProgress >= 1f) {
                     onCompleteSet()
@@ -206,11 +206,9 @@ fun ExerciseCard(
                         .pointerInput(completedSetCount) {
                             detectTapGestures(
                                 onPress = {
-                                    if (completedSetCount < exercise.sets) {
-                                        isHolding = true
-                                        tryAwaitRelease()
-                                        isHolding = false
-                                    }
+                                    isHolding = true
+                                    tryAwaitRelease()
+                                    isHolding = false
                                 }
                             )
                         },

@@ -204,21 +204,27 @@ class WorkoutViewModel @Inject constructor(
 
     // --- Set Completion Logic ---
     fun completeNextSet(exerciseId: Int) {
-        val current = _completedSets.value.toMutableMap()
-        val currentCount = current[exerciseId] ?: 0
-        
-        if (currentCount < 4) {
-            val newCount = currentCount + 1
-            current[exerciseId] = newCount
-            _completedSets.value = current
+        viewModelScope.launch {
+            val current = _completedSets.value.toMutableMap()
+            val currentCount = current[exerciseId] ?: 0
             
-            // Auto-start timer after set
-            if (newCount == 4) {
-                // Last set - start 90s timer for exercise switch
-                startTimer(_exerciseSwitchDuration.value)
-            } else {
-                // Regular set - start 30s rest timer
-                startTimer(_restTimerDuration.value)
+            // Get the actual exercise to check its set count
+            val exercise = exercises.first().find { it.id == exerciseId }
+            val maxSets = exercise?.sets ?: 4
+            
+            if (currentCount < maxSets) {
+                val newCount = currentCount + 1
+                current[exerciseId] = newCount
+                _completedSets.value = current
+                
+                // Auto-start timer after set
+                if (newCount >= maxSets) {
+                    // Last set - start 90s timer for exercise switch
+                    startTimer(_exerciseSwitchDuration.value)
+                } else {
+                    // Regular set - start 30s rest timer
+                    startTimer(_restTimerDuration.value)
+                }
             }
         }
     }

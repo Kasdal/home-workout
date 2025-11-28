@@ -224,11 +224,13 @@ fun WorkoutScreen(
         if (sessionStarted) {
             // Focus Mode: Show only active exercise
             val activeExercise = exercises.firstOrNull { exercise ->
-                (completedSets[exercise.id] ?: 0) < exercise.sets
+                val setCount = completedSets[exercise.id] ?: 0
+                setCount < exercise.sets
             }
 
             if (activeExercise != null) {
                 val setCount = completedSets[activeExercise.id] ?: 0
+                val isCompleted = setCount >= activeExercise.sets
                 
                 Box(
                     modifier = Modifier
@@ -239,7 +241,7 @@ fun WorkoutScreen(
                     ExerciseCard(
                         exercise = activeExercise,
                         completedSetCount = setCount,
-                        isCompleted = false,
+                        isCompleted = isCompleted,
                         onCompleteSet = { viewModel.completeNextSet(activeExercise.id) },
                         onUndoSet = { viewModel.undoSet(activeExercise.id) },
                         onUpdate = { viewModel.updateExercise(it) },
@@ -273,7 +275,7 @@ fun WorkoutScreen(
             ) {
                 items(exercises) { exercise ->
                     val setCount = completedSets[exercise.id] ?: 0
-                    val isCompleted = setCount >= 4
+                    val isCompleted = setCount >= exercise.sets
                     
                     ExerciseCard(
                         exercise = exercise,
