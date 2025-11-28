@@ -12,5 +12,7 @@ data class Settings(
     val celebrationSoundType: String = "cheer",
     val themeMode: String = "dark", // light/dark/auto
     val tutorialCompleted: Boolean = false,
-    val tutorialVersion: Int = 1
+    val tutorialVersion: Int = 1,
+    val restTimerDuration: Int = 30,
+    val exerciseSwitchDuration: Int = 90
 )

@@ -19,11 +19,21 @@ object AppModule {
     @Provides
     @Singleton
     fun provideWorkoutDatabase(app: Application): WorkoutDatabase {
+        val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE settings ADD COLUMN restTimerDuration INTEGER NOT NULL DEFAULT 30")
+                database.execSQL("ALTER TABLE settings ADD COLUMN exerciseSwitchDuration INTEGER NOT NULL DEFAULT 90")
+            }
+        }
+
         return Room.databaseBuilder(
             app,
             WorkoutDatabase::class.java,
             "workout_db"
-        ).fallbackToDestructiveMigration().build()
+        )
+        .addMigrations(MIGRATION_3_4)
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
 

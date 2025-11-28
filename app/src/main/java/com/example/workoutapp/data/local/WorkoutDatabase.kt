@@ -11,7 +11,7 @@ import com.example.workoutapp.data.local.entity.WorkoutSession
 
 @Database(
     entities = [Exercise::class, UserMetrics::class, WorkoutSession::class, Settings::class, RestDay::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class WorkoutDatabase : RoomDatabase() {

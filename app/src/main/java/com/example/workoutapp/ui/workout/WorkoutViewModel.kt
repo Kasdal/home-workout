@@ -61,6 +61,18 @@ class WorkoutViewModel @Inject constructor(
 
     init {
         initializeDefaultExercises()
+        observeSettings()
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            repository.getSettings().collect { settings ->
+                if (settings != null) {
+                    _restTimerDuration.value = settings.restTimerDuration
+                    _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
+                }
+            }
+        }
     }
 
     private fun initializeDefaultExercises() {
@@ -155,10 +167,18 @@ class WorkoutViewModel @Inject constructor(
     // --- Timer Logic ---
     fun setRestTimerDuration(seconds: Int) {
         _restTimerDuration.value = seconds
+        viewModelScope.launch {
+            val currentSettings = repository.getSettings().first() ?: com.example.workoutapp.data.local.entity.Settings()
+            repository.saveSettings(currentSettings.copy(restTimerDuration = seconds))
+        }
     }
 
     fun setExerciseSwitchDuration(seconds: Int) {
         _exerciseSwitchDuration.value = seconds
+        viewModelScope.launch {
+            val currentSettings = repository.getSettings().first() ?: com.example.workoutapp.data.local.entity.Settings()
+            repository.saveSettings(currentSettings.copy(exerciseSwitchDuration = seconds))
+        }
     }
 
     fun startTimer(seconds: Int) {
