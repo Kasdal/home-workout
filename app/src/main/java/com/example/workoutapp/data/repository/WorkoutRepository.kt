@@ -1,6 +1,7 @@
 package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.RestDay
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
@@ -23,7 +24,13 @@ interface WorkoutRepository {
 
     fun getSessions(): Flow<List<WorkoutSession>>
     suspend fun saveSession(session: WorkoutSession)
+    suspend fun deleteSession(sessionId: Int)
     
     fun getSettings(): Flow<Settings?>
     suspend fun saveSettings(settings: Settings)
+    
+    fun getRestDays(): Flow<List<RestDay>>
+    suspend fun addRestDay(restDay: RestDay)
+    suspend fun deleteRestDay(restDayId: Int)
+    suspend fun getRestDayByDate(date: Long): RestDay?
 }

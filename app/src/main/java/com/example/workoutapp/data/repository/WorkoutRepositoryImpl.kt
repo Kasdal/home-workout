@@ -2,6 +2,7 @@ package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.data.local.dao.WorkoutDao
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.RestDay
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
@@ -45,7 +46,17 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override suspend fun saveSession(session: WorkoutSession) = dao.insertSession(session)
     
+    override suspend fun deleteSession(sessionId: Int) = dao.deleteSession(sessionId)
+    
     override fun getSettings() = dao.getSettings()
     
     override suspend fun saveSettings(settings: Settings) = dao.insertSettings(settings)
+    
+    override fun getRestDays(): Flow<List<RestDay>> = dao.getAllRestDays()
+    
+    override suspend fun addRestDay(restDay: RestDay) = dao.insertRestDay(restDay)
+    
+    override suspend fun deleteRestDay(restDayId: Int) = dao.deleteRestDay(restDayId)
+    
+    override suspend fun getRestDayByDate(date: Long): RestDay? = dao.getRestDayByDate(date)
 }

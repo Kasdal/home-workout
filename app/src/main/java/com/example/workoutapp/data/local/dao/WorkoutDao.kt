@@ -58,6 +58,9 @@ interface WorkoutDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WorkoutSession)
 
+    @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
+    suspend fun deleteSession(sessionId: Int)
+
     // --- Settings ---
     @Query("SELECT * FROM settings WHERE id = 1")
     fun getSettings(): Flow<Settings?>
