@@ -49,6 +49,30 @@ To install the debug APK on a connected device:
 C:\platform-tools-latest-windows\platform-tools\adb.exe install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
+## 🚀 CI/CD
+
+This project uses GitHub Actions for automated builds and releases.
+
+### Automated Builds
+- Every push to `master` triggers a build
+- Both debug and release APKs are built and stored as artifacts
+
+### Creating a Release
+1. Update version in `version.properties`:
+   ```properties
+   VERSION_MAJOR=1
+   VERSION_MINOR=0
+   VERSION_PATCH=1
+   VERSION_BUILD=2
+   ```
+2. Commit and push changes
+3. Create and push a version tag:
+   ```powershell
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
+4. GitHub Actions automatically creates a release with APK files
+
 ## 📂 Project Structure
 
 - `ui/`: Composable screens and ViewModels
