@@ -5,6 +5,7 @@ A modern, native Android application designed for tracking strength training wor
 ## 📱 Features
 
 - **Workout Tracking**: Log sets, reps, and weights for various exercises.
+- **Focus Mode**: Distraction-free view during active sessions.
 - **Smart Timers**: Built-in rest timers and exercise switch timers with visual flash cues.
 - **Analytics**: View volume trends and workout frequency charts.
 - **Rest Days**: Calendar view to track and manage rest days with notes.

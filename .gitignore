@@ -8,3 +8,6 @@
 .externalNativeBuild
 .cxx
 
+# Build logs and output files
+build_output*.txt
+build_error*.txt

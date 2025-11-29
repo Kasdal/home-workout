@@ -18,6 +18,8 @@ object AppModule {
 
     @Provides
     @Singleton
+    @Provides
+    @Singleton
     fun provideWorkoutDatabase(app: Application): WorkoutDatabase {
         val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
             override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
