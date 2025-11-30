@@ -182,19 +182,6 @@ fun SettingsScreen(
                     }
                 }
             }
-
-            // About Section
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "About",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Workout Tracker v${com.example.workoutapp.BuildConfig.VERSION_NAME}")
-                    Text("Developed by Milan Ples @2025")
-                }
-            }
         }
     }
 }

@@ -72,6 +72,9 @@ class MainActivity : ComponentActivity() {
                             composable(Screen.RestDays.route) {
                                 com.example.workoutapp.ui.restdays.RestDaysScreen(navController = navController)
                             }
+                            composable(Screen.About.route) {
+                                com.example.workoutapp.ui.about.AboutScreen(navController = navController)
+                            }
                         }
 
                     }

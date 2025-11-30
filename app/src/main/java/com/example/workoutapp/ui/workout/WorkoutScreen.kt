@@ -153,6 +153,16 @@ fun WorkoutScreen(
                     },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
+                NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Info, null) },
+                    label = { Text("About") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(Screen.About.route)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
             }
         }
     ) {

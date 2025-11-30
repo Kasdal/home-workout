@@ -8,5 +8,6 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Tutorial : Screen("tutorial")
     object RestDays : Screen("rest_days")
+    object About : Screen("about")
 }
 
