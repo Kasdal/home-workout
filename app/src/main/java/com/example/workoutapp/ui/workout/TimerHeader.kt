@@ -145,7 +145,7 @@ fun TimerHeader(
                             color = Color.Transparent
                         ) {
                             Text(
-                                text = "${restTimerDuration}s",
+                                text = "Rest: ${restTimerDuration}s",
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.labelLarge
                             )
@@ -169,7 +169,7 @@ fun TimerHeader(
                             color = Color.Transparent
                         ) {
                             Text(
-                                text = "${exerciseSwitchDuration}s",
+                                text = "Switch: ${exerciseSwitchDuration}s",
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.labelLarge
                             )
