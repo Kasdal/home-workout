@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -7,17 +5,15 @@ plugins {
     id("com.google.dagger.hilt.android")
 }
 
-// Load version from properties file
-val versionPropsFile = file("../version.properties")
-val versionProps = Properties()
-if (versionPropsFile.exists()) {
-    versionPropsFile.inputStream().use { versionProps.load(it) }
+fun getGitCommitCount(): Int {
+    return try {
+        val process = Runtime.getRuntime().exec("git rev-list --count HEAD")
+        process.waitFor()
+        process.inputStream.bufferedReader().readText().trim().toInt()
+    } catch (e: Exception) {
+        1
+    }
 }
-
-val versionMajor = versionProps.getProperty("VERSION_MAJOR", "1").toInt()
-val versionMinor = versionProps.getProperty("VERSION_MINOR", "0").toInt()
-val versionPatch = versionProps.getProperty("VERSION_PATCH", "0").toInt()
-val versionBuild = versionProps.getProperty("VERSION_BUILD", "1").toInt()
 
 android {
     namespace = "com.example.workoutapp"
@@ -27,8 +23,8 @@ android {
         applicationId = "com.example.workoutapp"
         minSdk = 26
         targetSdk = 34
-        versionCode = versionBuild
-        versionName = "${versionMajor}.${versionMinor}.${versionPatch}"
+        versionCode = getGitCommitCount()
+        versionName = rootProject.version.toString()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
