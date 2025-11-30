@@ -217,8 +217,8 @@ fun ExerciseCard(
                     for (i in 0 until exercise.sets) {
                         Box(
                             modifier = Modifier
-                                .size(45.dp)
-                                .padding(4.dp)
+                                .size(24.dp)
+                                .padding(2.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (i < completedSetCount) NeonGreen
@@ -231,7 +231,7 @@ fun ExerciseCard(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
                                     tint = Color.Black,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
@@ -263,7 +263,7 @@ fun ExerciseCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
+                        .height(50.dp)
                         .clip(MaterialTheme.shapes.medium)
                         .background(if (completedSetCount >= exercise.sets) Color.Gray else NeonGreen) // Green when available
                         .pointerInput(completedSetCount) {

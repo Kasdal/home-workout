@@ -234,7 +234,7 @@ fun WorkoutScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
-                    .height(64.dp),
+                    .height(50.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = if (sessionStarted) Color.Red else NeonGreen,
                     contentColor = if (sessionStarted) Color.White else Color.Black
