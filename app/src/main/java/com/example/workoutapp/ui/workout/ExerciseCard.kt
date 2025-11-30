@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -85,8 +86,54 @@ fun ExerciseCard(
         )
     }
 
-    // Hide if completed
-    if (!isCompleted) {
+    // Show completed exercises in collapsed form
+    if (isCompleted) {
+        Card(
+            modifier = modifier,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = NeonGreen,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Column {
+                        Text(
+                            text = exercise.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                Text(
+                    text = "✓ DONE",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = NeonGreen,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    } else {
+        // Show full exercise card for incomplete exercises
         Card(
             modifier = modifier,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -170,17 +217,13 @@ fun ExerciseCard(
                     for (i in 0 until exercise.sets) {
                         Box(
                             modifier = Modifier
-                                .size(45.dp)
-                                .padding(4.dp)
+                                .size(24.dp)
+                                .padding(2.dp)
                                 .clip(CircleShape)
                                 .background(
                                     if (i < completedSetCount) NeonGreen
                                     else Color.Gray.copy(alpha = 0.3f)
-                                )
-                                .clickable(enabled = i < completedSetCount) {
-                                    // Tap completed checkmark to undo
-                                    onUndoSet()
-                                },
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             if (i < completedSetCount) {
@@ -188,10 +231,30 @@ fun ExerciseCard(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
                                     tint = Color.Black,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(16.dp)
                                 )
                             }
                         }
+                    }
+                }
+
+                // Undo Last Set Button (visible when sets are completed)
+                if (completedSetCount > 0 && completedSetCount < exercise.sets) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onUndoSet,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Undo,
+                            contentDescription = "Undo",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Undo Last Set")
                     }
                 }
 
@@ -200,7 +263,7 @@ fun ExerciseCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(80.dp)
+                        .height(50.dp)
                         .clip(MaterialTheme.shapes.medium)
                         .background(if (completedSetCount >= exercise.sets) Color.Gray else NeonGreen) // Green when available
                         .pointerInput(completedSetCount) {
