@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -176,11 +177,7 @@ fun ExerciseCard(
                                 .background(
                                     if (i < completedSetCount) NeonGreen
                                     else Color.Gray.copy(alpha = 0.3f)
-                                )
-                                .clickable(enabled = i < completedSetCount) {
-                                    // Tap completed checkmark to undo
-                                    onUndoSet()
-                                },
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             if (i < completedSetCount) {
@@ -192,6 +189,26 @@ fun ExerciseCard(
                                 )
                             }
                         }
+                    }
+                }
+
+                // Undo Last Set Button (visible when sets are completed)
+                if (completedSetCount > 0 && completedSetCount < exercise.sets) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = onUndoSet,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Undo,
+                            contentDescription = "Undo",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Undo Last Set")
                     }
                 }
 
