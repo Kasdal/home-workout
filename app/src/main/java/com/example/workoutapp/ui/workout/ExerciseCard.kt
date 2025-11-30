@@ -86,8 +86,54 @@ fun ExerciseCard(
         )
     }
 
-    // Hide if completed
-    if (!isCompleted) {
+    // Show completed exercises in collapsed form
+    if (isCompleted) {
+        Card(
+            modifier = modifier,
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Completed",
+                        tint = NeonGreen,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Column {
+                        Text(
+                            text = exercise.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+                Text(
+                    text = "✓ DONE",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = NeonGreen,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    } else {
+        // Show full exercise card for incomplete exercises
         Card(
             modifier = modifier,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

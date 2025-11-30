@@ -41,6 +41,7 @@ fun WorkoutScreen(
     
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Keep screen on during workout
     val context = LocalContext.current
@@ -130,6 +131,7 @@ fun WorkoutScreen(
         }
     ) {
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 // Hamburger menu icon
@@ -266,6 +268,19 @@ fun WorkoutScreen(
             }
         } else {
             // Normal Mode: List all exercises
+            // Separate completed and incomplete exercises
+            val completedExercises = exercises.filter { exercise ->
+                val setCount = completedSets[exercise.id] ?: 0
+                setCount >= exercise.sets
+            }
+            val incompleteExercises = exercises.filter { exercise ->
+                val setCount = completedSets[exercise.id] ?: 0
+                setCount < exercise.sets
+            }
+            
+            // Show only last 2 completed exercises
+            val visibleCompletedExercises = completedExercises.takeLast(2)
+            
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
@@ -273,9 +288,41 @@ fun WorkoutScreen(
                     .padding(horizontal = 16.dp),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
-                items(exercises) { exercise ->
+                // Show last 2 completed exercises at the top
+                items(visibleCompletedExercises) { exercise ->
                     val setCount = completedSets[exercise.id] ?: 0
                     val isCompleted = setCount >= exercise.sets
+                    
+                    ExerciseCard(
+                        exercise = exercise,
+                        completedSetCount = setCount,
+                        isCompleted = isCompleted,
+                        onCompleteSet = { },
+                        onUndoSet = { },
+                        onUpdate = { },
+                        onDelete = { },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    )
+                }
+                
+                // Show all incomplete exercises
+                items(incompleteExercises) { exercise ->
+                    val setCount = completedSets[exercise.id] ?: 0
+                    val isCompleted = setCount >= exercise.sets
+                    val previousSetCount = remember { mutableStateOf(setCount) }
+                    
+                    // Detect when exercise is completed and show toast
+                    LaunchedEffect(isCompleted) {
+                        if (isCompleted && previousSetCount.value < exercise.sets) {
+                            snackbarHostState.showSnackbar(
+                                message = "${exercise.name} completed! 💪",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                        previousSetCount.value = setCount
+                    }
                     
                     ExerciseCard(
                         exercise = exercise,
