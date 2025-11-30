@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ import com.example.workoutapp.ui.theme.NeonGreen
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
     navController: NavController,
@@ -39,8 +41,23 @@ fun HistoryScreen(
     var selectedDate by remember { mutableStateOf<Calendar?>(null) }
     var currentMonth by remember { mutableStateOf(Calendar.getInstance()) }
 
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Workout History") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.navigateUp() }) {
+                        Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
     LazyColumn(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
         item {
@@ -189,6 +206,7 @@ fun HistoryScreen(
         item {
             StatisticsSection(sessions = sessions)
         }
+    }
     }
 }
 
