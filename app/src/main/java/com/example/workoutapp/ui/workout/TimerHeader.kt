@@ -102,7 +102,7 @@ fun TimerHeader(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (isRunning) {
                     Button(
                         onClick = onPause,
@@ -146,13 +146,14 @@ fun TimerHeader(
                         ) {
                             Text(
                                 text = "Rest: ${restTimerDuration}s",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                style = MaterialTheme.typography.labelLarge
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1
                             )
                         }
                     }
                     
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     
                     // Exercise switch timer button
                     Box(
@@ -170,8 +171,9 @@ fun TimerHeader(
                         ) {
                             Text(
                                 text = "Switch: ${exerciseSwitchDuration}s",
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                style = MaterialTheme.typography.labelLarge
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
+                                maxLines = 1
                             )
                         }
                     }

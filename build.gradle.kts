@@ -14,3 +14,5 @@ scmVersion {
     }
 }
 
+project.version = scmVersion.version
+

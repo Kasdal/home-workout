@@ -191,7 +191,7 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleLarge
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Workout Tracker v1.0")
+                    Text("Workout Tracker v${com.example.workoutapp.BuildConfig.VERSION_NAME}")
                     Text("Developed by Milan Ples @2025")
                 }
             }
