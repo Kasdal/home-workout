@@ -56,6 +56,32 @@ fun WorkoutScreen(
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
+    
+    // Track exercise completions and show toast messages
+    val previousCompletedExercises = remember { mutableStateOf<Set<Int>>(emptySet()) }
+    
+    LaunchedEffect(completedSets) {
+        val currentCompletedExercises = exercises.filter { exercise ->
+            val setCount = completedSets[exercise.id] ?: 0
+            setCount >= exercise.sets
+        }.map { it.id }.toSet()
+        
+        // Find newly completed exercises
+        val newlyCompleted = currentCompletedExercises - previousCompletedExercises.value
+        
+        // Show toast for each newly completed exercise
+        newlyCompleted.forEach { exerciseId ->
+            val exercise = exercises.find { it.id == exerciseId }
+            exercise?.let {
+                snackbarHostState.showSnackbar(
+                    message = "${it.name} completed! 💪",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+        
+        previousCompletedExercises.value = currentCompletedExercises
+    }
 
     if (showSummary && lastSession != null) {
         AlertDialog(
@@ -224,22 +250,44 @@ fun WorkoutScreen(
     ) { padding ->
 
         if (sessionStarted) {
-            // Focus Mode: Show only active exercise
+            // Focus Mode: Show active exercise with completed exercises at top
+            val completedExercises = exercises.filter { exercise ->
+                val setCount = completedSets[exercise.id] ?: 0
+                setCount >= exercise.sets
+            }
             val activeExercise = exercises.firstOrNull { exercise ->
                 val setCount = completedSets[exercise.id] ?: 0
                 setCount < exercise.sets
             }
+            val visibleCompletedExercises = completedExercises.takeLast(2)
 
             if (activeExercise != null) {
                 val setCount = completedSets[activeExercise.id] ?: 0
                 val isCompleted = setCount >= activeExercise.sets
                 
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
-                        .padding(16.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Show last 2 completed exercises at top in collapsed form
+                    visibleCompletedExercises.forEach { exercise ->
+                        val completedSetCount = completedSets[exercise.id] ?: 0
+                        ExerciseCard(
+                            exercise = exercise,
+                            completedSetCount = completedSetCount,
+                            isCompleted = true,
+                            onCompleteSet = { },
+                            onUndoSet = { },
+                            onUpdate = { },
+                            onDelete = { },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    
+                    // Show active exercise
                     ExerciseCard(
                         exercise = activeExercise,
                         completedSetCount = setCount,
@@ -248,7 +296,7 @@ fun WorkoutScreen(
                         onUndoSet = { viewModel.undoSet(activeExercise.id) },
                         onUpdate = { viewModel.updateExercise(it) },
                         onDelete = { viewModel.deleteExercise(activeExercise.id) },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.weight(1f).fillMaxWidth()
                     )
                 }
             } else {
@@ -311,18 +359,6 @@ fun WorkoutScreen(
                 items(incompleteExercises) { exercise ->
                     val setCount = completedSets[exercise.id] ?: 0
                     val isCompleted = setCount >= exercise.sets
-                    val previousSetCount = remember { mutableStateOf(setCount) }
-                    
-                    // Detect when exercise is completed and show toast
-                    LaunchedEffect(isCompleted) {
-                        if (isCompleted && previousSetCount.value < exercise.sets) {
-                            snackbarHostState.showSnackbar(
-                                message = "${exercise.name} completed! 💪",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                        previousSetCount.value = setCount
-                    }
                     
                     ExerciseCard(
                         exercise = exercise,
