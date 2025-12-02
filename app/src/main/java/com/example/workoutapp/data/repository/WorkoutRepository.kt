@@ -23,7 +23,7 @@ interface WorkoutRepository {
     suspend fun deleteExercise(exerciseId: Int)
 
     fun getSessions(): Flow<List<WorkoutSession>>
-    suspend fun saveSession(session: WorkoutSession)
+    suspend fun saveSession(session: WorkoutSession): Long
     suspend fun deleteSession(sessionId: Int)
     
     fun getSettings(): Flow<Settings?>
@@ -33,4 +33,10 @@ interface WorkoutRepository {
     suspend fun addRestDay(restDay: RestDay)
     suspend fun deleteRestDay(restDayId: Int)
     suspend fun getRestDayByDate(date: Long): RestDay?
+
+    // Session Exercises
+    suspend fun saveSessionExercises(exercises: List<com.example.workoutapp.data.local.entity.SessionExercise>)
+    fun getSessionExercises(sessionId: Int): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+    fun getExerciseHistory(exerciseName: String): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+    fun getAllExerciseNames(): Flow<List<String>>
 }

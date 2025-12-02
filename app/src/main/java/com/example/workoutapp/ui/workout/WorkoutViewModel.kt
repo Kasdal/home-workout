@@ -115,11 +115,14 @@ class WorkoutViewModel @Inject constructor(
             // Calculate Stats
             val exerciseList = exercises.first()
             var totalWeight = 0f
+            var totalVolume = 0f
             
             _completedSets.value.forEach { (exId, setCount) ->
                 val exercise = exerciseList.find { it.id == exId }
                 if (exercise != null) {
-                    totalWeight += (setCount * exercise.reps * exercise.weight)
+                    val weight = setCount * exercise.reps * exercise.weight
+                    totalWeight += weight
+                    totalVolume += weight
                 }
             }
 
@@ -133,17 +136,38 @@ class WorkoutViewModel @Inject constructor(
                 date = endTime,
                 durationSeconds = duration,
                 totalWeightLifted = totalWeight,
-                caloriesBurned = calories
+                caloriesBurned = calories,
+                totalVolume = totalVolume
             )
             
-            repository.saveSession(session)
+            val sessionId = repository.saveSession(session)
+            
+            // NEW: Save individual exercise details
+            val sessionExercises = exerciseList.mapIndexed { index, exercise ->
+                val completedSets = _completedSets.value[exercise.id] ?: 0
+                if (completedSets > 0) {
+                    com.example.workoutapp.data.local.entity.SessionExercise(
+                        sessionId = sessionId.toInt(),
+                        exerciseName = exercise.name,
+                        weight = exercise.weight,
+                        sets = completedSets,
+                        reps = exercise.reps,
+                        volume = completedSets * exercise.reps * exercise.weight,
+                        sortOrder = index
+                    )
+                } else null
+            }.filterNotNull()
+            
+            if (sessionExercises.isNotEmpty()) {
+                repository.saveSessionExercises(sessionExercises)
+            }
             
             // Reset state
             _completedSets.value = emptyMap()
             _sessionStarted.value = false
             _sessionElapsedSeconds.value = 0
             
-            onComplete(session)
+            onComplete(session.copy(id = sessionId.toInt()))
         }
     }
     

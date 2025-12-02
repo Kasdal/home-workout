@@ -44,7 +44,7 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override fun getSessions(): Flow<List<WorkoutSession>> = dao.getAllSessions()
 
-    override suspend fun saveSession(session: WorkoutSession) = dao.insertSession(session)
+    override suspend fun saveSession(session: WorkoutSession): Long = dao.insertSession(session)
     
     override suspend fun deleteSession(sessionId: Int) = dao.deleteSession(sessionId)
     
@@ -59,4 +59,15 @@ class WorkoutRepositoryImpl @Inject constructor(
     override suspend fun deleteRestDay(restDayId: Int) = dao.deleteRestDay(restDayId)
     
     override suspend fun getRestDayByDate(date: Long): RestDay? = dao.getRestDayByDate(date)
+
+    override suspend fun saveSessionExercises(exercises: List<com.example.workoutapp.data.local.entity.SessionExercise>) = 
+        dao.insertSessionExercises(exercises)
+
+    override fun getSessionExercises(sessionId: Int): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>> = 
+        dao.getSessionExercises(sessionId)
+
+    override fun getExerciseHistory(exerciseName: String): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>> = 
+        dao.getExerciseHistory(exerciseName)
+
+    override fun getAllExerciseNames(): Flow<List<String>> = dao.getAllExerciseNames()
 }

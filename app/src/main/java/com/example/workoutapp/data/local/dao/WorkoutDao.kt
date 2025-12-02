@@ -56,7 +56,7 @@ interface WorkoutDao {
     fun getAllSessions(): Flow<List<WorkoutSession>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertSession(session: WorkoutSession)
+    suspend fun insertSession(session: WorkoutSession): Long
 
     @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
     suspend fun deleteSession(sessionId: Int)
@@ -80,4 +80,20 @@ interface WorkoutDao {
 
     @Query("SELECT * FROM rest_days WHERE date = :date LIMIT 1")
     suspend fun getRestDayByDate(date: Long): RestDay?
+
+    // --- Session Exercises ---
+    @Insert
+    suspend fun insertSessionExercise(exercise: com.example.workoutapp.data.local.entity.SessionExercise)
+
+    @Insert
+    suspend fun insertSessionExercises(exercises: List<com.example.workoutapp.data.local.entity.SessionExercise>)
+
+    @Query("SELECT * FROM session_exercises WHERE sessionId = :sessionId ORDER BY sortOrder")
+    fun getSessionExercises(sessionId: Int): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+
+    @Query("SELECT * FROM session_exercises WHERE exerciseName = :name ORDER BY sessionId DESC")
+    fun getExerciseHistory(name: String): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+
+    @Query("SELECT DISTINCT exerciseName FROM session_exercises ORDER BY exerciseName")
+    fun getAllExerciseNames(): Flow<List<String>>
 }

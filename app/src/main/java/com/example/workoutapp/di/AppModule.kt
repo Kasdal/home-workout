@@ -26,12 +26,31 @@ object AppModule {
             }
         }
 
+        val MIGRATION_4_5 = object : androidx.room.migration.Migration(4, 5) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("""
+                    CREATE TABLE session_exercises (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        sessionId INTEGER NOT NULL,
+                        exerciseName TEXT NOT NULL,
+                        weight REAL NOT NULL,
+                        sets INTEGER NOT NULL,
+                        reps INTEGER NOT NULL,
+                        volume REAL NOT NULL,
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        FOREIGN KEY(sessionId) REFERENCES workout_sessions(id) ON DELETE CASCADE
+                    )
+                """)
+                database.execSQL("CREATE INDEX index_session_exercises_sessionId ON session_exercises(sessionId)")
+            }
+        }
+
         return Room.databaseBuilder(
             app,
             WorkoutDatabase::class.java,
             "workout_db"
         )
-        .addMigrations(MIGRATION_3_4)
+        .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
         .fallbackToDestructiveMigration()
         .build()
     }

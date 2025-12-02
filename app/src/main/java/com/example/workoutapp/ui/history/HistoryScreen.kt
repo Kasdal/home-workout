@@ -53,6 +53,14 @@ fun HistoryScreen(
             )
         }
     ) { padding ->
+    val personalRecords by viewModel.personalRecords.collectAsState(initial = PersonalRecords(
+        heaviestLiftByExercise = emptyMap(),
+        mostVolume = 0f,
+        longestSession = 0,
+        currentStreak = 0,
+        totalWorkouts = 0
+    ))
+    
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -60,6 +68,117 @@ fun HistoryScreen(
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
+        // Personal Records Section
+        item {
+            Text(
+                text = "Personal Records",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+        }
+        
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Total Workouts
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${personalRecords.totalWorkouts}",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonGreen
+                        )
+                        Text(
+                            text = "Workouts",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                
+                // Current Streak
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${personalRecords.currentStreak} 🔥",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = NeonGreen
+                        )
+                        Text(
+                            text = "Day Streak",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Longest Session
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${personalRecords.longestSession}m",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Longest",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                
+                // Highest Volume
+                Card(
+                    modifier = Modifier.weight(1f),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "${personalRecords.mostVolume.toInt()}kg",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Max Volume",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+        
         item {
             Text(
                 text = "Workout Calendar",
