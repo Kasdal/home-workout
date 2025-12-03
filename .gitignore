@@ -11,3 +11,6 @@ build/
 # Build logs and output files
 build_output*.txt
 build_error*.txt
+output_daemon.txt
+output.txt
+

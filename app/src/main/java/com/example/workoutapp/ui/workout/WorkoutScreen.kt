@@ -102,6 +102,73 @@ fun WorkoutScreen(
         )
     }
 
+    WorkoutScreenContent(
+        exercises = exercises,
+        timerSeconds = timerSeconds,
+        isTimerRunning = isTimerRunning,
+        isTimerPaused = isTimerPaused,
+        completedSets = completedSets,
+        sessionStarted = sessionStarted,
+        sessionElapsedSeconds = sessionElapsedSeconds,
+        restTimerDuration = restTimerDuration,
+        exerciseSwitchDuration = exerciseSwitchDuration,
+        drawerState = drawerState,
+        snackbarHostState = snackbarHostState,
+        onNavigate = { route ->
+            scope.launch { drawerState.close() }
+            navController.navigate(route)
+        },
+        onOpenDrawer = { scope.launch { drawerState.open() } },
+        onStartSession = { viewModel.startSession() },
+        onCompleteSession = {
+            viewModel.completeSession { session ->
+                lastSession = session
+                showSummary = true
+            }
+        },
+        onAddExercise = { viewModel.addExercise() },
+        onCompleteNextSet = { viewModel.completeNextSet(it) },
+        onUndoSet = { viewModel.undoSet(it) },
+        onUpdateExercise = { viewModel.updateExercise(it) },
+        onDeleteExercise = { viewModel.deleteExercise(it) },
+        onStartTimer = { viewModel.startTimer(it) },
+        onPauseTimer = { viewModel.pauseTimer() },
+        onResumeTimer = { viewModel.resumeTimer() },
+        onStopTimer = { viewModel.stopTimer() },
+        onSetRestDuration = { viewModel.setRestTimerDuration(it) },
+        onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) }
+    )
+}
+
+@Composable
+fun WorkoutScreenContent(
+    exercises: List<com.example.workoutapp.data.local.entity.Exercise>,
+    timerSeconds: Int,
+    isTimerRunning: Boolean,
+    isTimerPaused: Boolean,
+    completedSets: Map<Int, Int>,
+    sessionStarted: Boolean,
+    sessionElapsedSeconds: Int,
+    restTimerDuration: Int,
+    exerciseSwitchDuration: Int,
+    drawerState: DrawerState,
+    snackbarHostState: SnackbarHostState,
+    onNavigate: (String) -> Unit,
+    onOpenDrawer: () -> Unit,
+    onStartSession: () -> Unit,
+    onCompleteSession: () -> Unit,
+    onAddExercise: () -> Unit,
+    onCompleteNextSet: (Int) -> Unit,
+    onUndoSet: (Int) -> Unit,
+    onUpdateExercise: (com.example.workoutapp.data.local.entity.Exercise) -> Unit,
+    onDeleteExercise: (Int) -> Unit,
+    onStartTimer: (Int) -> Unit,
+    onPauseTimer: () -> Unit,
+    onResumeTimer: () -> Unit,
+    onStopTimer: () -> Unit,
+    onSetRestDuration: (Int) -> Unit,
+    onSetExerciseSwitchDuration: (Int) -> Unit
+) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -117,50 +184,35 @@ fun WorkoutScreen(
                     icon = { Icon(Icons.Default.History, null) },
                     label = { Text("History") },
                     selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.History.route)
-                    },
+                    onClick = { onNavigate(Screen.History.route) },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Settings, null) },
                     label = { Text("Settings") },
                     selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Settings.route)
-                    },
+                    onClick = { onNavigate(Screen.Settings.route) },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.HelpOutline, null) },
                     label = { Text("Tutorial") },
                     selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.Tutorial.route)
-                    },
+                    onClick = { onNavigate(Screen.Tutorial.route) },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.EventAvailable, null) },
                     label = { Text("Rest Days") },
                     selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.RestDays.route)
-                    },
+                    onClick = { onNavigate(Screen.RestDays.route) },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
                 NavigationDrawerItem(
                     icon = { Icon(Icons.Default.Info, null) },
                     label = { Text("About") },
                     selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(Screen.About.route)
-                    },
+                    onClick = { onNavigate(Screen.About.route) },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
             }
@@ -177,7 +229,7 @@ fun WorkoutScreen(
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                    IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Default.Menu, "Menu", tint = NeonGreen)
                     }
                 }
@@ -210,20 +262,20 @@ fun WorkoutScreen(
                     isPaused = isTimerPaused,
                     restTimerDuration = restTimerDuration,
                     exerciseSwitchDuration = exerciseSwitchDuration,
-                    onStartRest = { viewModel.startTimer(restTimerDuration) },
-                    onStartExerciseSwitch = { viewModel.startTimer(exerciseSwitchDuration) },
-                    onPause = { viewModel.pauseTimer() },
-                    onResume = { viewModel.resumeTimer() },
-                    onStop = { viewModel.stopTimer() },
-                    onSetRestDuration = { viewModel.setRestTimerDuration(it) },
-                    onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) }
+                    onStartRest = { onStartTimer(restTimerDuration) },
+                    onStartExerciseSwitch = { onStartTimer(exerciseSwitchDuration) },
+                    onPause = onPauseTimer,
+                    onResume = onResumeTimer,
+                    onStop = onStopTimer,
+                    onSetRestDuration = onSetRestDuration,
+                    onSetExerciseSwitchDuration = onSetExerciseSwitchDuration
                 )
             }
         },
 
         floatingActionButton = {
             if (!sessionStarted) {
-                FloatingActionButton(onClick = { viewModel.addExercise() }) {
+                FloatingActionButton(onClick = onAddExercise) {
                     Icon(Icons.Default.Add, contentDescription = "Add Exercise")
                 }
             }
@@ -233,12 +285,9 @@ fun WorkoutScreen(
             Button(
                 onClick = {
                     if (sessionStarted) {
-                        viewModel.completeSession { session ->
-                            lastSession = session
-                            showSummary = true
-                        }
+                        onCompleteSession()
                     } else {
-                        viewModel.startSession()
+                        onStartSession()
                     }
                 },
                 modifier = Modifier
@@ -302,10 +351,10 @@ fun WorkoutScreen(
                         exercise = activeExercise,
                         completedSetCount = setCount,
                         isCompleted = isCompleted,
-                        onCompleteSet = { viewModel.completeNextSet(activeExercise.id) },
-                        onUndoSet = { viewModel.undoSet(activeExercise.id) },
-                        onUpdate = { viewModel.updateExercise(it) },
-                        onDelete = { viewModel.deleteExercise(activeExercise.id) },
+                        onCompleteSet = { onCompleteNextSet(activeExercise.id) },
+                        onUndoSet = { onUndoSet(activeExercise.id) },
+                        onUpdate = { onUpdateExercise(it) },
+                        onDelete = { onDeleteExercise(activeExercise.id) },
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     )
                 }
@@ -315,7 +364,7 @@ fun WorkoutScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
-                    contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = "All exercises completed! 🎉",
@@ -374,10 +423,10 @@ fun WorkoutScreen(
                         exercise = exercise,
                         completedSetCount = setCount,
                         isCompleted = isCompleted,
-                        onCompleteSet = { viewModel.completeNextSet(exercise.id) },
-                        onUndoSet = { viewModel.undoSet(exercise.id) },
-                        onUpdate = { viewModel.updateExercise(it) },
-                        onDelete = { viewModel.deleteExercise(exercise.id) },
+                        onCompleteSet = { onCompleteNextSet(exercise.id) },
+                        onUndoSet = { onUndoSet(exercise.id) },
+                        onUpdate = { onUpdateExercise(it) },
+                        onDelete = { onDeleteExercise(exercise.id) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
