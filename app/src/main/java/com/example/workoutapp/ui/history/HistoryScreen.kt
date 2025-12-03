@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -31,7 +33,7 @@ import com.example.workoutapp.ui.theme.NeonGreen
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HistoryScreen(
     navController: NavController,
@@ -61,6 +63,24 @@ fun HistoryScreen(
         totalWorkouts = 0
     ))
     
+    val weeklySummary by viewModel.weeklySummary.collectAsState(initial = SummaryComparison(
+        current = PeriodSummary(0, 0f, 0L, 0L, "This Week"),
+        previous = PeriodSummary(0, 0f, 0L, 0L, "Last Week"),
+        volumeChangePercent = 0f,
+        frequencyChange = 0,
+        durationChangePercent = 0f
+    ))
+    
+    val monthlySummary by viewModel.monthlySummary.collectAsState(initial = SummaryComparison(
+        current = PeriodSummary(0, 0f, 0L, 0L, "This Month"),
+        previous = PeriodSummary(0, 0f, 0L, 0L, "Last Month"),
+        volumeChangePercent = 0f,
+        frequencyChange = 0,
+        durationChangePercent = 0f
+    ))
+    
+    val pagerState = rememberPagerState(pageCount = { 3 })
+    
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -68,273 +88,49 @@ fun HistoryScreen(
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        // Personal Records Section
+        // Horizontal Pager for Analytics
         item {
-            Text(
-                text = "Personal Records",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-        
-        item {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Total Workouts
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "${personalRecords.totalWorkouts}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonGreen
-                        )
-                        Text(
-                            text = "Workouts",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    when (page) {
+                        0 -> PersonalRecordsPage(personalRecords)
+                        1 -> ProgressReportPage(weeklySummary, monthlySummary)
+                        2 -> InsightsPage()
                     }
                 }
                 
-                // Current Streak
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Page Indicator
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "${personalRecords.currentStreak} 🔥",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = NeonGreen
+                    repeat(3) { index ->
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (pagerState.currentPage == index) NeonGreen
+                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                                )
                         )
-                        Text(
-                            text = "Day Streak",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-        
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                // Longest Session
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "${personalRecords.longestSession}m",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Longest",
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        if (index < 2) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                     }
                 }
                 
-                // Highest Volume
-                Card(
-                    modifier = Modifier.weight(1f),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "${personalRecords.mostVolume.toInt()}kg",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "Max Volume",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
+                Spacer(modifier = Modifier.height(24.dp))
             }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-        
-        // Weekly Summary
-        item {
-            val weeklySummary by viewModel.weeklySummary.collectAsState(initial = SummaryComparison(
-                current = PeriodSummary(0, 0f, 0L, 0L, "This Week"),
-                previous = PeriodSummary(0, 0f, 0L, 0L, "Last Week"),
-                volumeChangePercent = 0f,
-                frequencyChange = 0,
-                durationChangePercent = 0f
-            ))
-            
-            Text(
-                text = "Weekly Progress",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = weeklySummary.current.periodLabel,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${weeklySummary.current.totalWorkouts} workouts",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NeonGreen
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Volume comparison
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Volume:", style = MaterialTheme.typography.bodyMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "${weeklySummary.current.totalVolume.toInt()}kg",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${if (weeklySummary.volumeChangePercent >= 0) "+" else ""}${String.format("%.1f", weeklySummary.volumeChangePercent)}%",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (weeklySummary.volumeChangePercent >= 0) NeonGreen else MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                    
-                    // Frequency comparison
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Frequency:", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = "${if (weeklySummary.frequencyChange >= 0) "+" else ""}${weeklySummary.frequencyChange} workouts",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (weeklySummary.frequencyChange >= 0) NeonGreen else MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-        
-        // Monthly Summary
-        item {
-            val monthlySummary by viewModel.monthlySummary.collectAsState(initial = SummaryComparison(
-                current = PeriodSummary(0, 0f, 0L, 0L, "This Month"),
-                previous = PeriodSummary(0, 0f, 0L, 0L, "Last Month"),
-                volumeChangePercent = 0f,
-                frequencyChange = 0,
-                durationChangePercent = 0f
-            ))
-            
-            Text(
-                text = "Monthly Progress",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = monthlySummary.current.periodLabel,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "${monthlySummary.current.totalWorkouts} workouts",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = NeonGreen
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Volume comparison
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Volume:", style = MaterialTheme.typography.bodyMedium)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "${monthlySummary.current.totalVolume.toInt()}kg",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${if (monthlySummary.volumeChangePercent >= 0) "+" else ""}${String.format("%.1f", monthlySummary.volumeChangePercent)}%",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (monthlySummary.volumeChangePercent >= 0) NeonGreen else MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                    
-                    // Frequency comparison
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Frequency:", style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            text = "${if (monthlySummary.frequencyChange >= 0) "+" else ""}${monthlySummary.frequencyChange} workouts",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (monthlySummary.frequencyChange >= 0) NeonGreen else MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(24.dp))
         }
         
         item {
