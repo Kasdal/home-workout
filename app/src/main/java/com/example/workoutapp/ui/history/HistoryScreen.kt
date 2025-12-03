@@ -79,6 +79,8 @@ fun HistoryScreen(
         durationChangePercent = 0f
     ))
     
+    val insights by viewModel.insights.collectAsState(initial = emptyList())
+    
     val pagerState = rememberPagerState(pageCount = { 3 })
     
     LazyColumn(
@@ -101,7 +103,7 @@ fun HistoryScreen(
                     when (page) {
                         0 -> PersonalRecordsPage(personalRecords)
                         1 -> ProgressReportPage(weeklySummary, monthlySummary)
-                        2 -> InsightsPage()
+                        2 -> InsightsPage(insights)
                     }
                 }
                 

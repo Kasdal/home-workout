@@ -190,6 +190,133 @@ class HistoryViewModel @Inject constructor(
         )
     }
     
+    // Motivational Insights
+    val insights: Flow<List<WorkoutInsight>> = combine(
+        sessions,
+        personalRecords,
+        weeklySummary,
+        monthlySummary
+    ) { sessionList, records, weekly, monthly ->
+        generateInsights(sessionList, records, weekly, monthly)
+    }
+    
+    private fun generateInsights(
+        sessions: List<com.example.workoutapp.data.local.entity.WorkoutSession>,
+        records: PersonalRecords,
+        weekly: SummaryComparison,
+        monthly: SummaryComparison
+    ): List<WorkoutInsight> {
+        val insightsList = mutableListOf<WorkoutInsight>()
+        
+        // Achievement: Milestone workouts
+        when (records.totalWorkouts) {
+            1 -> insightsList.add(WorkoutInsight(
+                type = InsightType.ACHIEVEMENT,
+                title = "First Workout! 🎉",
+                message = "You've started your fitness journey. Every champion starts somewhere!",
+                emoji = "🎉"
+            ))
+            10 -> insightsList.add(WorkoutInsight(
+                type = InsightType.ACHIEVEMENT,
+                title = "10 Workouts Complete!",
+                message = "You're building consistency. Keep it up!",
+                emoji = "🔥"
+            ))
+            25 -> insightsList.add(WorkoutInsight(
+                type = InsightType.ACHIEVEMENT,
+                title = "25 Workouts Milestone!",
+                message = "You're crushing it! A quarter century of gains!",
+                emoji = "💪"
+            ))
+            50 -> insightsList.add(WorkoutInsight(
+                type = InsightType.ACHIEVEMENT,
+                title = "Half Century!",
+                message = "50 workouts completed! You're unstoppable!",
+                emoji = "🏆"
+            ))
+            100 -> insightsList.add(WorkoutInsight(
+                type = InsightType.ACHIEVEMENT,
+                title = "100 Workouts! 🎊",
+                message = "Triple digits! You're a fitness legend!",
+                emoji = "🎊"
+            ))
+        }
+        
+        // Progress: Weekly volume improvement
+        if (weekly.volumeChangePercent > 10f) {
+            insightsList.add(WorkoutInsight(
+                type = InsightType.PROGRESS,
+                title = "Volume Surge!",
+                message = "You lifted ${String.format("%.0f", weekly.volumeChangePercent)}% more this week! 💪",
+                emoji = "📈"
+            ))
+        }
+        
+        // Progress: Monthly volume improvement
+        if (monthly.volumeChangePercent > 20f) {
+            insightsList.add(WorkoutInsight(
+                type = InsightType.PROGRESS,
+                title = "Monthly Gains!",
+                message = "Your volume is up ${String.format("%.0f", monthly.volumeChangePercent)}% this month!",
+                emoji = "🚀"
+            ))
+        }
+        
+        // Streak: Current streak milestones
+        when {
+            records.currentStreak >= 7 -> insightsList.add(WorkoutInsight(
+                type = InsightType.STREAK,
+                title = "Week Streak! 🔥",
+                message = "${records.currentStreak} days in a row! You're on fire!",
+                emoji = "🔥"
+            ))
+            records.currentStreak >= 14 -> insightsList.add(WorkoutInsight(
+                type = InsightType.STREAK,
+                title = "Two Week Streak!",
+                message = "${records.currentStreak} days straight! Unstoppable!",
+                emoji = "⚡"
+            ))
+            records.currentStreak >= 30 -> insightsList.add(WorkoutInsight(
+                type = InsightType.STREAK,
+                title = "Month Streak! 🏆",
+                message = "${records.currentStreak} days! You're a machine!",
+                emoji = "🏆"
+            ))
+        }
+        
+        // Encouragement: Frequency increase
+        if (weekly.frequencyChange > 0) {
+            insightsList.add(WorkoutInsight(
+                type = InsightType.ENCOURAGEMENT,
+                title = "More Active!",
+                message = "You worked out ${weekly.frequencyChange} more time${if (weekly.frequencyChange > 1) "s" else ""} this week!",
+                emoji = "✨"
+            ))
+        }
+        
+        // Encouragement: Consistency
+        if (sessions.size >= 5 && records.currentStreak >= 3) {
+            insightsList.add(WorkoutInsight(
+                type = InsightType.ENCOURAGEMENT,
+                title = "Building Habits!",
+                message = "Consistency is key. You're doing great!",
+                emoji = "⭐"
+            ))
+        }
+        
+        // Default encouragement if no insights
+        if (insightsList.isEmpty() && sessions.isNotEmpty()) {
+            insightsList.add(WorkoutInsight(
+                type = InsightType.ENCOURAGEMENT,
+                title = "Keep Going!",
+                message = "Every workout counts. You're making progress!",
+                emoji = "💪"
+            ))
+        }
+        
+        return insightsList.take(3) // Limit to 3 insights
+    }
+    
     fun deleteSession(sessionId: Int) {
         viewModelScope.launch {
             repository.deleteSession(sessionId)
