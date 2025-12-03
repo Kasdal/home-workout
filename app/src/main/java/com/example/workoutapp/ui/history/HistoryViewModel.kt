@@ -96,6 +96,100 @@ class HistoryViewModel @Inject constructor(
         return streak
     }
     
+    // Weekly and Monthly Summaries
+    val weeklySummary: Flow<SummaryComparison> = sessions.map { sessionList ->
+        calculateWeeklySummary(sessionList)
+    }
+    
+    val monthlySummary: Flow<SummaryComparison> = sessions.map { sessionList ->
+        calculateMonthlySummary(sessionList)
+    }
+    
+    private fun calculateWeeklySummary(sessions: List<com.example.workoutapp.data.local.entity.WorkoutSession>): SummaryComparison {
+        val now = System.currentTimeMillis()
+        val oneWeekMillis = TimeUnit.DAYS.toMillis(7)
+        
+        val thisWeekStart = now - oneWeekMillis
+        val lastWeekStart = thisWeekStart - oneWeekMillis
+        
+        val thisWeekSessions = sessions.filter { it.date >= thisWeekStart }
+        val lastWeekSessions = sessions.filter { it.date >= lastWeekStart && it.date < thisWeekStart }
+        
+        val currentSummary = createPeriodSummary(thisWeekSessions, "This Week")
+        val previousSummary = createPeriodSummary(lastWeekSessions, "Last Week")
+        
+        return createComparison(currentSummary, previousSummary)
+    }
+    
+    private fun calculateMonthlySummary(sessions: List<com.example.workoutapp.data.local.entity.WorkoutSession>): SummaryComparison {
+        val now = System.currentTimeMillis()
+        val oneMonthMillis = TimeUnit.DAYS.toMillis(30)
+        
+        val thisMonthStart = now - oneMonthMillis
+        val lastMonthStart = thisMonthStart - oneMonthMillis
+        
+        val thisMonthSessions = sessions.filter { it.date >= thisMonthStart }
+        val lastMonthSessions = sessions.filter { it.date >= lastMonthStart && it.date < thisMonthStart }
+        
+        val currentSummary = createPeriodSummary(thisMonthSessions, "This Month")
+        val previousSummary = createPeriodSummary(lastMonthSessions, "Last Month")
+        
+        return createComparison(currentSummary, previousSummary)
+    }
+    
+    private fun createPeriodSummary(sessions: List<com.example.workoutapp.data.local.entity.WorkoutSession>, label: String): PeriodSummary {
+        if (sessions.isEmpty()) {
+            return PeriodSummary(
+                totalWorkouts = 0,
+                totalVolume = 0f,
+                totalDuration = 0L,
+                avgWorkoutDuration = 0L,
+                periodLabel = label
+            )
+        }
+        
+        val totalWorkouts = sessions.size
+        val totalVolume = sessions.sumOf { it.totalVolume.toDouble() }.toFloat()
+        val totalDuration = sessions.sumOf { it.durationSeconds }
+        val avgDuration = totalDuration / totalWorkouts
+        
+        return PeriodSummary(
+            totalWorkouts = totalWorkouts,
+            totalVolume = totalVolume,
+            totalDuration = totalDuration,
+            avgWorkoutDuration = avgDuration,
+            periodLabel = label
+        )
+    }
+    
+    private fun createComparison(current: PeriodSummary, previous: PeriodSummary): SummaryComparison {
+        val volumeChange = if (previous.totalVolume > 0) {
+            ((current.totalVolume - previous.totalVolume) / previous.totalVolume) * 100
+        } else if (current.totalVolume > 0) {
+            100f // 100% increase from 0
+        } else {
+            0f
+        }
+        
+        val frequencyChange = current.totalWorkouts - previous.totalWorkouts
+        
+        val durationChange = if (previous.avgWorkoutDuration > 0) {
+            ((current.avgWorkoutDuration - previous.avgWorkoutDuration).toFloat() / previous.avgWorkoutDuration) * 100
+        } else if (current.avgWorkoutDuration > 0) {
+            100f
+        } else {
+            0f
+        }
+        
+        return SummaryComparison(
+            current = current,
+            previous = previous,
+            volumeChangePercent = volumeChange,
+            frequencyChange = frequencyChange,
+            durationChangePercent = durationChange
+        )
+    }
+    
     fun deleteSession(sessionId: Int) {
         viewModelScope.launch {
             repository.deleteSession(sessionId)
