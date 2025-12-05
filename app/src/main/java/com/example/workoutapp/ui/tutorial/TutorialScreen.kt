@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.workoutapp.ui.theme.NeonGreen
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.getValue
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -35,9 +38,19 @@ fun TutorialScreen(
             emoji = "🏋️"
         ),
         TutorialPage(
+            title = "Bottom Navigation",
+            description = "Use the bottom navigation bar to quickly access Profile, Calendar, Insights, Workouts, and Settings.",
+            emoji = "🧭"
+        ),
+        TutorialPage(
             title = "Flexible Tracking",
             description = "Customize reps and sets for each exercise. Use +5/-5kg buttons for quick weight adjustments.",
             emoji = "⚡"
+        ),
+        TutorialPage(
+            title = "Session Management",
+            description = "Start your workout session to enter Focus Mode. Complete sets and track your progress in real-time.",
+            emoji = "🎯"
         ),
         TutorialPage(
             title = "Tap to Undo",
@@ -45,8 +58,13 @@ fun TutorialScreen(
             emoji = "↩️"
         ),
         TutorialPage(
-            title = "Progress Charts",
-            description = "Visualize your strength gains over time with detailed charts and analytics.",
+            title = "Calendar & Records",
+            description = "View your Personal Records and Progress Report in the Calendar screen. Track your best lifts!",
+            emoji = "📅"
+        ),
+        TutorialPage(
+            title = "Insights & Trends",
+            description = "Get motivational insights and visualize your progress with detailed charts showing volume and frequency trends.",
             emoji = "📊"
         ),
         TutorialPage(
@@ -174,11 +192,9 @@ private fun TutorialPageContent(page: TutorialPage) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = page.emoji,
-            style = MaterialTheme.typography.displayLarge,
-            fontSize = MaterialTheme.typography.displayLarge.fontSize * 2
-        )
+        // Animated illustration based on page
+        AnimatedIllustration(page.emoji)
+        
         Spacer(modifier = Modifier.height(32.dp))
         Text(
             text = page.title,
@@ -192,6 +208,39 @@ private fun TutorialPageContent(page: TutorialPage) {
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun AnimatedIllustration(emoji: String) {
+    val infiniteTransition = rememberInfiniteTransition(label = "illustration")
+    
+    // Smooth, subtle pulsing animation for all emojis
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.98f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    
+    Box(
+        modifier = Modifier
+            .size(220.dp)
+            .padding(vertical = 40.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = emoji,
+            style = MaterialTheme.typography.displayLarge,
+            fontSize = MaterialTheme.typography.displayLarge.fontSize * 1.8f,
+            modifier = Modifier.graphicsLayer { 
+                scaleX = scale
+                scaleY = scale
+            }
         )
     }
 }

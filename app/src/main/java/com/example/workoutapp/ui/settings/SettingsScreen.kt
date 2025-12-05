@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.workoutapp.ui.components.BottomNavBar
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,12 +30,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
+                title = { Text("Settings") }
+            )
+        },
+        bottomBar = {
+            BottomNavBar(
+                currentRoute = "settings",
+                onNavigate = { route -> navController.navigate(route) }
             )
         }
     ) { padding ->
@@ -180,6 +182,19 @@ fun SettingsScreen(
                     ) {
                         Text("Export Data (CSV)")
                     }
+                }
+            }
+            
+            // About Section
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "About",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Workout Tracker v${com.example.workoutapp.BuildConfig.VERSION_NAME}")
+                    Text("Developed by Milan Ples @2025")
                 }
             }
         }

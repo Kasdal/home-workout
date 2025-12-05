@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.workoutapp.data.local.entity.UserMetrics
+import com.example.workoutapp.ui.components.BottomNavBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,12 +56,13 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profiles") },
-                navigationIcon = {
-                    TextButton(onClick = { navController.popBackStack() }) {
-                        Text("Back")
-                    }
-                }
+                title = { Text("Profiles") }
+            )
+        },
+        bottomBar = {
+            BottomNavBar(
+                currentRoute = "profiles",
+                onNavigate = { route -> navController.navigate(route) }
             )
         },
         floatingActionButton = {
@@ -75,6 +78,26 @@ fun ProfileScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Onboarding Button
+            item {
+                Button(
+                    onClick = { navController.navigate("tutorial") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.HelpOutline,
+                        contentDescription = "Onboarding",
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("Onboarding Tutorial")
+                }
+            }
+            
             items(profiles) { profile ->
                 ProfileCard(
                     profile = profile,

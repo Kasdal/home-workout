@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen
 import kotlinx.coroutines.launch
@@ -39,7 +40,6 @@ fun WorkoutScreen(
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<com.example.workoutapp.data.local.entity.WorkoutSession?>(null) }
     
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -112,13 +112,8 @@ fun WorkoutScreen(
         sessionElapsedSeconds = sessionElapsedSeconds,
         restTimerDuration = restTimerDuration,
         exerciseSwitchDuration = exerciseSwitchDuration,
-        drawerState = drawerState,
         snackbarHostState = snackbarHostState,
-        onNavigate = { route ->
-            scope.launch { drawerState.close() }
-            navController.navigate(route)
-        },
-        onOpenDrawer = { scope.launch { drawerState.open() } },
+        onNavigate = { route -> navController.navigate(route) },
         onStartSession = { viewModel.startSession() },
         onCompleteSession = {
             viewModel.completeSession { session ->
@@ -151,10 +146,8 @@ fun WorkoutScreenContent(
     sessionElapsedSeconds: Int,
     restTimerDuration: Int,
     exerciseSwitchDuration: Int,
-    drawerState: DrawerState,
     snackbarHostState: SnackbarHostState,
     onNavigate: (String) -> Unit,
-    onOpenDrawer: () -> Unit,
     onStartSession: () -> Unit,
     onCompleteSession: () -> Unit,
     onAddExercise: () -> Unit,
@@ -169,70 +162,18 @@ fun WorkoutScreenContent(
     onSetRestDuration: (Int) -> Unit,
     onSetExerciseSwitchDuration: (Int) -> Unit
 ) {
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "Menu",
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Divider()
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.History, null) },
-                    label = { Text("History") },
-                    selected = false,
-                    onClick = { onNavigate(Screen.History.route) },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Settings, null) },
-                    label = { Text("Settings") },
-                    selected = false,
-                    onClick = { onNavigate(Screen.Settings.route) },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.HelpOutline, null) },
-                    label = { Text("Tutorial") },
-                    selected = false,
-                    onClick = { onNavigate(Screen.Tutorial.route) },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.EventAvailable, null) },
-                    label = { Text("Rest Days") },
-                    selected = false,
-                    onClick = { onNavigate(Screen.RestDays.route) },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-                NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.Info, null) },
-                    label = { Text("About") },
-                    selected = false,
-                    onClick = { onNavigate(Screen.About.route) },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-            }
-        }
-    ) {
+    // Removed ModalNavigationDrawer - using bottom nav instead
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            BottomNavBar(
+                currentRoute = "workout",
+                onNavigate = onNavigate
+            )
+        },
         topBar = {
             Column {
-                // Hamburger menu icon
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onOpenDrawer) {
-                        Icon(Icons.Default.Menu, "Menu", tint = NeonGreen)
-                    }
-                }
+                // Removed hamburger menu - using bottom nav instead
                 
                 // Session Timer Display
                 if (sessionStarted) {
@@ -278,32 +219,6 @@ fun WorkoutScreenContent(
                 FloatingActionButton(onClick = onAddExercise) {
                     Icon(Icons.Default.Add, contentDescription = "Add Exercise")
                 }
-            }
-        },
-
-        bottomBar = {
-            Button(
-                onClick = {
-                    if (sessionStarted) {
-                        onCompleteSession()
-                    } else {
-                        onStartSession()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .height(50.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (sessionStarted) Color.Red else NeonGreen,
-                    contentColor = if (sessionStarted) Color.White else Color.Black
-                )
-            ) {
-                Text(
-                    text = if (sessionStarted) "COMPLETE SESSION" else "START SESSION",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     ) { padding ->
@@ -357,20 +272,59 @@ fun WorkoutScreenContent(
                         onDelete = { onDeleteExercise(activeExercise.id) },
                         modifier = Modifier.weight(1f).fillMaxWidth()
                     )
+                    
+                    // COMPLETE SESSION Button
+                    Button(
+                        onClick = { onCompleteSession() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "COMPLETE SESSION",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             } else {
                 // All exercises completed in this session
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
-                        contentAlignment = Alignment.Center
+                        .padding(padding)
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "All exercises completed! 🎉",
                         style = MaterialTheme.typography.headlineMedium,
                         textAlign = TextAlign.Center
                     )
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    Button(
+                        onClick = { onCompleteSession() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "COMPLETE SESSION",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         } else {
@@ -433,6 +387,33 @@ fun WorkoutScreenContent(
                     )
                 }
                 
+                // START SESSION / COMPLETE SESSION Button
+                item {
+                    Button(
+                        onClick = {
+                            if (sessionStarted) {
+                                onCompleteSession()
+                            } else {
+                                onStartSession()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (sessionStarted) Color.Red else NeonGreen,
+                            contentColor = if (sessionStarted) Color.White else Color.Black
+                        )
+                    ) {
+                        Text(
+                            text = if (sessionStarted) "COMPLETE SESSION" else "START SESSION",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                
                 // Footer
                 item {
                     Box(
@@ -450,6 +431,5 @@ fun WorkoutScreenContent(
                 }
             }
         }
-    }
     }
 }

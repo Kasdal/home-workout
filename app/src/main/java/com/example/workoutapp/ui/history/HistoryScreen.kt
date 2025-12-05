@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.theme.NeonGreen
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,12 +47,13 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Workout History") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                }
+                title = { Text("Workout History") }
+            )
+        },
+        bottomBar = {
+            BottomNavBar(
+                currentRoute = "history",
+                onNavigate = { route -> navController.navigate(route) }
             )
         }
     ) { padding ->
@@ -79,9 +81,7 @@ fun HistoryScreen(
         durationChangePercent = 0f
     ))
     
-    val insights by viewModel.insights.collectAsState(initial = emptyList())
-    
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 2 })
     
     LazyColumn(
         modifier = Modifier
@@ -103,7 +103,6 @@ fun HistoryScreen(
                     when (page) {
                         0 -> PersonalRecordsPage(personalRecords)
                         1 -> ProgressReportPage(weeklySummary, monthlySummary)
-                        2 -> InsightsPage(insights)
                     }
                 }
                 
@@ -115,7 +114,7 @@ fun HistoryScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    repeat(3) { index ->
+                    repeat(2) { index ->
                         Box(
                             modifier = Modifier
                                 .size(8.dp)
@@ -276,14 +275,9 @@ fun HistoryScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
-
-        // Statistics Section (Moved to bottom)
-        item {
-            StatisticsSection(sessions = sessions)
-        }
     }
-    }
-}
+    } // End Scaffold
+} // End HistoryScreen
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

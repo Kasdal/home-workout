@@ -79,28 +79,18 @@ fun TimerHeader(
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(8.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
-                Text(
-                    text = when {
-                        isRunning -> "RESTING"
-                        isPaused -> "PAUSED"
-                        else -> "READY"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isRunning || isPaused) NeonGreen else Color.Gray
-                )
-                Text(
-                    text = String.format("%02d:%02d", seconds / 60, seconds % 60),
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isRunning || isPaused) NeonGreen else MaterialTheme.colorScheme.onSurface
-                )
-            }
+            // Timer display only (removed status text)
+            Text(
+                text = String.format("%02d:%02d", seconds / 60, seconds % 60),
+                style = MaterialTheme.typography.displayMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isRunning || isPaused) NeonGreen else MaterialTheme.colorScheme.onSurface
+            )
 
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (isRunning) {
