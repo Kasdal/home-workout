@@ -57,31 +57,7 @@ fun WorkoutScreen(
         }
     }
     
-    // Track exercise completions and show toast messages
-    val previousCompletedExercises = remember { mutableStateOf<Set<Int>>(emptySet()) }
-    
-    LaunchedEffect(completedSets) {
-        val currentCompletedExercises = exercises.filter { exercise ->
-            val setCount = completedSets[exercise.id] ?: 0
-            setCount >= exercise.sets
-        }.map { it.id }.toSet()
-        
-        // Find newly completed exercises
-        val newlyCompleted = currentCompletedExercises - previousCompletedExercises.value
-        
-        // Show toast for each newly completed exercise
-        newlyCompleted.forEach { exerciseId ->
-            val exercise = exercises.find { it.id == exerciseId }
-            exercise?.let {
-                snackbarHostState.showSnackbar(
-                    message = "${it.name} completed! 💪",
-                    duration = SnackbarDuration.Short
-                )
-            }
-        }
-        
-        previousCompletedExercises.value = currentCompletedExercises
-    }
+
 
     if (showSummary && lastSession != null) {
         AlertDialog(
@@ -257,6 +233,7 @@ fun WorkoutScreenContent(
                             onUndoSet = { },
                             onUpdate = { },
                             onDelete = { },
+                            cardMode = ExerciseCardMode.LIST_COMPACT,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -270,8 +247,12 @@ fun WorkoutScreenContent(
                         onUndoSet = { onUndoSet(activeExercise.id) },
                         onUpdate = { onUpdateExercise(it) },
                         onDelete = { onDeleteExercise(activeExercise.id) },
-                        modifier = Modifier.weight(1f).fillMaxWidth()
+                        cardMode = ExerciseCardMode.SESSION,
+                        modifier = Modifier.fillMaxWidth()
                     )
+                    
+                    // Spacer to push button to bottom
+                    Spacer(modifier = Modifier.weight(1f))
                     
                     // COMPLETE SESSION Button
                     Button(
@@ -362,6 +343,7 @@ fun WorkoutScreenContent(
                         onUndoSet = { },
                         onUpdate = { },
                         onDelete = { },
+                        cardMode = ExerciseCardMode.LIST_COMPACT,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
@@ -381,6 +363,7 @@ fun WorkoutScreenContent(
                         onUndoSet = { onUndoSet(exercise.id) },
                         onUpdate = { onUpdateExercise(it) },
                         onDelete = { onDeleteExercise(exercise.id) },
+                        cardMode = ExerciseCardMode.LIST_COMPACT,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)

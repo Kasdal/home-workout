@@ -3,6 +3,7 @@ package com.example.workoutapp.ui.workout
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.combinedClickable
@@ -15,8 +16,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -43,6 +46,8 @@ fun ExerciseCard(
     onUndoSet: () -> Unit,
     onUpdate: (Exercise) -> Unit,
     onDelete: () -> Unit,
+    cardMode: ExerciseCardMode = ExerciseCardMode.LIST_COMPACT,
+    onPhotoUpload: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
@@ -204,8 +209,14 @@ fun ExerciseCard(
                 }
             }
         ) {
+            val cardHeightModifier = when (cardMode) {
+                ExerciseCardMode.SESSION -> Modifier.fillMaxHeight()
+                ExerciseCardMode.LIST_COMPACT -> Modifier.heightIn(min = 220.dp, max = 250.dp)
+                ExerciseCardMode.LIST_EXPANDED -> Modifier.fillMaxHeight(0.7f)
+            }
+            
             Card(
-                modifier = modifier.heightIn(min = 320.dp),
+                modifier = modifier.then(cardHeightModifier),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
@@ -214,6 +225,7 @@ fun ExerciseCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(48.dp) // Fixed height to prevent layout shift
                         .combinedClickable(
                             onClick = {},
                             onLongClick = { showEditDialog = true }
@@ -226,7 +238,8 @@ fun ExerciseCard(
                         text = exercise.name,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1
                     )
                     
                     // Weight controls
@@ -298,8 +311,61 @@ fun ExerciseCard(
                     }
                 }
 
-                // Photo placeholder space
-                Spacer(modifier = Modifier.height(100.dp))
+                // Photo area (shown in SESSION and LIST_EXPANDED modes)
+                val photoSpaceHeight = when (cardMode) {
+                    ExerciseCardMode.SESSION -> 200.dp
+                    ExerciseCardMode.LIST_COMPACT -> 0.dp
+                    ExerciseCardMode.LIST_EXPANDED -> 300.dp
+                }
+                
+                if (photoSpaceHeight > 0.dp) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(photoSpaceHeight)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                MaterialTheme.shapes.medium
+                            )
+                            .border(
+                                width = 2.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = MaterialTheme.shapes.medium
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (exercise.photoUri == null) {
+                            // Placeholder
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Image,
+                                    contentDescription = "No photo",
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                )
+                                
+                                if (cardMode == ExerciseCardMode.LIST_EXPANDED && onPhotoUpload != null) {
+                                    OutlinedButton(onClick = onPhotoUpload) {
+                                        Icon(
+                                            imageVector = Icons.Default.Upload,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Upload Photo")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // No photo space in compact mode, just small spacer
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 // Fixed-height area for Undo button (prevents layout shift)
                 Box(

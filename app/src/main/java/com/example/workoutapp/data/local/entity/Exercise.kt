@@ -10,5 +10,6 @@ data class Exercise(
     val weight: Float,
     val reps: Int = 13, // Customizable reps per set
     val sets: Int = 4,  // Customizable number of sets
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
+    val photoUri: String? = null // Exercise photo URI
 )
