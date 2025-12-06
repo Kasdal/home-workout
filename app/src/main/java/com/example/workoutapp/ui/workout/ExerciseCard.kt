@@ -128,12 +128,13 @@ fun ExerciseCard(
         )
     }
 
-    // Show completed exercises in collapsed form
+    // Show completed exercises in collapsed form with green tint
     if (isCompleted) {
         Card(
             modifier = modifier,
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                containerColor = NeonGreen.copy(alpha = 0.08f)
             )
         ) {
             Row(
@@ -205,6 +206,7 @@ fun ExerciseCard(
         ) {
             Card(
                 modifier = modifier,
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -274,7 +276,7 @@ fun ExerciseCard(
                     for (i in 0 until exercise.sets) {
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
+                                .size(28.dp)
                                 .padding(2.dp)
                                 .clip(CircleShape)
                                 .background(
@@ -288,7 +290,7 @@ fun ExerciseCard(
                                     imageVector = Icons.Default.Check,
                                     contentDescription = null,
                                     tint = Color.Black,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
@@ -334,6 +336,15 @@ fun ExerciseCard(
                         },
                     contentAlignment = Alignment.Center
                 ) {
+                    // Subtle overlay that appears during hold for better feedback
+                    if (holdProgress > 0f && completedSetCount < exercise.sets) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = holdProgress * 0.15f))
+                        )
+                    }
+                    
                     // Dark overlay that shrinks as you hold (visual feedback)
                     if (holdProgress > 0f && completedSetCount < exercise.sets) {
                         Box(
