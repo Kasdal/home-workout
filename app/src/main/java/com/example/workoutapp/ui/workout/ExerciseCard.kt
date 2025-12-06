@@ -205,12 +205,12 @@ fun ExerciseCard(
             }
         ) {
             Card(
-                modifier = modifier,
+                modifier = modifier.heightIn(min = 320.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                // Exercise Name and Weight on Top
+                // Compact header: Name, Weight controls, and Checkmarks in one row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -221,99 +221,109 @@ fun ExerciseCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    // Exercise name
+                    Text(
+                        text = exercise.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    // Weight controls
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Remove,
+                                contentDescription = "-5kg",
+                                tint = Color.Red,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        
                         Text(
-                            text = exercise.name,
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = "${exercise.weight} kg",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = NeonGreen,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        
+                        IconButton(
+                            onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) },
+                            modifier = Modifier.size(28.dp)
                         ) {
-                            // -5kg button
-                            IconButton(
-                                onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Remove,
-                                    contentDescription = "-5kg",
-                                    tint = Color.Red
-                                )
-                            }
-                            
-                            Text(
-                                text = "${exercise.weight} kg",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = NeonGreen,
-                                fontWeight = FontWeight.Bold
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "+5kg",
+                                tint = NeonGreen,
+                                modifier = Modifier.size(18.dp)
                             )
-                            
-                            // +5kg button
-                            IconButton(
-                                onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "+5kg",
-                                    tint = NeonGreen
-                                )
-                            }
                         }
                     }
-                }
-
-                // Checkmark indicators (dynamic based on exercise.sets)
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    for (i in 0 until exercise.sets) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .padding(2.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (i < completedSetCount) NeonGreen
-                                    else Color.Gray.copy(alpha = 0.3f)
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (i < completedSetCount) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = Color.Black,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Undo Last Set Button (visible when sets are completed)
-                if (completedSetCount > 0 && completedSetCount < exercise.sets) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = onUndoSet,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    // Checkmark indicators
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Undo,
-                            contentDescription = "Undo",
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Undo Last Set")
+                        for (i in 0 until exercise.sets) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .padding(2.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (i < completedSetCount) NeonGreen
+                                        else Color.Gray.copy(alpha = 0.3f)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (i < completedSetCount) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Photo placeholder space
+                Spacer(modifier = Modifier.height(100.dp))
+
+                // Fixed-height area for Undo button (prevents layout shift)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (completedSetCount > 0 && completedSetCount < exercise.sets) {
+                        OutlinedButton(
+                            onClick = onUndoSet,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Undo,
+                                contentDescription = "Undo",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Undo Last Set")
+                        }
                     }
                 }
 

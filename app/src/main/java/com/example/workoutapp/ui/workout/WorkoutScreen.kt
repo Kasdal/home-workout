@@ -233,7 +233,7 @@ fun WorkoutScreenContent(
                 val setCount = completedSets[exercise.id] ?: 0
                 setCount < exercise.sets
             }
-            val visibleCompletedExercises = completedExercises.takeLast(2)
+            val visibleCompletedExercises = completedExercises.takeLast(1)
 
             if (activeExercise != null) {
                 val setCount = completedSets[activeExercise.id] ?: 0
@@ -340,7 +340,7 @@ fun WorkoutScreenContent(
             }
             
             // Show only last 2 completed exercises
-            val visibleCompletedExercises = completedExercises.takeLast(2)
+            val visibleCompletedExercises = completedExercises.takeLast(1)
             
             LazyColumn(
                 modifier = Modifier
