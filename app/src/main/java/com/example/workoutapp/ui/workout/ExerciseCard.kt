@@ -45,11 +45,19 @@ fun ExerciseCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
     var holdProgress by remember { mutableStateOf(0f) }
     var isHolding by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            if (it == SwipeToDismissBoxValue.EndToStart) {
+                showDeleteConfirmation = true
+                false // Don't dismiss yet, wait for confirmation
+            } else false
+        }
+    )
 
     val scale by animateFloatAsState(
         targetValue = if (isHolding) 0.95f else 1f,
@@ -82,6 +90,40 @@ fun ExerciseCard(
             onSave = { name, weight, reps, sets ->
                 onUpdate(exercise.copy(name = name, weight = weight, reps = reps, sets = sets))
                 showEditDialog = false
+            }
+        )
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = {
+                showDeleteConfirmation = false
+                scope.launch { dismissState.reset() }
+            },
+            title = { Text("Delete Exercise?") },
+            text = { Text("Are you sure you want to remove ${exercise.name} from this workout?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        scope.launch { dismissState.reset() }
+                    }
+                ) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -133,11 +175,38 @@ fun ExerciseCard(
             }
         }
     } else {
-        // Show full exercise card for incomplete exercises
-        Card(
-            modifier = modifier,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        // Show full exercise card for incomplete exercises with swipe-to-delete
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            enableDismissFromEndToStart = true,
+            backgroundContent = {
+                val color = when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
+                    else -> Color.Transparent
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(color)
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                            modifier = Modifier.size(32.dp)
+                        )
+                    }
+                }
+            }
         ) {
+            Card(
+                modifier = modifier,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+            ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 // Exercise Name and Weight on Top
                 Row(
@@ -191,18 +260,6 @@ fun ExerciseCard(
                                     tint = NeonGreen
                                 )
                             }
-                        }
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        IconButton(onClick = { showEditDialog = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = Color.White)
-                        }
-                        IconButton(onClick = { expanded = !expanded }) {
-                            Icon(
-                                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                                contentDescription = "Expand"
-                            )
                         }
                     }
                 }
@@ -298,21 +355,8 @@ fun ExerciseCard(
                     )
                 }
 
-                // Expanded Content (Delete option)
-                if (expanded) {
-                    Column(modifier = Modifier.padding(top = 8.dp)) {
-                        Divider()
-                        TextButton(
-                            onClick = onDelete,
-                            colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
-                        ) {
-                            Icon(Icons.Default.Delete, contentDescription = null)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Remove Exercise")
-                        }
-                    }
-                }
             }
+        }
         }
     }
 }
