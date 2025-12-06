@@ -52,6 +52,7 @@ fun ExerciseCard(
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var showPhotoMenu by remember { mutableStateOf(false) }
     var holdProgress by remember { mutableStateOf(0f) }
     var isHolding by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -335,7 +336,54 @@ fun ExerciseCard(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (exercise.photoUri == null) {
+                        if (exercise.photoUri != null) {
+                            // Display photo with long-press menu
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .combinedClickable(
+                                        onClick = {},
+                                        onLongClick = { showPhotoMenu = true }
+                                    )
+                            ) {
+                                coil.compose.AsyncImage(
+                                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                                        .data(exercise.photoUri)
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = exercise.name,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
+                            
+                            // Photo menu dropdown
+                            DropdownMenu(
+                                expanded = showPhotoMenu,
+                                onDismissRequest = { showPhotoMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Replace Photo") },
+                                    onClick = {
+                                        showPhotoMenu = false
+                                        onPhotoUpload?.invoke()
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Image, contentDescription = null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Remove Photo") },
+                                    onClick = {
+                                        showPhotoMenu = false
+                                        onUpdate(exercise.copy(photoUri = null))
+                                    },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Delete, contentDescription = null)
+                                    }
+                                )
+                            }
+                        } else if (exercise.photoUri == null) {
                             // Placeholder
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,

@@ -1,6 +1,11 @@
 package com.example.workoutapp.ui.workout
 
+import android.content.Intent
 import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,12 +44,34 @@ fun WorkoutScreen(
     
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<com.example.workoutapp.data.local.entity.WorkoutSession?>(null) }
+    var selectedExerciseId by remember { mutableStateOf<Int?>(null) }
     
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-
+    
     // Keep screen on during workout
     val context = LocalContext.current
+    
+    // Photo picker launcher
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let {
+            selectedExerciseId?.let { exerciseId ->
+                // Take persistable permission to keep access to the photo
+                try {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                } catch (e: Exception) {
+                    // Permission already granted or not needed
+                }
+                viewModel.updateExercisePhoto(exerciseId, uri.toString())
+            }
+        }
+    }
+
     DisposableEffect(sessionStarted) {
         val window = (context as? androidx.activity.ComponentActivity)?.window
         if (sessionStarted) {
@@ -107,7 +134,13 @@ fun WorkoutScreen(
         onResumeTimer = { viewModel.resumeTimer() },
         onStopTimer = { viewModel.stopTimer() },
         onSetRestDuration = { viewModel.setRestTimerDuration(it) },
-        onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) }
+        onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
+        onPhotoUpload = { exerciseId ->
+            selectedExerciseId = exerciseId
+            photoPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+            )
+        }
     )
 }
 
@@ -136,7 +169,8 @@ fun WorkoutScreenContent(
     onResumeTimer: () -> Unit,
     onStopTimer: () -> Unit,
     onSetRestDuration: (Int) -> Unit,
-    onSetExerciseSwitchDuration: (Int) -> Unit
+    onSetExerciseSwitchDuration: (Int) -> Unit,
+    onPhotoUpload: (Int) -> Unit
 ) {
     // Removed ModalNavigationDrawer - using bottom nav instead
     Scaffold(
@@ -310,6 +344,8 @@ fun WorkoutScreenContent(
             }
         } else {
             // Normal Mode: List all exercises
+            var expandedExerciseId by remember { mutableStateOf<Int?>(null) }
+            
             // Separate completed and incomplete exercises
             val completedExercises = exercises.filter { exercise ->
                 val setCount = completedSets[exercise.id] ?: 0
@@ -354,6 +390,7 @@ fun WorkoutScreenContent(
                 items(incompleteExercises) { exercise ->
                     val setCount = completedSets[exercise.id] ?: 0
                     val isCompleted = setCount >= exercise.sets
+                    val isExpanded = expandedExerciseId == exercise.id
                     
                     ExerciseCard(
                         exercise = exercise,
@@ -363,10 +400,14 @@ fun WorkoutScreenContent(
                         onUndoSet = { onUndoSet(exercise.id) },
                         onUpdate = { onUpdateExercise(it) },
                         onDelete = { onDeleteExercise(exercise.id) },
-                        cardMode = ExerciseCardMode.LIST_COMPACT,
+                        cardMode = if (isExpanded) ExerciseCardMode.LIST_EXPANDED else ExerciseCardMode.LIST_COMPACT,
+                        onPhotoUpload = { onPhotoUpload(exercise.id) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 6.dp)
+                            .clickable {
+                                expandedExerciseId = if (isExpanded) null else exercise.id
+                            }
                     )
                 }
                 

@@ -302,6 +302,16 @@ class WorkoutViewModel @Inject constructor(
             repository.updateExercise(exercise)
         }
     }
+    
+    fun updateExercisePhoto(exerciseId: Int, photoUri: String) {
+        viewModelScope.launch {
+            val exerciseList = exercises.first()
+            val exercise = exerciseList.find { it.id == exerciseId }
+            exercise?.let {
+                repository.updateExercise(it.copy(photoUri = photoUri))
+            }
+        }
+    }
 
     fun addExercise() {
         viewModelScope.launch {
