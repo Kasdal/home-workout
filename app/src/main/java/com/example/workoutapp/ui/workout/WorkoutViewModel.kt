@@ -177,6 +177,9 @@ class WorkoutViewModel @Inject constructor(
             _sessionStarted.value = false
             _sessionElapsedSeconds.value = 0
             
+            // Play celebration sound for completing the workout!
+            soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
+            
             onComplete(session.copy(id = sessionId.toInt()))
         }
     }
@@ -245,7 +248,8 @@ class WorkoutViewModel @Inject constructor(
                 delay(1000L)
                 _timerSeconds.value--
             }
-            soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
+            // Timer finished - just beep, no celebration
+            soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
             _isTimerRunning.value = false
         }
     }
@@ -309,5 +313,10 @@ class WorkoutViewModel @Inject constructor(
         viewModelScope.launch {
             repository.deleteExercise(exerciseId)
         }
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        soundManager.release()
     }
 }

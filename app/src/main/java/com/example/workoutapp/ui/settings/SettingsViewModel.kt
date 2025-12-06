@@ -112,4 +112,9 @@ class SettingsViewModel @Inject constructor(
             onComplete(csv)
         }
     }
+    
+    override fun onCleared() {
+        super.onCleared()
+        soundManager.release()
+    }
 }

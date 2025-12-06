@@ -1,13 +1,17 @@
 package com.example.workoutapp.util
 
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.content.Context
+import android.media.MediaPlayer
+import com.example.workoutapp.R
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class SoundManager @Inject constructor() {
-    private var toneGenerator: ToneGenerator? = null
+class SoundManager @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private var mediaPlayer: MediaPlayer? = null
     
     /**
      * Play timer countdown sound based on selected type
@@ -18,18 +22,14 @@ class SoundManager @Inject constructor() {
     fun playTimerSound(soundType: String, volume: Float, enabled: Boolean) {
         if (!enabled) return
         
-        val volumeInt = (volume * 100).toInt().coerceIn(0, 100)
-        releaseToneGenerator()
-        toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, volumeInt)
-        
-        val (tone, duration) = when (soundType.lowercase()) {
-            "beep" -> ToneGenerator.TONE_CDMA_PIP to 150
-            "chime" -> ToneGenerator.TONE_PROP_BEEP to 200
-            "loud" -> ToneGenerator.TONE_CDMA_ALERT_NETWORK_LITE to 300
-            else -> ToneGenerator.TONE_CDMA_PIP to 150
+        val resourceId = when (soundType.lowercase()) {
+            "beep" -> R.raw.timer_beep
+            "chime" -> R.raw.timer_chime
+            "loud" -> R.raw.timer_loud
+            else -> R.raw.timer_beep
         }
         
-        toneGenerator?.startTone(tone, duration)
+        playSound(resourceId, volume)
     }
     
     /**
@@ -41,18 +41,52 @@ class SoundManager @Inject constructor() {
     fun playCelebrationSound(soundType: String, volume: Float, enabled: Boolean) {
         if (!enabled) return
         
-        val volumeInt = (volume * 100).toInt().coerceIn(0, 100)
-        releaseToneGenerator()
-        toneGenerator = ToneGenerator(AudioManager.STREAM_ALARM, volumeInt)
-        
-        val (tone, duration) = when (soundType.lowercase()) {
-            "cheer" -> ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD to 800
-            "victory" -> ToneGenerator.TONE_PROP_ACK to 1000
-            "congrats" -> ToneGenerator.TONE_CDMA_ALERT_NETWORK_LITE to 1200
-            else -> ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD to 800
+        val resourceId = when (soundType.lowercase()) {
+            "cheer" -> R.raw.celebration_cheer
+            "victory" -> R.raw.celebration_victory
+            "congrats" -> R.raw.celebration_cheer  // Reuse cheer for congrats
+            else -> R.raw.celebration_cheer
         }
         
-        toneGenerator?.startTone(tone, duration)
+        playSound(resourceId, volume)
+    }
+    
+    /**
+     * Play sound from resource ID
+     */
+    private fun playSound(resourceId: Int, volume: Float) {
+        try {
+            releaseMediaPlayer()
+            
+            mediaPlayer = MediaPlayer.create(context, resourceId)?.apply {
+                setVolume(volume, volume)
+                setOnCompletionListener { releaseMediaPlayer() }
+                start()
+            }
+        } catch (e: Exception) {
+            // Silently fail if sound file not found
+            e.printStackTrace()
+        }
+    }
+    
+    /**
+     * Release MediaPlayer resources
+     */
+    private fun releaseMediaPlayer() {
+        mediaPlayer?.apply {
+            if (isPlaying) {
+                stop()
+            }
+            release()
+        }
+        mediaPlayer = null
+    }
+    
+    /**
+     * Release all resources - call when done with SoundManager
+     */
+    fun release() {
+        releaseMediaPlayer()
     }
     
     /**
@@ -69,20 +103,5 @@ class SoundManager @Inject constructor() {
     @Deprecated("Use playCelebrationSound instead", ReplaceWith("playCelebrationSound(\"cheer\", 1.0f, true)"))
     fun playFinishedBeep() {
         playCelebrationSound("cheer", 1.0f, true)
-    }
-    
-    /**
-     * Release ToneGenerator resources
-     */
-    private fun releaseToneGenerator() {
-        toneGenerator?.release()
-        toneGenerator = null
-    }
-    
-    /**
-     * Release all resources - call when done with SoundManager
-     */
-    fun release() {
-        releaseToneGenerator()
     }
 }
