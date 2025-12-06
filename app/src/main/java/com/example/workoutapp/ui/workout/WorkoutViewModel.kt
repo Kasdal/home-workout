@@ -58,6 +58,12 @@ class WorkoutViewModel @Inject constructor(
     val completedSets: StateFlow<Map<Int, Int>> = _completedSets.asStateFlow()
 
     private var sessionStartTime = 0L
+    
+    // Sound settings cache
+    private var soundsEnabled = true
+    private var soundVolume = 1.0f
+    private var timerSoundType = "beep"
+    private var celebrationSoundType = "cheer"
 
     init {
         initializeDefaultExercises()
@@ -70,6 +76,10 @@ class WorkoutViewModel @Inject constructor(
                 if (settings != null) {
                     _restTimerDuration.value = settings.restTimerDuration
                     _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
+                    soundsEnabled = settings.soundsEnabled
+                    soundVolume = settings.soundVolume
+                    timerSoundType = settings.timerSoundType
+                    celebrationSoundType = settings.celebrationSoundType
                 }
             }
         }
@@ -230,12 +240,12 @@ class WorkoutViewModel @Inject constructor(
             while (_timerSeconds.value > 0) {
                 val remaining = _timerSeconds.value
                 if (remaining <= 3) {
-                    soundManager.playCountdownBeep()
+                    soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
                 }
                 delay(1000L)
                 _timerSeconds.value--
             }
-            soundManager.playFinishedBeep()
+            soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
             _isTimerRunning.value = false
         }
     }

@@ -91,7 +91,10 @@ fun SettingsScreen(
                         listOf("beep", "chime", "loud").forEach { sound ->
                             FilterChip(
                                 selected = settings.timerSoundType == sound,
-                                onClick = { viewModel.setTimerSound(sound) },
+                                onClick = { 
+                                    viewModel.setTimerSound(sound)
+                                    viewModel.previewTimerSound(sound)
+                                },
                                 label = { Text(sound.capitalize()) },
                                 enabled = settings.soundsEnabled
                             )
@@ -109,7 +112,10 @@ fun SettingsScreen(
                         listOf("cheer", "victory", "congrats").forEach { sound ->
                             FilterChip(
                                 selected = settings.celebrationSoundType == sound,
-                                onClick = { viewModel.setCelebrationSound(sound) },
+                                onClick = { 
+                                    viewModel.setCelebrationSound(sound)
+                                    viewModel.previewCelebrationSound(sound)
+                                },
                                 label = { Text(sound.capitalize()) },
                                 enabled = settings.soundsEnabled
                             )

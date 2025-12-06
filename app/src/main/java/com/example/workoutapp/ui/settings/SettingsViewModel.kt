@@ -14,7 +14,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repository: WorkoutRepository
+    private val repository: WorkoutRepository,
+    private val soundManager: com.example.workoutapp.util.SoundManager
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow(Settings())
@@ -65,6 +66,22 @@ class SettingsViewModel @Inject constructor(
             val updated = _settings.value.copy(themeMode = mode)
             repository.saveSettings(updated)
         }
+    }
+    
+    fun previewTimerSound(soundType: String) {
+        soundManager.playTimerSound(
+            soundType = soundType,
+            volume = _settings.value.soundVolume,
+            enabled = _settings.value.soundsEnabled
+        )
+    }
+    
+    fun previewCelebrationSound(soundType: String) {
+        soundManager.playCelebrationSound(
+            soundType = soundType,
+            volume = _settings.value.soundVolume,
+            enabled = _settings.value.soundsEnabled
+        )
     }
 
     fun exportData(onComplete: (String) -> Unit) {
