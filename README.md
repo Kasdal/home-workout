@@ -20,7 +20,18 @@ A modern, native Android application designed for tracking strength training wor
 - **Architecture**: MVVM (Model-View-ViewModel)
 - **Dependency Injection**: [Dagger Hilt](https://dagger.dev/hilt/)
 - **Database**: [Room](https://developer.android.com/training/data-storage/room)
+- **Cloud Backend**: [Firebase Authentication](https://firebase.google.com/docs/auth) + [Cloud Firestore](https://firebase.google.com/docs/firestore)
 - **Concurrency**: Kotlin Coroutines & Flow
+
+## ☁️ Cloud Sync Status
+
+- Cloud migration foundation is now implemented.
+- App startup requires Google sign-in before entering the main experience.
+- Data sync is user-scoped in Firestore under `users/{uid}/...`.
+- Local Room data is retained as migration safety fallback.
+- Firebase Storage-based photo sync is currently out of scope on Spark plan.
+
+See `CHANGELOG.md` for the latest migration milestones and details.
 
 ## 🏗️ Build Instructions
 
