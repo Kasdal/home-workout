@@ -4,6 +4,7 @@ import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
 import com.example.workoutapp.util.SoundManager
 import io.mockk.coEvery
@@ -33,6 +34,7 @@ class WorkoutViewModelTest {
     private lateinit var viewModel: WorkoutViewModel
     private lateinit var repository: WorkoutRepository
     private lateinit var soundManager: SoundManager
+    private lateinit var sensorRepository: SensorRepository
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -40,6 +42,7 @@ class WorkoutViewModelTest {
         Dispatchers.setMain(testDispatcher)
         repository = mockk(relaxed = true)
         soundManager = mockk(relaxed = true)
+        sensorRepository = mockk(relaxed = true)
 
         // Default mocks
         coEvery { repository.getExercises() } returns flowOf(
@@ -51,7 +54,7 @@ class WorkoutViewModelTest {
         coEvery { repository.getSettings() } returns flowOf(Settings())
         coEvery { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
 
-        viewModel = WorkoutViewModel(repository, soundManager)
+        viewModel = WorkoutViewModel(repository, soundManager, sensorRepository)
     }
 
     @After

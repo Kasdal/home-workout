@@ -47,6 +47,10 @@ fun ExerciseCard(
     onUpdate: (Exercise) -> Unit,
     onDelete: () -> Unit,
     cardMode: ExerciseCardMode = ExerciseCardMode.LIST_COMPACT,
+    sensorReps: Int = 0,
+    sensorState: String = "REST",
+    sensorDistance: Int = 0,
+    sensorConnected: Boolean = false,
     onPhotoUpload: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -413,6 +417,61 @@ fun ExerciseCard(
                 } else {
                     // No photo space in compact mode, just small spacer
                     Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (cardMode == ExerciseCardMode.SESSION && sensorConnected) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (sensorState == "LIFTING") {
+                                NeonGreen.copy(alpha = 0.2f)
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Sensor",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = NeonGreen
+                                )
+                                Text(
+                                    text = sensorState,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (sensorState == "LIFTING") NeonGreen else Color.Gray
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "$sensorReps",
+                                style = MaterialTheme.typography.displayLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = NeonGreen
+                            )
+                            Text(
+                                text = "reps",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = "Distance: ${sensorDistance}mm",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray
+                            )
+                        }
+                    }
                 }
 
                 // Fixed-height area for Undo button (prevents layout shift)

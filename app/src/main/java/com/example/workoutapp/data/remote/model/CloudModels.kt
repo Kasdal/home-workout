@@ -50,7 +50,9 @@ data class CloudSettings(
     val tutorialCompleted: Boolean = false,
     val tutorialVersion: Int = 1,
     val restTimerDuration: Int = 30,
-    val exerciseSwitchDuration: Int = 90
+    val exerciseSwitchDuration: Int = 90,
+    val sensorEnabled: Boolean = false,
+    val sensorIpAddress: String = "192.168.0.125"
 )
 
 data class CloudRestDay(
@@ -157,7 +159,9 @@ fun Settings.toCloud() = CloudSettings(
     tutorialCompleted = tutorialCompleted,
     tutorialVersion = tutorialVersion,
     restTimerDuration = restTimerDuration,
-    exerciseSwitchDuration = exerciseSwitchDuration
+    exerciseSwitchDuration = exerciseSwitchDuration,
+    sensorEnabled = sensorEnabled,
+    sensorIpAddress = sensorIpAddress
 )
 
 fun CloudSettings.toLocal() = Settings(
@@ -170,7 +174,9 @@ fun CloudSettings.toLocal() = Settings(
     tutorialCompleted = tutorialCompleted,
     tutorialVersion = tutorialVersion,
     restTimerDuration = restTimerDuration,
-    exerciseSwitchDuration = exerciseSwitchDuration
+    exerciseSwitchDuration = exerciseSwitchDuration,
+    sensorEnabled = sensorEnabled,
+    sensorIpAddress = sensorIpAddress
 )
 
 fun RestDay.toCloud() = CloudRestDay(

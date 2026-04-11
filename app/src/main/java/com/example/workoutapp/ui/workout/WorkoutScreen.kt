@@ -41,6 +41,12 @@ fun WorkoutScreen(
     val sessionElapsedSeconds by viewModel.sessionElapsedSeconds.collectAsState()
     val restTimerDuration by viewModel.restTimerDuration.collectAsState()
     val exerciseSwitchDuration by viewModel.exerciseSwitchDuration.collectAsState()
+
+    // Sensor state
+    val sensorReps by viewModel.sensorReps.collectAsState()
+    val sensorState by viewModel.sensorState.collectAsState()
+    val sensorDistance by viewModel.sensorDistance.collectAsState()
+    val sensorConnected by viewModel.sensorConnected.collectAsState()
     
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<com.example.workoutapp.data.local.entity.WorkoutSession?>(null) }
@@ -135,6 +141,10 @@ fun WorkoutScreen(
         onStopTimer = { viewModel.stopTimer() },
         onSetRestDuration = { viewModel.setRestTimerDuration(it) },
         onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
+        sensorReps = sensorReps,
+        sensorState = sensorState,
+        sensorDistance = sensorDistance,
+        sensorConnected = sensorConnected,
         onPhotoUpload = { exerciseId ->
             selectedExerciseId = exerciseId
             photoPickerLauncher.launch(
@@ -170,6 +180,10 @@ fun WorkoutScreenContent(
     onStopTimer: () -> Unit,
     onSetRestDuration: (Int) -> Unit,
     onSetExerciseSwitchDuration: (Int) -> Unit,
+    sensorReps: Int,
+    sensorState: String,
+    sensorDistance: Int,
+    sensorConnected: Boolean,
     onPhotoUpload: (Int) -> Unit
 ) {
     // Removed ModalNavigationDrawer - using bottom nav instead
@@ -282,6 +296,10 @@ fun WorkoutScreenContent(
                         onUpdate = { onUpdateExercise(it) },
                         onDelete = { onDeleteExercise(activeExercise.id) },
                         cardMode = ExerciseCardMode.SESSION,
+                        sensorReps = sensorReps,
+                        sensorState = sensorState,
+                        sensorDistance = sensorDistance,
+                        sensorConnected = sensorConnected,
                         modifier = Modifier.fillMaxWidth()
                     )
                     

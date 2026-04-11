@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -11,14 +12,18 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     private val repository: WorkoutRepository,
-    private val soundManager: com.example.workoutapp.util.SoundManager
+    private val soundManager: com.example.workoutapp.util.SoundManager,
+    private val sensorRepository: SensorRepository
 ) : ViewModel() {
 
     // Exercises from DB
@@ -65,6 +70,26 @@ class WorkoutViewModel @Inject constructor(
     private var timerSoundType = "beep"
     private var celebrationSoundType = "cheer"
 
+    // Sensor settings cache
+    private var sensorEnabled = false
+    private var sensorIpAddress = "192.168.0.125"
+
+    // Sensor state
+    private val _sensorReps = MutableStateFlow(0)
+    val sensorReps: StateFlow<Int> = _sensorReps.asStateFlow()
+
+    private val _sensorState = MutableStateFlow("REST")
+    val sensorState: StateFlow<String> = _sensorState.asStateFlow()
+
+    private val _sensorDistance = MutableStateFlow(0)
+    val sensorDistance: StateFlow<Int> = _sensorDistance.asStateFlow()
+
+    private val _sensorConnected = MutableStateFlow(false)
+    val sensorConnected: StateFlow<Boolean> = _sensorConnected.asStateFlow()
+
+    private var sensorPollingJob: Job? = null
+    private var lastSensorReps = 0
+
     init {
         initializeDefaultExercises()
         observeSettings()
@@ -80,6 +105,8 @@ class WorkoutViewModel @Inject constructor(
                     soundVolume = settings.soundVolume
                     timerSoundType = settings.timerSoundType
                     celebrationSoundType = settings.celebrationSoundType
+                    sensorEnabled = settings.sensorEnabled
+                    sensorIpAddress = settings.sensorIpAddress
                 }
             }
         }
@@ -112,6 +139,10 @@ class WorkoutViewModel @Inject constructor(
                 delay(1000L)
                 _sessionElapsedSeconds.value++
             }
+        }
+
+        if (sensorEnabled) {
+            startSensorPolling()
         }
     }
 
@@ -176,6 +207,8 @@ class WorkoutViewModel @Inject constructor(
             _completedSets.value = emptyMap()
             _sessionStarted.value = false
             _sessionElapsedSeconds.value = 0
+
+            stopSensorPolling()
             
             // Play celebration sound for completing the workout!
             soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
@@ -324,9 +357,64 @@ class WorkoutViewModel @Inject constructor(
             repository.deleteExercise(exerciseId)
         }
     }
+
+    private fun startSensorPolling() {
+        sensorPollingJob?.cancel()
+        sensorPollingJob = viewModelScope.launch {
+            sensorRepository.pollSensorStatus(sensorIpAddress, 200)
+                .catch { emitAll(flowOf(null)) }
+                .collect { sensorData ->
+                if (sensorData != null) {
+                    _sensorConnected.value = true
+                    _sensorReps.value = sensorData.reps
+                    _sensorState.value = sensorData.state
+                    _sensorDistance.value = sensorData.dist
+
+                    if (sensorData.reps > lastSensorReps && sensorData.reps > 0) {
+                        checkAndCompleteSet(sensorData.reps)
+                    }
+                    lastSensorReps = sensorData.reps
+                } else {
+                    _sensorConnected.value = false
+                }
+            }
+        }
+    }
+
+    private fun stopSensorPolling() {
+        sensorPollingJob?.cancel()
+        sensorPollingJob = null
+        _sensorConnected.value = false
+        _sensorReps.value = 0
+        _sensorState.value = "REST"
+        _sensorDistance.value = 0
+        lastSensorReps = 0
+    }
+
+    private suspend fun checkAndCompleteSet(currentReps: Int) {
+        val exerciseList = exercises.first()
+        val incompleteExercise = exerciseList.firstOrNull { exercise ->
+            val completedSets = _completedSets.value[exercise.id] ?: 0
+            completedSets < exercise.sets
+        }
+
+        incompleteExercise?.let { exercise ->
+            if (currentReps >= exercise.reps) {
+                completeNextSet(exercise.id)
+
+                viewModelScope.launch {
+                    delay(1000)
+                    sensorRepository.resetCounter(sensorIpAddress)
+                    lastSensorReps = 0
+                    _sensorReps.value = 0
+                }
+            }
+        }
+    }
     
     override fun onCleared() {
         super.onCleared()
+        stopSensorPolling()
         soundManager.release()
     }
 }

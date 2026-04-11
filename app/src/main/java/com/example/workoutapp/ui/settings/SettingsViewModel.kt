@@ -3,6 +3,7 @@ package com.example.workoutapp.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.Settings
+import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,11 +16,15 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: WorkoutRepository,
-    private val soundManager: com.example.workoutapp.util.SoundManager
+    private val soundManager: com.example.workoutapp.util.SoundManager,
+    private val sensorRepository: SensorRepository
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow(Settings())
     val settings: StateFlow<Settings> = _settings.asStateFlow()
+
+    private val _sensorConnectionState = MutableStateFlow<String?>(null)
+    val sensorConnectionState: StateFlow<String?> = _sensorConnectionState.asStateFlow()
 
     init {
         loadSettings()
@@ -110,6 +115,29 @@ class SettingsViewModel @Inject constructor(
             }
             
             onComplete(csv)
+        }
+    }
+
+    fun toggleSensor(enabled: Boolean) {
+        viewModelScope.launch {
+            val updated = _settings.value.copy(sensorEnabled = enabled)
+            repository.saveSettings(updated)
+        }
+    }
+
+    fun setSensorIpAddress(ipAddress: String) {
+        viewModelScope.launch {
+            val updated = _settings.value.copy(sensorIpAddress = ipAddress)
+            repository.saveSettings(updated)
+        }
+    }
+
+    fun testSensorConnection() {
+        viewModelScope.launch {
+            _sensorConnectionState.value = "Testing..."
+            val ipAddress = _settings.value.sensorIpAddress
+            val isConnected = sensorRepository.testConnection(ipAddress)
+            _sensorConnectionState.value = if (isConnected) "Connected ✓" else "Failed to connect"
         }
     }
     

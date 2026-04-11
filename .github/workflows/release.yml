@@ -26,7 +26,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
-      
+
+      - name: Write google-services.json from GitHub secret
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON_B64 secret"
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       

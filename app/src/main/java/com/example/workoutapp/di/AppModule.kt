@@ -9,11 +9,14 @@ import com.example.workoutapp.data.remote.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.workoutapp.data.repository.CloudWorkoutRepository
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import com.example.workoutapp.data.repository.WorkoutRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -49,12 +52,19 @@ object AppModule {
             }
         }
 
+        val MIGRATION_6_7 = object : androidx.room.migration.Migration(6, 7) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE settings ADD COLUMN sensorEnabled INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE settings ADD COLUMN sensorIpAddress TEXT NOT NULL DEFAULT '192.168.0.125'")
+            }
+        }
+
         return Room.databaseBuilder(
             app,
             WorkoutDatabase::class.java,
             "workout_db"
         )
-        .addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+        .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_6_7)
         .fallbackToDestructiveMigration()
         .build()
     }
@@ -76,6 +86,21 @@ object AppModule {
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore {
         return FirebaseFirestore.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient {
+        val loggingInterceptor = HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BASIC
+        }
+
+        return OkHttpClient.Builder()
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .writeTimeout(5, TimeUnit.SECONDS)
+            .build()
     }
 
     @Provides

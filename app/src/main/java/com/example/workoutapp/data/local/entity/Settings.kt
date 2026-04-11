@@ -14,5 +14,7 @@ data class Settings(
     val tutorialCompleted: Boolean = false,
     val tutorialVersion: Int = 1,
     val restTimerDuration: Int = 30,
-    val exerciseSwitchDuration: Int = 90
+    val exerciseSwitchDuration: Int = 90,
+    val sensorEnabled: Boolean = false,
+    val sensorIpAddress: String = "192.168.0.125"
 )

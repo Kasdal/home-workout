@@ -21,3 +21,4 @@ Architecture.md
 # Firebase local config
 app/google-services.json
 
+local.properties

@@ -154,6 +154,75 @@ fun SettingsScreen(
                 }
             }
 
+            // ESP Rep Counter Sensor Section
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "ESP Rep Counter",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Enable Sensor")
+                        Switch(
+                            checked = settings.sensorEnabled,
+                            onCheckedChange = { viewModel.toggleSensor(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    var ipAddress by remember { mutableStateOf(settings.sensorIpAddress) }
+                    LaunchedEffect(settings.sensorIpAddress) {
+                        ipAddress = settings.sensorIpAddress
+                    }
+
+                    OutlinedTextField(
+                        value = ipAddress,
+                        onValueChange = { ipAddress = it },
+                        label = { Text("Sensor IP Address") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = settings.sensorEnabled,
+                        singleLine = true,
+                        placeholder = { Text("192.168.0.125") }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = { viewModel.setSensorIpAddress(ipAddress) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = settings.sensorEnabled && ipAddress != settings.sensorIpAddress
+                    ) {
+                        Text("Save IP Address")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val connectionState by viewModel.sensorConnectionState.collectAsState()
+                    Button(
+                        onClick = { viewModel.testSensorConnection() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = settings.sensorEnabled
+                    ) {
+                        Text(connectionState ?: "Test Connection")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Note: Sensor will automatically count reps during workouts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             // Data Management Section
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
