@@ -1,24 +1,48 @@
 package com.example.workoutapp.ui.history
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,7 +56,9 @@ import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.theme.NeonGreen
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -64,7 +90,7 @@ fun HistoryScreen(
         currentStreak = 0,
         totalWorkouts = 0
     ))
-    
+
     val weeklySummary by viewModel.weeklySummary.collectAsState(initial = SummaryComparison(
         current = PeriodSummary(0, 0f, 0L, 0L, "This Week"),
         previous = PeriodSummary(0, 0f, 0L, 0L, "Last Week"),
@@ -72,7 +98,7 @@ fun HistoryScreen(
         frequencyChange = 0,
         durationChangePercent = 0f
     ))
-    
+
     val monthlySummary by viewModel.monthlySummary.collectAsState(initial = SummaryComparison(
         current = PeriodSummary(0, 0f, 0L, 0L, "This Month"),
         previous = PeriodSummary(0, 0f, 0L, 0L, "Last Month"),
@@ -80,210 +106,229 @@ fun HistoryScreen(
         frequencyChange = 0,
         durationChangePercent = 0f
     ))
-    
-    val pagerState = rememberPagerState(pageCount = { 2 })
-    
-    LazyColumn(
+
+    val weeklyOverview by viewModel.weeklyOverview.collectAsState(initial = WeeklyOverview(
+        workoutsThisWeek = 0, workoutsLastWeek = 0, volumeThisWeek = 0f,
+        volumeLastWeek = 0f, avgDurationMin = 0, caloriesThisWeek = 0f,
+        bestWeek = 0, totalWorkouts = 0
+    ))
+    val exercisePrs by viewModel.exercisePrs.collectAsState(initial = emptyList())
+    val volumeTrend by viewModel.volumeTrend.collectAsState(initial = emptyList())
+    val weeklyFrequency by viewModel.weeklyFrequency.collectAsState(initial = listOf(0, 0, 0, 0))
+    val insights by viewModel.insights.collectAsState(initial = emptyList())
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(padding)
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(bottom = 16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
-        // Horizontal Pager for Analytics
-        item {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxWidth()
-                ) { page ->
-                    when (page) {
-                        0 -> PersonalRecordsPage(personalRecords)
-                        1 -> ProgressReportPage(weeklySummary, monthlySummary)
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                // Page Indicator
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(2) { index ->
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (pagerState.currentPage == index) NeonGreen
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                                )
-                        )
-                        if (index < 2) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        AnalyticsDashboard(
+            sessions = sessions,
+            personalRecords = personalRecords,
+            weeklyOverview = weeklyOverview,
+            exercisePrs = exercisePrs,
+            volumeTrend = volumeTrend,
+            weeklyFrequency = weeklyFrequency,
+            insights = insights,
+            modifier = Modifier.padding(horizontal = 0.dp)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "Workout Calendar",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp)
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = {
+                val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
+                currentMonth = newMonth
+            }) {
+                Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
             }
-        }
-        
-        item {
+
             Text(
-                text = "Workout Calendar",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(bottom = 16.dp)
+                text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentMonth.time),
+                style = MaterialTheme.typography.titleLarge
             )
-        }
 
-        // Calendar Header (Month Navigation)
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = {
-                    val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, -1) }
-                    currentMonth = newMonth
-                }) {
-                    Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Month")
-                }
-                
-                Text(
-                    text = SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(currentMonth.time),
-                    style = MaterialTheme.typography.titleLarge
-                )
-
-                IconButton(onClick = {
-                    val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
-                    currentMonth = newMonth
-                }) {
-                    Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
-                }
+            IconButton(onClick = {
+                val newMonth = (currentMonth.clone() as Calendar).apply { add(Calendar.MONTH, 1) }
+                currentMonth = newMonth
+            }) {
+                Icon(Icons.Default.ChevronRight, contentDescription = "Next Month")
             }
-            Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Days of Week Header
-        item {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(modifier = Modifier.padding(horizontal = 8.dp)) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 val daysOfWeek = listOf("S", "M", "T", "W", "T", "F", "S")
                 daysOfWeek.forEach { day ->
-                    Text(
-                        text = day,
-                        modifier = Modifier.weight(1f),
-                        textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-        }
-
-        // Calendar Grid
-        item {
-            val daysInMonth = getDaysInMonth(currentMonth)
-            val sessionsInMonth = sessions.filter { session ->
-                val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
-                sessionCal.get(Calendar.YEAR) == currentMonth.get(Calendar.YEAR) &&
-                sessionCal.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
-            }
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(7),
-                modifier = Modifier.height(300.dp)
-            ) {
-                // Empty cells for offset
-                val firstDayOfWeek = daysInMonth.firstOrNull()?.get(Calendar.DAY_OF_WEEK) ?: 1
-                items(firstDayOfWeek - 1) {
-                    Box(modifier = Modifier.aspectRatio(1f))
-                }
-
-                items(daysInMonth) { day ->
-                    val isToday = isSameDay(day, Calendar.getInstance())
-                    val hasWorkout = sessionsInMonth.any { isSameDay(it.date, day) }
-                    val isSelected = selectedDate != null && isSameDay(selectedDate!!, day)
-
                     Box(
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .padding(4.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isSelected -> NeonGreen
-                                    hasWorkout -> NeonGreen.copy(alpha = 0.5f)
-                                    isToday -> Color.Gray.copy(alpha = 0.3f)
-                                    else -> Color.Transparent
-                                }
-                            )
-                            .clickable { selectedDate = day },
+                        modifier = Modifier.weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = day.get(Calendar.DAY_OF_MONTH).toString(),
-                            color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onBackground
+                            text = day,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Divider()
-            Spacer(modifier = Modifier.height(16.dp))
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            CalendarGrid(
+                currentMonth = currentMonth,
+                sessions = sessions,
+                selectedDate = selectedDate,
+                onDateSelected = { selectedDate = it }
+            )
         }
 
-        // Selected Date Sessions
+        Spacer(modifier = Modifier.height(16.dp))
+        Divider(modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
+
         if (selectedDate != null) {
-            val dateSessions = sessions.filter { isSameDay(it.date, selectedDate!!) }
-            item {
-                Text(
-                    text = "Sessions on ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(selectedDate!!.time)}",
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            
+            val sd = selectedDate!!
+            val dateSessions = sessions.filter { session: WorkoutSession -> isSameDay(session.date, sd) }
+            Text(
+                text = "Sessions on ${SimpleDateFormat("MMM dd", Locale.getDefault()).format(sd.time)}",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             if (dateSessions.isEmpty()) {
-                item {
-                    Text("No workouts recorded.", color = Color.Gray, modifier = Modifier.padding(top = 8.dp))
-                }
+                Text(
+                    "No workouts recorded.",
+                    color = Color.Gray,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                )
             } else {
-                items(dateSessions) { session ->
+                dateSessions.forEach { session: WorkoutSession ->
                     SessionCard(
                         session = session,
                         onDelete = { viewModel.deleteSession(session.id) }
                     )
                 }
             }
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Divider()
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         } else {
-            item {
-                Text("Select a date to view details.", color = Color.Gray)
-                Spacer(modifier = Modifier.height(16.dp))
-                Divider()
-                Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                "Select a date to view details.",
+                color = Color.Gray,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Divider(modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+    }
+}
+
+@Composable
+private fun CalendarGrid(
+    currentMonth: Calendar,
+    sessions: List<WorkoutSession>,
+    selectedDate: Calendar?,
+    onDateSelected: (Calendar) -> Unit
+) {
+    val daysInMonth = getDaysInMonth(currentMonth)
+    val sessionsInMonth = sessions.filter { session ->
+        val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
+        sessionCal.get(Calendar.YEAR) == currentMonth.get(Calendar.YEAR) &&
+        sessionCal.get(Calendar.MONTH) == currentMonth.get(Calendar.MONTH)
+    }
+
+    val firstDayOfWeek = daysInMonth.firstOrNull()?.get(Calendar.DAY_OF_WEEK) ?: 1
+    val leadingEmpty = firstDayOfWeek - 1
+    val totalCells = leadingEmpty + daysInMonth.size
+    val rows = (totalCells + 6) / 7
+
+    Column(modifier = Modifier.height(((rows * 44) + (rows - 1) * 4).dp)) {
+        for (row in 0 until rows) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .padding(vertical = 2.dp),
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                for (col in 0..6) {
+                    val cellIndex = row * 7 + col
+                    val dayIndex = cellIndex - leadingEmpty
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (dayIndex in daysInMonth.indices) {
+                            val day = daysInMonth[dayIndex]
+                            val isToday = isSameDay(day, Calendar.getInstance())
+                            val hasWorkout = sessionsInMonth.any { isSameDay(it.date, day) }
+                            val isSelected = selectedDate != null && isSameDay(selectedDate!!, day)
+
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        when {
+                                            isSelected -> NeonGreen
+                                            hasWorkout -> NeonGreen.copy(alpha = 0.5f)
+                                            isToday -> Color.Gray.copy(alpha = 0.3f)
+                                            else -> Color.Transparent
+                                        }
+                                    )
+                                    .clickable { onDateSelected(day) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = day.get(Calendar.DAY_OF_MONTH).toString(),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     }
-    } // End Scaffold
-} // End HistoryScreen
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf(false) }
-    
+
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -307,11 +352,11 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
             }
         )
     }
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(horizontal = 20.dp, vertical = 4.dp)
             .combinedClickable(
                 onClick = {},
                 onLongClick = { showDeleteDialog = true }
@@ -338,13 +383,12 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
     }
 }
 
-// Helper Functions
 fun getDaysInMonth(calendar: Calendar): List<Calendar> {
     val days = mutableListOf<Calendar>()
     val cal = calendar.clone() as Calendar
     cal.set(Calendar.DAY_OF_MONTH, 1)
     val maxDay = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-    
+
     for (i in 1..maxDay) {
         days.add(cal.clone() as Calendar)
         cal.add(Calendar.DAY_OF_MONTH, 1)
@@ -372,7 +416,6 @@ fun StatisticsSection(sessions: List<WorkoutSession>) {
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
-        // Volume Chart
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -390,7 +433,6 @@ fun StatisticsSection(sessions: List<WorkoutSession>) {
             }
         }
 
-        // Frequency Chart
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -417,7 +459,7 @@ fun VolumeChart(sessions: List<WorkoutSession>) {
     }
 
     val maxVolume = sortedSessions.maxOfOrNull { it.totalWeightLifted } ?: 1f
-    
+
     androidx.compose.foundation.Canvas(
         modifier = Modifier
             .fillMaxWidth()
@@ -426,27 +468,25 @@ fun VolumeChart(sessions: List<WorkoutSession>) {
         val width = size.width
         val height = size.height
         val spacing = width / (sortedSessions.size - 1).coerceAtLeast(1)
-        
-        // Draw lines
+
         val path = androidx.compose.ui.graphics.Path()
         sortedSessions.forEachIndexed { index, session ->
             val x = index * spacing
             val y = height - (session.totalWeightLifted / maxVolume * height)
-            
+
             if (index == 0) {
                 path.moveTo(x, y)
             } else {
                 path.lineTo(x, y)
             }
-            
-            // Draw point
+
             drawCircle(
                 color = NeonGreen,
                 radius = 4.dp.toPx(),
                 center = androidx.compose.ui.geometry.Offset(x, y)
             )
         }
-        
+
         drawPath(
             path = path,
             color = NeonGreen,
@@ -458,18 +498,17 @@ fun VolumeChart(sessions: List<WorkoutSession>) {
 @Composable
 fun FrequencyChart(sessions: List<WorkoutSession>) {
     val currentCal = Calendar.getInstance()
-    // Group sessions by week (last 4 weeks)
     val weeks = (0..3).map { offset ->
         val weekStart = currentCal.clone() as Calendar
         weekStart.add(Calendar.WEEK_OF_YEAR, -offset)
         weekStart.set(Calendar.DAY_OF_WEEK, weekStart.getFirstDayOfWeek())
-        
+
         val weekEnd = weekStart.clone() as Calendar
         weekEnd.add(Calendar.DAY_OF_WEEK, 6)
-        
+
         val count = sessions.count { session ->
             val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
-            sessionCal.timeInMillis >= weekStart.timeInMillis && 
+            sessionCal.timeInMillis >= weekStart.timeInMillis &&
             sessionCal.timeInMillis <= weekEnd.timeInMillis
         }
         count

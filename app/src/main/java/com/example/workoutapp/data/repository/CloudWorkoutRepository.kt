@@ -125,6 +125,10 @@ class CloudWorkoutRepository @Inject constructor(
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeAllExerciseNames(user.uid)
     }
 
+    override fun getAllSessionExercises(): Flow<List<SessionExercise>> = authManager.currentUser.flatMapLatest { user ->
+        if (user == null) flowOf(emptyList()) else firestoreRepository.observeAllSessionExercises(user.uid)
+    }
+
     private fun requireUid(): String {
         return authManager.currentUserId() ?: throw IllegalStateException("User is not signed in")
     }

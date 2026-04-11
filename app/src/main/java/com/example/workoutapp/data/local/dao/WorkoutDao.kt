@@ -112,4 +112,7 @@ interface WorkoutDao {
 
     @Query("SELECT DISTINCT exerciseName FROM session_exercises ORDER BY exerciseName")
     fun getAllExerciseNames(): Flow<List<String>>
+
+    @Query("SELECT * FROM session_exercises ORDER BY sessionId DESC")
+    fun getAllSessionExercises(): Flow<List<SessionExercise>>
 }

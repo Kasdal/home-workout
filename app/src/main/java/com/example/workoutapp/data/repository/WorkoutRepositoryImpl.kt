@@ -76,4 +76,6 @@ class WorkoutRepositoryImpl @Inject constructor(
         dao.getExerciseHistory(exerciseName)
 
     override fun getAllExerciseNames(): Flow<List<String>> = dao.getAllExerciseNames()
+
+    override fun getAllSessionExercises(): Flow<List<SessionExercise>> = dao.getAllSessionExercises()
 }
