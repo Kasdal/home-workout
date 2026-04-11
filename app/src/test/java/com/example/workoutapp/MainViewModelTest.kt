@@ -1,9 +1,11 @@
 package com.example.workoutapp
 
+import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.repository.WorkoutRepository
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,15 +25,18 @@ class MainViewModelTest {
 
     private lateinit var viewModel: MainViewModel
     private lateinit var repository: WorkoutRepository
+    private lateinit var authManager: AuthManager
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk(relaxed = true)
+        authManager = mockk(relaxed = true)
         
         // Default settings mock
         coEvery { repository.getSettings() } returns flowOf(Settings())
+        every { authManager.currentUserId() } returns "test-user"
     }
 
     @After
@@ -43,7 +48,7 @@ class MainViewModelTest {
     fun `startDestination is workout when user metrics exist`() = runTest {
         coEvery { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
         
-        viewModel = MainViewModel(repository)
+        viewModel = MainViewModel(repository, authManager)
         advanceUntilIdle()
         
         assertEquals("workout", viewModel.startDestination.value)
@@ -53,9 +58,20 @@ class MainViewModelTest {
     fun `startDestination is onboarding when user metrics do not exist`() = runTest {
         coEvery { repository.getUserMetrics() } returns flowOf(null)
         
-        viewModel = MainViewModel(repository)
+        viewModel = MainViewModel(repository, authManager)
         advanceUntilIdle()
         
         assertEquals("onboarding", viewModel.startDestination.value)
+    }
+
+    @Test
+    fun `startDestination is null when user is not signed in`() = runTest {
+        every { authManager.currentUserId() } returns null
+        coEvery { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
+
+        viewModel = MainViewModel(repository, authManager)
+        advanceUntilIdle()
+
+        assertEquals(null, viewModel.startDestination.value)
     }
 }

@@ -14,3 +14,10 @@ build_error*.txt
 output_daemon.txt
 output.txt
 
+# Local helper docs
+AGENT.MD
+Architecture.md
+
+# Firebase local config
+app/google-services.json
+

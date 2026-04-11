@@ -2,10 +2,14 @@ package com.example.workoutapp.di
 
 import android.app.Application
 import androidx.room.Room
+import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.local.WorkoutDatabase
 import com.example.workoutapp.data.local.dao.WorkoutDao
+import com.example.workoutapp.data.remote.FirestoreRepository
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.example.workoutapp.data.repository.CloudWorkoutRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
-import com.example.workoutapp.data.repository.WorkoutRepositoryImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -64,8 +68,25 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideWorkoutRepository(dao: WorkoutDao): WorkoutRepository {
-        return WorkoutRepositoryImpl(dao)
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideWorkoutRepository(
+        authManager: AuthManager,
+        firestoreRepository: FirestoreRepository
+    ): WorkoutRepository {
+        return CloudWorkoutRepository(
+            authManager = authManager,
+            firestoreRepository = firestoreRepository
+        )
     }
 }
-

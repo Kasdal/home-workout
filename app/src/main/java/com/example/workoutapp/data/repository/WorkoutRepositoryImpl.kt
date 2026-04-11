@@ -3,9 +3,11 @@ package com.example.workoutapp.data.repository
 import com.example.workoutapp.data.local.dao.WorkoutDao
 import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.RestDay
+import com.example.workoutapp.data.local.entity.SessionExercise
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.local.entity.WorkoutStats
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 
@@ -44,6 +46,10 @@ class WorkoutRepositoryImpl @Inject constructor(
 
     override fun getSessions(): Flow<List<WorkoutSession>> = dao.getAllSessions()
 
+    override suspend fun getSession(sessionId: Int): WorkoutSession? = dao.getSessionById(sessionId)
+
+    override fun getWorkoutStats(): Flow<WorkoutStats?> = dao.getWorkoutStats()
+
     override suspend fun saveSession(session: WorkoutSession): Long = dao.insertSession(session)
     
     override suspend fun deleteSession(sessionId: Int) = dao.deleteSession(sessionId)
@@ -60,13 +66,13 @@ class WorkoutRepositoryImpl @Inject constructor(
     
     override suspend fun getRestDayByDate(date: Long): RestDay? = dao.getRestDayByDate(date)
 
-    override suspend fun saveSessionExercises(exercises: List<com.example.workoutapp.data.local.entity.SessionExercise>) = 
+    override suspend fun saveSessionExercises(exercises: List<SessionExercise>) = 
         dao.insertSessionExercises(exercises)
 
-    override fun getSessionExercises(sessionId: Int): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>> = 
+    override fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>> = 
         dao.getSessionExercises(sessionId)
 
-    override fun getExerciseHistory(exerciseName: String): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>> = 
+    override fun getExerciseHistory(exerciseName: String): Flow<List<SessionExercise>> = 
         dao.getExerciseHistory(exerciseName)
 
     override fun getAllExerciseNames(): Flow<List<String>> = dao.getAllExerciseNames()

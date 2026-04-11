@@ -22,6 +22,7 @@ import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.onboarding.OnboardingScreen
 import com.example.workoutapp.ui.theme.WorkoutAppTheme
 import com.example.workoutapp.ui.workout.WorkoutScreen
+import com.example.workoutapp.ui.auth.AuthGateScreen
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -29,22 +30,34 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            WorkoutAppTheme(
-                darkTheme = when (hiltViewModel<MainViewModel>().settings.collectAsState(initial = null).value?.themeMode) {
-                    "light" -> false
-                    "dark" -> true
-                    else -> isSystemInDarkTheme() // "auto" or null
-                }
-            ) {
-                val mainViewModel: MainViewModel = hiltViewModel()
-                val startDestination by mainViewModel.startDestination.collectAsState()
-                var showSplash by remember { mutableStateOf(true) }
+            var showSplash by remember { mutableStateOf(true) }
+            var appUnlocked by remember { mutableStateOf(false) }
 
-                if (showSplash) {
+            if (showSplash) {
+                WorkoutAppTheme(darkTheme = true) {
                     com.example.workoutapp.ui.splash.SplashScreen(
                         onTimeout = { showSplash = false }
                     )
-                } else if (startDestination != null) {
+                }
+            } else if (!appUnlocked) {
+                WorkoutAppTheme(darkTheme = true) {
+                    AuthGateScreen(
+                        onReady = { appUnlocked = true }
+                    )
+                }
+            } else {
+                val mainViewModel: MainViewModel = hiltViewModel()
+                val startDestination by mainViewModel.startDestination.collectAsState()
+                val settings by mainViewModel.settings.collectAsState(initial = null)
+
+                WorkoutAppTheme(
+                    darkTheme = when (settings?.themeMode) {
+                        "light" -> false
+                        "dark" -> true
+                        else -> isSystemInDarkTheme()
+                    }
+                ) {
+                    if (startDestination != null) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
@@ -84,9 +97,9 @@ class MainActivity : ComponentActivity() {
                         }
 
                     }
-                } else {
-                    // Show a loading screen or blank while checking
-                    Surface(color = MaterialTheme.colorScheme.background) {}
+                    } else {
+                        Surface(color = MaterialTheme.colorScheme.background) {}
+                    }
                 }
             }
         }

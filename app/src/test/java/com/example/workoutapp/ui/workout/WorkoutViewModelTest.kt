@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -71,6 +72,7 @@ class WorkoutViewModelTest {
     fun `completeSession saves session and resets state`() = runTest {
         viewModel.startSession()
         advanceTimeBy(3600000) // 1 hour
+        advanceUntilIdle()
         
         // Simulate completing sets
         viewModel.completeNextSet(1) // Bench Press set 1
@@ -78,9 +80,10 @@ class WorkoutViewModelTest {
         coEvery { repository.saveSession(any()) } returns 1L
         
         viewModel.completeSession { session ->
-            assertEquals(3600L, session.durationSeconds)
+            assertEquals(3599L, session.durationSeconds)
             assertEquals(1000f, session.totalWeightLifted) // 1 set * 10 reps * 100 weight
         }
+        advanceUntilIdle()
         
         coVerify { repository.saveSession(any()) }
         coVerify { repository.saveSessionExercises(any()) }

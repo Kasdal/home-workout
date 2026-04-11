@@ -17,6 +17,17 @@ fun OnboardingScreen(
     navController: NavController,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
+    val hasProfiles by viewModel.hasProfiles.collectAsState()
+
+    if (hasProfiles) {
+        LaunchedEffect(Unit) {
+            navController.navigate(Screen.Profile.route) {
+                popUpTo(Screen.Onboarding.route) { inclusive = true }
+            }
+        }
+        return
+    }
+
     var weight by remember { mutableStateOf("") }
     var height by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }

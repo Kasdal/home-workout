@@ -2,9 +2,11 @@ package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.RestDay
+import com.example.workoutapp.data.local.entity.SessionExercise
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.local.entity.WorkoutStats
 import kotlinx.coroutines.flow.Flow
 
 interface WorkoutRepository {
@@ -23,6 +25,8 @@ interface WorkoutRepository {
     suspend fun deleteExercise(exerciseId: Int)
 
     fun getSessions(): Flow<List<WorkoutSession>>
+    suspend fun getSession(sessionId: Int): WorkoutSession?
+    fun getWorkoutStats(): Flow<WorkoutStats?>
     suspend fun saveSession(session: WorkoutSession): Long
     suspend fun deleteSession(sessionId: Int)
     
@@ -35,8 +39,8 @@ interface WorkoutRepository {
     suspend fun getRestDayByDate(date: Long): RestDay?
 
     // Session Exercises
-    suspend fun saveSessionExercises(exercises: List<com.example.workoutapp.data.local.entity.SessionExercise>)
-    fun getSessionExercises(sessionId: Int): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
-    fun getExerciseHistory(exerciseName: String): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+    suspend fun saveSessionExercises(exercises: List<SessionExercise>)
+    fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>>
+    fun getExerciseHistory(exerciseName: String): Flow<List<SessionExercise>>
     fun getAllExerciseNames(): Flow<List<String>>
 }

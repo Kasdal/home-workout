@@ -7,9 +7,11 @@ import androidx.room.Query
 import androidx.room.Update
 import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.RestDay
+import com.example.workoutapp.data.local.entity.SessionExercise
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.local.entity.WorkoutStats
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -55,6 +57,20 @@ interface WorkoutDao {
     @Query("SELECT * FROM workout_sessions ORDER BY date DESC")
     fun getAllSessions(): Flow<List<WorkoutSession>>
 
+    @Query("SELECT * FROM workout_sessions WHERE id = :sessionId LIMIT 1")
+    suspend fun getSessionById(sessionId: Int): WorkoutSession?
+
+    @Query(
+        """
+        SELECT 
+            COUNT(*) as totalWorkouts,
+            COALESCE(SUM(totalWeightLifted), 0) as totalWeightLifted,
+            COALESCE(SUM(durationSeconds), 0) as totalDurationSeconds
+        FROM workout_sessions
+        """
+    )
+    fun getWorkoutStats(): Flow<WorkoutStats?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSession(session: WorkoutSession): Long
 
@@ -83,16 +99,16 @@ interface WorkoutDao {
 
     // --- Session Exercises ---
     @Insert
-    suspend fun insertSessionExercise(exercise: com.example.workoutapp.data.local.entity.SessionExercise)
+    suspend fun insertSessionExercise(exercise: SessionExercise)
 
     @Insert
-    suspend fun insertSessionExercises(exercises: List<com.example.workoutapp.data.local.entity.SessionExercise>)
+    suspend fun insertSessionExercises(exercises: List<SessionExercise>)
 
     @Query("SELECT * FROM session_exercises WHERE sessionId = :sessionId ORDER BY sortOrder")
-    fun getSessionExercises(sessionId: Int): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+    fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>>
 
     @Query("SELECT * FROM session_exercises WHERE exerciseName = :name ORDER BY sessionId DESC")
-    fun getExerciseHistory(name: String): Flow<List<com.example.workoutapp.data.local.entity.SessionExercise>>
+    fun getExerciseHistory(name: String): Flow<List<SessionExercise>>
 
     @Query("SELECT DISTINCT exerciseName FROM session_exercises ORDER BY exerciseName")
     fun getAllExerciseNames(): Flow<List<String>>
