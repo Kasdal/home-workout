@@ -156,7 +156,13 @@ class FirestoreRepository @Inject constructor(
         userRoot(uid)
             .collection("exercises")
             .document(exerciseId.toString())
-            .set(mapOf("isDeleted" to true), SetOptions.merge())
+            .set(
+                mapOf(
+                    "deleted" to true,
+                    "isDeleted" to true
+                ),
+                SetOptions.merge()
+            )
             .await()
     }
 

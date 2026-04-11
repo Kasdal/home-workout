@@ -3,6 +3,8 @@ package com.example.workoutapp.ui.workout
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.ExerciseSessionMode
+import com.example.workoutapp.data.local.entity.ExerciseType
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
@@ -90,6 +93,12 @@ class WorkoutViewModel @Inject constructor(
     private var sensorPollingJob: Job? = null
     private var lastSensorReps = 0
 
+    private val _activeExerciseId = MutableStateFlow<Int?>(null)
+    val activeExerciseId: StateFlow<Int?> = _activeExerciseId.asStateFlow()
+
+    private val _activeExerciseMode = MutableStateFlow(ExerciseSessionMode.MANUAL_REPS)
+    val activeExerciseMode: StateFlow<ExerciseSessionMode> = _activeExerciseMode.asStateFlow()
+
     init {
         initializeDefaultExercises()
         observeSettings()
@@ -121,7 +130,15 @@ class WorkoutViewModel @Inject constructor(
                     "Tricep Extension", "Lateral Raise", "Calf Raise"
                 )
                 defaults.forEach { name ->
-                    repository.addExercise(Exercise(name = name, weight = 20f))
+                    repository.addExercise(
+                        Exercise(
+                            name = name,
+                            weight = 20f,
+                            exerciseType = com.example.workoutapp.data.local.entity.ExerciseType.STANDARD.name,
+                            usesSensor = true,
+                            holdDurationSeconds = 30
+                        )
+                    )
                 }
             }
         }
@@ -132,6 +149,7 @@ class WorkoutViewModel @Inject constructor(
         _sessionStarted.value = true
         sessionStartTime = System.currentTimeMillis()
         _sessionElapsedSeconds.value = 0
+        refreshActiveExerciseState()
         
         // Start session timer
         sessionTimerJob = viewModelScope.launch {
@@ -161,7 +179,19 @@ class WorkoutViewModel @Inject constructor(
             _completedSets.value.forEach { (exId, setCount) ->
                 val exercise = exerciseList.find { it.id == exId }
                 if (exercise != null) {
-                    val weight = setCount * exercise.reps * exercise.weight
+                    val weight = when (exercise.exerciseType) {
+                        com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name -> {
+                            val holdRepsEquivalent = (exercise.holdDurationSeconds / 5f).roundToInt().coerceAtLeast(1)
+                            setCount * holdRepsEquivalent * 1f
+                        }
+
+                        com.example.workoutapp.data.local.entity.ExerciseType.BODYWEIGHT.name -> {
+                            val userWeight = repository.getUserMetrics().first()?.weightKg ?: 70f
+                            setCount * exercise.reps * userWeight
+                        }
+
+                        else -> setCount * exercise.reps * exercise.weight
+                    }
                     totalWeight += weight
                     totalVolume += weight
                 }
@@ -187,13 +217,31 @@ class WorkoutViewModel @Inject constructor(
             val sessionExercises = exerciseList.mapIndexed { index, exercise ->
                 val completedSets = _completedSets.value[exercise.id] ?: 0
                 if (completedSets > 0) {
+                    val displayReps = if (exercise.exerciseType == com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name) {
+                        exercise.holdDurationSeconds
+                    } else {
+                        exercise.reps
+                    }
+
                     com.example.workoutapp.data.local.entity.SessionExercise(
                         sessionId = sessionId.toInt(),
                         exerciseName = exercise.name,
                         weight = exercise.weight,
                         sets = completedSets,
-                        reps = exercise.reps,
-                        volume = completedSets * exercise.reps * exercise.weight,
+                        reps = displayReps,
+                        volume = when (exercise.exerciseType) {
+                            com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name -> {
+                                val holdRepsEquivalent = (exercise.holdDurationSeconds / 5f).roundToInt().coerceAtLeast(1)
+                                completedSets * holdRepsEquivalent * 1f
+                            }
+
+                            com.example.workoutapp.data.local.entity.ExerciseType.BODYWEIGHT.name -> {
+                                val userWeight = repository.getUserMetrics().first()?.weightKg ?: 70f
+                                completedSets * exercise.reps * userWeight
+                            }
+
+                            else -> completedSets * exercise.reps * exercise.weight
+                        },
                         sortOrder = index
                     )
                 } else null
@@ -207,6 +255,8 @@ class WorkoutViewModel @Inject constructor(
             _completedSets.value = emptyMap()
             _sessionStarted.value = false
             _sessionElapsedSeconds.value = 0
+            _activeExerciseId.value = null
+            _activeExerciseMode.value = ExerciseSessionMode.MANUAL_REPS
 
             stopSensorPolling()
             
@@ -307,9 +357,12 @@ class WorkoutViewModel @Inject constructor(
                 val newCount = currentCount + 1
                 current[exerciseId] = newCount
                 _completedSets.value = current
+                refreshActiveExerciseState()
                 
                 // Auto-start timer after set
-                if (newCount >= maxSets) {
+                if (exercise?.exerciseType == com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name) {
+                    startTimer(exercise.holdDurationSeconds)
+                } else if (newCount >= maxSets) {
                     // Last set - start 90s timer for exercise switch
                     startTimer(_exerciseSwitchDuration.value)
                 } else {
@@ -327,6 +380,7 @@ class WorkoutViewModel @Inject constructor(
         if (currentCount > 0) {
             current[exerciseId] = currentCount - 1
             _completedSets.value = current
+            refreshActiveExerciseState()
         }
     }
 
@@ -349,6 +403,12 @@ class WorkoutViewModel @Inject constructor(
     fun addExercise() {
         viewModelScope.launch {
             repository.addExercise(Exercise(name = "New Exercise", weight = 0f))
+        }
+    }
+
+    fun addExercise(exercise: Exercise) {
+        viewModelScope.launch {
+            repository.addExercise(exercise)
         }
     }
 
@@ -395,7 +455,9 @@ class WorkoutViewModel @Inject constructor(
         val exerciseList = exercises.first()
         val incompleteExercise = exerciseList.firstOrNull { exercise ->
             val completedSets = _completedSets.value[exercise.id] ?: 0
-            completedSets < exercise.sets
+            completedSets < exercise.sets &&
+                exercise.usesSensor &&
+                exercise.exerciseType != ExerciseType.HOLD.name
         }
 
         incompleteExercise?.let { exercise ->
@@ -416,5 +478,23 @@ class WorkoutViewModel @Inject constructor(
         super.onCleared()
         stopSensorPolling()
         soundManager.release()
+    }
+
+    private fun refreshActiveExerciseState() {
+        viewModelScope.launch {
+            val exerciseList = exercises.first()
+            val activeExercise = exerciseList.firstOrNull { exercise ->
+                val completed = _completedSets.value[exercise.id] ?: 0
+                completed < exercise.sets
+            }
+
+            _activeExerciseId.value = activeExercise?.id
+            _activeExerciseMode.value = when {
+                activeExercise == null -> ExerciseSessionMode.MANUAL_REPS
+                activeExercise.exerciseType == ExerciseType.HOLD.name -> ExerciseSessionMode.HOLD_TIMER
+                activeExercise.usesSensor -> ExerciseSessionMode.SENSOR_REPS
+                else -> ExerciseSessionMode.MANUAL_REPS
+            }
+        }
     }
 }

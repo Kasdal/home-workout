@@ -23,6 +23,9 @@ data class CloudExercise(
     val weight: Float = 0f,
     val reps: Int = 13,
     val sets: Int = 4,
+    val exerciseType: String = "STANDARD",
+    val usesSensor: Boolean = true,
+    val holdDurationSeconds: Int = 30,
     val deleted: Boolean = false,
     val photoUri: String? = null
 )
@@ -109,6 +112,9 @@ fun Exercise.toCloud() = CloudExercise(
     weight = weight,
     reps = reps,
     sets = sets,
+    exerciseType = exerciseType,
+    usesSensor = usesSensor,
+    holdDurationSeconds = holdDurationSeconds,
     deleted = isDeleted,
     photoUri = photoUri
 )
@@ -119,6 +125,9 @@ fun CloudExercise.toLocal() = Exercise(
     weight = weight,
     reps = reps,
     sets = sets,
+    exerciseType = exerciseType,
+    usesSensor = usesSensor,
+    holdDurationSeconds = holdDurationSeconds,
     isDeleted = deleted,
     photoUri = photoUri
 )

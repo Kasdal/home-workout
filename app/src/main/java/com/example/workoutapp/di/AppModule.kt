@@ -59,12 +59,20 @@ object AppModule {
             }
         }
 
+        val MIGRATION_7_8 = object : androidx.room.migration.Migration(7, 8) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE exercises ADD COLUMN exerciseType TEXT NOT NULL DEFAULT 'STANDARD'")
+                database.execSQL("ALTER TABLE exercises ADD COLUMN usesSensor INTEGER NOT NULL DEFAULT 1")
+                database.execSQL("ALTER TABLE exercises ADD COLUMN holdDurationSeconds INTEGER NOT NULL DEFAULT 30")
+            }
+        }
+
         return Room.databaseBuilder(
             app,
             WorkoutDatabase::class.java,
             "workout_db"
         )
-        .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_6_7)
+        .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_6_7, MIGRATION_7_8)
         .fallbackToDestructiveMigration()
         .build()
     }

@@ -17,8 +17,11 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,9 +35,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.ExerciseSessionMode
+import com.example.workoutapp.data.local.entity.ExerciseType
 import com.example.workoutapp.ui.theme.NeonGreen
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -52,6 +56,7 @@ fun ExerciseCard(
     sensorDistance: Int = 0,
     sensorConnected: Boolean = false,
     onPhotoUpload: (() -> Unit)? = null,
+    activeExerciseMode: ExerciseSessionMode? = null,
     modifier: Modifier = Modifier
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
@@ -59,15 +64,6 @@ fun ExerciseCard(
     var showPhotoMenu by remember { mutableStateOf(false) }
     var holdProgress by remember { mutableStateOf(0f) }
     var isHolding by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = {
-            if (it == SwipeToDismissBoxValue.EndToStart) {
-                showDeleteConfirmation = true
-                false // Don't dismiss yet, wait for confirmation
-            } else false
-        }
-    )
 
     val scale by animateFloatAsState(
         targetValue = if (isHolding) 0.95f else 1f,
@@ -97,8 +93,16 @@ fun ExerciseCard(
         ExerciseEditDialog(
             exercise = exercise,
             onDismiss = { showEditDialog = false },
-            onSave = { name, weight, reps, sets ->
-                onUpdate(exercise.copy(name = name, weight = weight, reps = reps, sets = sets))
+                onSave = { name, weight, reps, sets ->
+                onUpdate(
+                    exercise.copy(
+                        name = name,
+                        weight = if (exercise.exerciseType == ExerciseType.BODYWEIGHT.name || exercise.exerciseType == ExerciseType.HOLD.name) 0f else weight,
+                        reps = if (exercise.exerciseType == ExerciseType.HOLD.name) 1 else reps,
+                        holdDurationSeconds = if (exercise.exerciseType == ExerciseType.HOLD.name) reps else exercise.holdDurationSeconds,
+                        sets = sets
+                    )
+                )
                 showEditDialog = false
             }
         )
@@ -108,7 +112,6 @@ fun ExerciseCard(
         AlertDialog(
             onDismissRequest = {
                 showDeleteConfirmation = false
-                scope.launch { dismissState.reset() }
             },
             title = { Text("Delete Exercise?") },
             text = { Text("Are you sure you want to remove ${exercise.name} from this workout?") },
@@ -129,7 +132,6 @@ fun ExerciseCard(
                 TextButton(
                     onClick = {
                         showDeleteConfirmation = false
-                        scope.launch { dismissState.reset() }
                     }
                 ) {
                     Text("Cancel")
@@ -171,7 +173,7 @@ fun ExerciseCard(
                             color = Color.Gray
                         )
                         Text(
-                            text = "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg",
+                            text = exerciseSummary(exercise),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.Gray
                         )
@@ -186,45 +188,17 @@ fun ExerciseCard(
             }
         }
     } else {
-        // Show full exercise card for incomplete exercises with swipe-to-delete
-        SwipeToDismissBox(
-            state = dismissState,
-            enableDismissFromStartToEnd = false,
-            enableDismissFromEndToStart = true,
-            backgroundContent = {
-                val color = when (dismissState.dismissDirection) {
-                    SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer
-                    else -> Color.Transparent
-                }
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(color)
-                        .padding(horizontal = 20.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.onErrorContainer,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
-            }
+        val cardHeightModifier = when (cardMode) {
+            ExerciseCardMode.SESSION -> Modifier.fillMaxHeight()
+            ExerciseCardMode.LIST_COMPACT -> Modifier.heightIn(min = 220.dp, max = 250.dp)
+            ExerciseCardMode.LIST_EXPANDED -> Modifier.fillMaxHeight(0.7f)
+        }
+
+        Card(
+            modifier = modifier.then(cardHeightModifier),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            val cardHeightModifier = when (cardMode) {
-                ExerciseCardMode.SESSION -> Modifier.fillMaxHeight()
-                ExerciseCardMode.LIST_COMPACT -> Modifier.heightIn(min = 220.dp, max = 250.dp)
-                ExerciseCardMode.LIST_EXPANDED -> Modifier.fillMaxHeight(0.7f)
-            }
-            
-            Card(
-                modifier = modifier.then(cardHeightModifier),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 // Compact header: Name, Weight controls, and Checkmarks in one row
                 Row(
@@ -316,6 +290,64 @@ fun ExerciseCard(
                     }
                 }
 
+                if (cardMode != ExerciseCardMode.SESSION) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AssistChip(
+                            onClick = {},
+                            label = {
+                                Text(
+                                    when (exercise.exerciseType) {
+                                        ExerciseType.HOLD.name -> "Hold"
+                                        ExerciseType.BODYWEIGHT.name -> "Bodyweight"
+                                        else -> "Standard"
+                                    }
+                                )
+                            }
+                        )
+                        if (exercise.usesSensor) {
+                            AssistChip(onClick = {}, label = { Text("Sensor") })
+                        }
+                        if (exercise.exerciseType == ExerciseType.HOLD.name) {
+                            AssistChip(
+                                onClick = {},
+                                label = { Text("${exercise.holdDurationSeconds}s hold") },
+                                leadingIcon = {
+                                    Icon(Icons.Default.HourglassBottom, contentDescription = null)
+                                }
+                            )
+                        }
+                    }
+                } else if (activeExerciseMode != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                when (activeExerciseMode) {
+                                    ExerciseSessionMode.SENSOR_REPS -> "Sensor Tracked"
+                                    ExerciseSessionMode.HOLD_TIMER -> "Hold Timer"
+                                    ExerciseSessionMode.MANUAL_REPS -> "Manual Reps"
+                                }
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = when (activeExerciseMode) {
+                                    ExerciseSessionMode.SENSOR_REPS -> Icons.Default.Sensors
+                                    ExerciseSessionMode.HOLD_TIMER -> Icons.Default.HourglassBottom
+                                    ExerciseSessionMode.MANUAL_REPS -> Icons.Default.Repeat
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+
                 // Photo area (shown in SESSION and LIST_EXPANDED modes)
                 val photoSpaceHeight = when (cardMode) {
                     ExerciseCardMode.SESSION -> 200.dp
@@ -387,7 +419,7 @@ fun ExerciseCard(
                                     }
                                 )
                             }
-                        } else if (exercise.photoUri == null) {
+                        } else {
                             // Placeholder
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -474,6 +506,24 @@ fun ExerciseCard(
                     }
                 }
 
+                if (cardMode == ExerciseCardMode.LIST_EXPANDED) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    TextButton(
+                        onClick = { showDeleteConfirmation = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete exercise",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Delete Exercise")
+                    }
+                }
+
                 // Fixed-height area for Undo button (prevents layout shift)
                 Box(
                     modifier = Modifier
@@ -490,7 +540,7 @@ fun ExerciseCard(
                             )
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Undo,
+                                imageVector = Icons.AutoMirrored.Filled.Undo,
                                 contentDescription = "Undo",
                                 modifier = Modifier.size(20.dp)
                             )
@@ -540,7 +590,9 @@ fun ExerciseCard(
                     }
                     
                     Text(
-                        text = if (completedSetCount >= exercise.sets) "COMPLETED" else "NEXT SET",
+                        text = if (completedSetCount >= exercise.sets) "COMPLETED" else {
+                            if (exercise.exerciseType == ExerciseType.HOLD.name) "NEXT HOLD" else "NEXT SET"
+                        },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -550,7 +602,6 @@ fun ExerciseCard(
                 }
 
             }
-        }
         }
     }
 }
@@ -586,7 +637,15 @@ fun ExerciseEditDialog(
                 OutlinedTextField(
                     value = reps,
                     onValueChange = { reps = it },
-                    label = { Text("Reps per Set") },
+                    label = {
+                        Text(
+                            if (exercise.exerciseType == ExerciseType.HOLD.name) {
+                                "Hold Duration (sec)"
+                            } else {
+                                "Reps per Set"
+                            }
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -615,4 +674,12 @@ fun ExerciseEditDialog(
             }
         }
     )
+}
+
+private fun exerciseSummary(exercise: Exercise): String {
+    return when (exercise.exerciseType) {
+        ExerciseType.HOLD.name -> "${exercise.sets} sets × ${exercise.holdDurationSeconds}s hold"
+        ExerciseType.BODYWEIGHT.name -> "${exercise.sets} sets × ${exercise.reps} reps (bodyweight)"
+        else -> "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg"
+    }
 }
