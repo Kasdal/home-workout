@@ -8,6 +8,7 @@ import com.example.workoutapp.data.local.entity.ExerciseType
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.util.CalorieCalculator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -197,11 +198,13 @@ class WorkoutViewModel @Inject constructor(
                 }
             }
 
-            // Calorie Calc
             val userMetrics = repository.getUserMetrics().first()
-            val weightKg = userMetrics?.weightKg ?: 70f
-            val hours = duration / 3600f
-            val calories = 5.0f * weightKg * hours
+            val calories = CalorieCalculator.calculateCalories(
+                durationSeconds = duration.toInt(),
+                completedSets = _completedSets.value,
+                exercises = exerciseList,
+                userMetrics = userMetrics
+            )
 
             val session = WorkoutSession(
                 date = endTime,
