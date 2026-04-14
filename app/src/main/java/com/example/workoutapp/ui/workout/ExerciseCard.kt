@@ -20,7 +20,6 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
@@ -47,7 +46,6 @@ fun ExerciseCard(
     completedSetCount: Int,
     isCompleted: Boolean,
     onCompleteSet: () -> Unit,
-    onUndoSet: () -> Unit,
     onUpdate: (Exercise) -> Unit,
     onDelete: () -> Unit,
     cardMode: ExerciseCardMode = ExerciseCardMode.LIST_COMPACT,
@@ -75,7 +73,7 @@ fun ExerciseCard(
             val startTime = System.currentTimeMillis()
             while (isHolding) {
                 val elapsed = System.currentTimeMillis() - startTime
-                holdProgress = (elapsed / 500f).coerceIn(0f, 1f)
+                holdProgress = (elapsed / 250f).coerceIn(0f, 1f)
                 
                 if (holdProgress >= 1f) {
                     onCompleteSet()
@@ -521,32 +519,6 @@ fun ExerciseCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Delete Exercise")
-                    }
-                }
-
-                // Fixed-height area for Undo button (prevents layout shift)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (completedSetCount > 0 && completedSetCount < exercise.sets) {
-                        OutlinedButton(
-                            onClick = onUndoSet,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Undo,
-                                contentDescription = "Undo",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Undo Last Set")
-                        }
                     }
                 }
 

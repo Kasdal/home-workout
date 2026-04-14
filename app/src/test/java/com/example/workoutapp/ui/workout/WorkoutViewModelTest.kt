@@ -124,15 +124,6 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `undoSet decrements set count`() = runTest {
-        viewModel.completeNextSet(1)
-        assertEquals(1, viewModel.completedSets.value[1])
-        
-        viewModel.undoSet(1)
-        assertEquals(0, viewModel.completedSets.value[1])
-    }
-    
-    @Test
     fun `timer countdown plays beep`() = runTest {
         viewModel.startTimer(5)
         

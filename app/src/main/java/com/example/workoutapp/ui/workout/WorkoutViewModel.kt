@@ -376,17 +376,6 @@ class WorkoutViewModel @Inject constructor(
         }
     }
     
-    // Undo last set
-    fun undoSet(exerciseId: Int) {
-        val current = _completedSets.value.toMutableMap()
-        val currentCount = current[exerciseId] ?: 0
-        if (currentCount > 0) {
-            current[exerciseId] = currentCount - 1
-            _completedSets.value = current
-            refreshActiveExerciseState()
-        }
-    }
-
     fun updateExercise(exercise: Exercise) {
         viewModelScope.launch {
             repository.updateExercise(exercise)
