@@ -52,6 +52,9 @@ class WorkoutViewModel @Inject constructor(
     private val _exerciseSwitchDuration = MutableStateFlow(90)
     val exerciseSwitchDuration: StateFlow<Int> = _exerciseSwitchDuration.asStateFlow()
 
+    private val _undoLastSetEnabled = MutableStateFlow(true)
+    val undoLastSetEnabled: StateFlow<Boolean> = _undoLastSetEnabled.asStateFlow()
+
     // Session State
     private val _sessionStarted = MutableStateFlow(false)
     val sessionStarted: StateFlow<Boolean> = _sessionStarted.asStateFlow()
@@ -111,6 +114,7 @@ class WorkoutViewModel @Inject constructor(
                 if (settings != null) {
                     _restTimerDuration.value = settings.restTimerDuration
                     _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
+                    _undoLastSetEnabled.value = settings.undoLastSetEnabled
                     soundsEnabled = settings.soundsEnabled
                     soundVolume = settings.soundVolume
                     timerSoundType = settings.timerSoundType
@@ -200,10 +204,11 @@ class WorkoutViewModel @Inject constructor(
 
             val userMetrics = repository.getUserMetrics().first()
             val calories = CalorieCalculator.calculateCalories(
-                durationSeconds = duration.toInt(),
                 completedSets = _completedSets.value,
                 exercises = exerciseList,
-                userMetrics = userMetrics
+                userMetrics = userMetrics,
+                restSecondsBetweenSets = _restTimerDuration.value,
+                restSecondsBetweenExercises = _exerciseSwitchDuration.value
             )
 
             val session = WorkoutSession(
@@ -373,6 +378,18 @@ class WorkoutViewModel @Inject constructor(
                     startTimer(_restTimerDuration.value)
                 }
             }
+        }
+    }
+
+    fun undoSet(exerciseId: Int) {
+        if (!_undoLastSetEnabled.value) return
+
+        val current = _completedSets.value.toMutableMap()
+        val currentCount = current[exerciseId] ?: 0
+        if (currentCount > 0) {
+            current[exerciseId] = currentCount - 1
+            _completedSets.value = current
+            refreshActiveExerciseState()
         }
     }
     

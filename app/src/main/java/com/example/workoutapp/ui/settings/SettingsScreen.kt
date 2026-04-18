@@ -4,8 +4,6 @@ import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +24,32 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
+    var showRestTimerDialog by remember { mutableStateOf(false) }
+    var showSwitchTimerDialog by remember { mutableStateOf(false) }
+
+    if (showRestTimerDialog) {
+        TimerSettingDialog(
+            title = "Set Rest Timer",
+            currentValue = settings.restTimerDuration,
+            onDismiss = { showRestTimerDialog = false },
+            onSave = {
+                viewModel.setRestTimerDuration(it)
+                showRestTimerDialog = false
+            }
+        )
+    }
+
+    if (showSwitchTimerDialog) {
+        TimerSettingDialog(
+            title = "Set Exercise Switch Timer",
+            currentValue = settings.exerciseSwitchDuration,
+            onDismiss = { showSwitchTimerDialog = false },
+            onSave = {
+                viewModel.setExerciseSwitchDuration(it)
+                showSwitchTimerDialog = false
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -121,6 +145,48 @@ fun SettingsScreen(
                             )
                         }
                     }
+                }
+            }
+
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        text = "Workout Session",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Undo Last Set")
+                            Text(
+                                text = "Show an undo button during a session after a completed set.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = settings.undoLastSetEnabled,
+                            onCheckedChange = { viewModel.toggleUndoLastSet(it) }
+                        )
+                    }
+
+                    TimerSettingRow(
+                        label = "Rest timer",
+                        value = settings.restTimerDuration,
+                        description = "Used after a normal set.",
+                        onClick = { showRestTimerDialog = true }
+                    )
+
+                    TimerSettingRow(
+                        label = "Exercise switch timer",
+                        value = settings.exerciseSwitchDuration,
+                        description = "Used after the last set of an exercise.",
+                        onClick = { showSwitchTimerDialog = true }
+                    )
                 }
             }
 
@@ -277,3 +343,68 @@ fun SettingsScreen(
 }
 
 fun String.capitalize() = this.replaceFirstChar { it.uppercase() }
+
+@Composable
+private fun TimerSettingRow(
+    label: String,
+    value: Int,
+    description: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label)
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        OutlinedButton(onClick = onClick) {
+            Text("${value}s")
+        }
+    }
+}
+
+@Composable
+private fun TimerSettingDialog(
+    title: String,
+    currentValue: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit
+) {
+    var value by remember(currentValue) { mutableStateOf(currentValue.toString()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text("Seconds") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val seconds = value.toIntOrNull()?.coerceAtLeast(0) ?: currentValue
+                    onSave(seconds)
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}

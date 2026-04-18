@@ -67,12 +67,18 @@ object AppModule {
             }
         }
 
+        val MIGRATION_8_9 = object : androidx.room.migration.Migration(8, 9) {
+            override fun migrate(database: androidx.sqlite.db.SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE settings ADD COLUMN undoLastSetEnabled INTEGER NOT NULL DEFAULT 1")
+            }
+        }
+
         return Room.databaseBuilder(
             app,
             WorkoutDatabase::class.java,
             "workout_db"
         )
-        .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_6_7, MIGRATION_7_8)
+        .addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
         .fallbackToDestructiveMigration()
         .build()
     }

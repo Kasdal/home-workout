@@ -10,6 +10,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -46,8 +47,10 @@ fun ExerciseCard(
     completedSetCount: Int,
     isCompleted: Boolean,
     onCompleteSet: () -> Unit,
+    onUndoSet: () -> Unit,
     onUpdate: (Exercise) -> Unit,
     onDelete: () -> Unit,
+    undoEnabled: Boolean = false,
     cardMode: ExerciseCardMode = ExerciseCardMode.LIST_COMPACT,
     sensorReps: Int = 0,
     sensorState: String = "REST",
@@ -519,6 +522,31 @@ fun ExerciseCard(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Delete Exercise")
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (undoEnabled && completedSetCount > 0 && completedSetCount < exercise.sets) {
+                        OutlinedButton(
+                            onClick = onUndoSet,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Undo,
+                                contentDescription = "Undo",
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Undo Last Set")
+                        }
                     }
                 }
 

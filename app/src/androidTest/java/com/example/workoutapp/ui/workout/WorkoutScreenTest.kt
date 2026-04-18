@@ -1,13 +1,12 @@
 package com.example.workoutapp.ui.workout
 
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.workoutapp.data.local.entity.ExerciseSessionMode
 import com.example.workoutapp.data.local.entity.Exercise
 import org.junit.Rule
 import org.junit.Test
@@ -37,22 +36,26 @@ class WorkoutScreenTest {
                 sessionElapsedSeconds = 0,
                 restTimerDuration = 30,
                 exerciseSwitchDuration = 90,
-                drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+                undoLastSetEnabled = true,
                 snackbarHostState = remember { SnackbarHostState() },
                 onNavigate = {},
-                onOpenDrawer = {},
+                onOpenLibrary = {},
                 onStartSession = {},
                 onCompleteSession = {},
-                onAddExercise = {},
                 onCompleteNextSet = {},
-                onUpdateExercise = {},
-                onDeleteExercise = {},
+                onUndoSet = {},
                 onStartTimer = {},
                 onPauseTimer = {},
                 onResumeTimer = {},
                 onStopTimer = {},
                 onSetRestDuration = {},
-                onSetExerciseSwitchDuration = {}
+                onSetExerciseSwitchDuration = {},
+                sensorReps = 0,
+                sensorState = "REST",
+                sensorDistance = 0,
+                sensorConnected = false,
+                activeExerciseId = null,
+                activeExerciseMode = ExerciseSessionMode.MANUAL_REPS
             )
         }
 
@@ -78,22 +81,26 @@ class WorkoutScreenTest {
                 sessionElapsedSeconds = 120,
                 restTimerDuration = 30,
                 exerciseSwitchDuration = 90,
-                drawerState = rememberDrawerState(initialValue = DrawerValue.Closed),
+                undoLastSetEnabled = true,
                 snackbarHostState = remember { SnackbarHostState() },
                 onNavigate = {},
-                onOpenDrawer = {},
+                onOpenLibrary = {},
                 onStartSession = {},
                 onCompleteSession = {},
-                onAddExercise = {},
                 onCompleteNextSet = {},
-                onUpdateExercise = {},
-                onDeleteExercise = {},
+                onUndoSet = {},
                 onStartTimer = {},
                 onPauseTimer = {},
                 onResumeTimer = {},
                 onStopTimer = {},
                 onSetRestDuration = {},
-                onSetExerciseSwitchDuration = {}
+                onSetExerciseSwitchDuration = {},
+                sensorReps = 0,
+                sensorState = "REST",
+                sensorDistance = 0,
+                sensorConnected = false,
+                activeExerciseId = null,
+                activeExerciseMode = ExerciseSessionMode.MANUAL_REPS
             )
         }
 

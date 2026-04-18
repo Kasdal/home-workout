@@ -68,6 +68,7 @@ fun WorkoutScreen(
     val sessionElapsedSeconds by viewModel.sessionElapsedSeconds.collectAsState()
     val restTimerDuration by viewModel.restTimerDuration.collectAsState()
     val exerciseSwitchDuration by viewModel.exerciseSwitchDuration.collectAsState()
+    val undoLastSetEnabled by viewModel.undoLastSetEnabled.collectAsState()
     val sensorReps by viewModel.sensorReps.collectAsState()
     val sensorState by viewModel.sensorState.collectAsState()
     val sensorDistance by viewModel.sensorDistance.collectAsState()
@@ -121,6 +122,7 @@ fun WorkoutScreen(
         sessionElapsedSeconds = sessionElapsedSeconds,
         restTimerDuration = restTimerDuration,
         exerciseSwitchDuration = exerciseSwitchDuration,
+        undoLastSetEnabled = undoLastSetEnabled,
         snackbarHostState = snackbarHostState,
         onNavigate = { route -> navController.navigate(route) },
         onOpenLibrary = { navController.navigate(Screen.Workouts.route) },
@@ -132,6 +134,7 @@ fun WorkoutScreen(
             }
         },
         onCompleteNextSet = { viewModel.completeNextSet(it) },
+        onUndoSet = { viewModel.undoSet(it) },
         onStartTimer = { viewModel.startTimer(it) },
         onPauseTimer = { viewModel.pauseTimer() },
         onResumeTimer = { viewModel.resumeTimer() },
@@ -159,12 +162,14 @@ fun WorkoutScreenContent(
     sessionElapsedSeconds: Int,
     restTimerDuration: Int,
     exerciseSwitchDuration: Int,
+    undoLastSetEnabled: Boolean,
     snackbarHostState: SnackbarHostState,
     onNavigate: (String) -> Unit,
     onOpenLibrary: () -> Unit,
     onStartSession: () -> Unit,
     onCompleteSession: () -> Unit,
     onCompleteNextSet: (Int) -> Unit,
+    onUndoSet: (Int) -> Unit,
     onStartTimer: (Int) -> Unit,
     onPauseTimer: () -> Unit,
     onResumeTimer: () -> Unit,
@@ -265,8 +270,10 @@ fun WorkoutScreenContent(
                             completedSetCount = completedSetCount,
                             isCompleted = true,
                             onCompleteSet = {},
+                            onUndoSet = {},
                             onUpdate = {},
                             onDelete = {},
+                            undoEnabled = false,
                             cardMode = ExerciseCardMode.LIST_COMPACT,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -277,8 +284,10 @@ fun WorkoutScreenContent(
                         completedSetCount = setCount,
                         isCompleted = isCompleted,
                         onCompleteSet = { onCompleteNextSet(activeExercise.id) },
+                        onUndoSet = { onUndoSet(activeExercise.id) },
                         onUpdate = {},
                         onDelete = {},
+                        undoEnabled = undoLastSetEnabled,
                         cardMode = ExerciseCardMode.SESSION,
                         sensorReps = sensorReps,
                         sensorState = sensorState,
