@@ -23,6 +23,9 @@ data class CloudExercise(
     val weight: Float = 0f,
     val reps: Int = 13,
     val sets: Int = 4,
+    val exerciseType: String = "STANDARD",
+    val usesSensor: Boolean = true,
+    val holdDurationSeconds: Int = 30,
     val deleted: Boolean = false,
     val photoUri: String? = null
 )
@@ -51,6 +54,7 @@ data class CloudSettings(
     val tutorialVersion: Int = 1,
     val restTimerDuration: Int = 30,
     val exerciseSwitchDuration: Int = 90,
+    val undoLastSetEnabled: Boolean = true,
     val sensorEnabled: Boolean = false,
     val sensorIpAddress: String = "192.168.0.125"
 )
@@ -109,6 +113,9 @@ fun Exercise.toCloud() = CloudExercise(
     weight = weight,
     reps = reps,
     sets = sets,
+    exerciseType = exerciseType,
+    usesSensor = usesSensor,
+    holdDurationSeconds = holdDurationSeconds,
     deleted = isDeleted,
     photoUri = photoUri
 )
@@ -119,6 +126,9 @@ fun CloudExercise.toLocal() = Exercise(
     weight = weight,
     reps = reps,
     sets = sets,
+    exerciseType = exerciseType,
+    usesSensor = usesSensor,
+    holdDurationSeconds = holdDurationSeconds,
     isDeleted = deleted,
     photoUri = photoUri
 )
@@ -160,6 +170,7 @@ fun Settings.toCloud() = CloudSettings(
     tutorialVersion = tutorialVersion,
     restTimerDuration = restTimerDuration,
     exerciseSwitchDuration = exerciseSwitchDuration,
+    undoLastSetEnabled = undoLastSetEnabled,
     sensorEnabled = sensorEnabled,
     sensorIpAddress = sensorIpAddress
 )
@@ -175,6 +186,7 @@ fun CloudSettings.toLocal() = Settings(
     tutorialVersion = tutorialVersion,
     restTimerDuration = restTimerDuration,
     exerciseSwitchDuration = exerciseSwitchDuration,
+    undoLastSetEnabled = undoLastSetEnabled,
     sensorEnabled = sensorEnabled,
     sensorIpAddress = sensorIpAddress
 )

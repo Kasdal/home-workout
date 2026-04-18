@@ -54,7 +54,7 @@ fun TutorialScreen(
         ),
         TutorialPage(
             title = "Tap to Undo",
-            description = "Made a mistake? Just tap any completed checkmark to undo that set.",
+            description = "Made a mistake? Enable Undo Last Set in Settings to show an undo button during your session.",
             emoji = "↩️"
         ),
         TutorialPage(
@@ -69,7 +69,7 @@ fun TutorialScreen(
         ),
         TutorialPage(
             title = "Settings & Export",
-            description = "Customize sounds, themes, and export your data anytime via the Settings screen.",
+            description = "Customize sounds, timers, undo behavior, and export your data anytime via the Settings screen.",
             emoji = "⚙️"
         ),
         TutorialPage(

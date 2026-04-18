@@ -89,7 +89,7 @@ class MainActivity : ComponentActivity() {
                                 com.example.workoutapp.ui.about.AboutScreen(navController = navController)
                             }
                             composable(Screen.Workouts.route) {
-                                com.example.workoutapp.ui.workouts.WorkoutsScreen()
+                                com.example.workoutapp.ui.workouts.WorkoutsScreen(navController = navController)
                             }
                             composable(Screen.Insights.route) {
                                 com.example.workoutapp.ui.insights.InsightsScreen(navController = navController)

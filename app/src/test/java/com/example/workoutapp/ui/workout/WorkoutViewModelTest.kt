@@ -106,6 +106,16 @@ class WorkoutViewModelTest {
         assertTrue(viewModel.isTimerRunning.value)
         assertEquals(30, viewModel.timerSeconds.value)
     }
+
+    @Test
+    fun `undoSet decrements completed set count`() = runTest {
+        viewModel.completeNextSet(1)
+
+        viewModel.undoSet(1)
+
+        val sets = viewModel.completedSets.value
+        assertEquals(0, sets[1])
+    }
     
     @Test
     fun `completeNextSet starts exercise switch timer on last set`() = runTest {
@@ -123,15 +133,6 @@ class WorkoutViewModelTest {
         assertEquals(90, viewModel.timerSeconds.value)
     }
 
-    @Test
-    fun `undoSet decrements set count`() = runTest {
-        viewModel.completeNextSet(1)
-        assertEquals(1, viewModel.completedSets.value[1])
-        
-        viewModel.undoSet(1)
-        assertEquals(0, viewModel.completedSets.value[1])
-    }
-    
     @Test
     fun `timer countdown plays beep`() = runTest {
         viewModel.startTimer(5)

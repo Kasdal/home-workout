@@ -43,4 +43,5 @@ interface WorkoutRepository {
     fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>>
     fun getExerciseHistory(exerciseName: String): Flow<List<SessionExercise>>
     fun getAllExerciseNames(): Flow<List<String>>
+    fun getAllSessionExercises(): Flow<List<SessionExercise>>
 }

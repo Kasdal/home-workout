@@ -72,6 +72,27 @@ class SettingsViewModel @Inject constructor(
             repository.saveSettings(updated)
         }
     }
+
+    fun setRestTimerDuration(seconds: Int) {
+        viewModelScope.launch {
+            val updated = _settings.value.copy(restTimerDuration = seconds)
+            repository.saveSettings(updated)
+        }
+    }
+
+    fun setExerciseSwitchDuration(seconds: Int) {
+        viewModelScope.launch {
+            val updated = _settings.value.copy(exerciseSwitchDuration = seconds)
+            repository.saveSettings(updated)
+        }
+    }
+
+    fun toggleUndoLastSet(enabled: Boolean) {
+        viewModelScope.launch {
+            val updated = _settings.value.copy(undoLastSetEnabled = enabled)
+            repository.saveSettings(updated)
+        }
+    }
     
     fun previewTimerSound(soundType: String) {
         soundManager.playTimerSound(

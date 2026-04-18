@@ -1,18 +1,42 @@
 package com.example.workoutapp.ui.workout
 
-import android.content.Intent
 import android.view.WindowManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,10 +46,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.ExerciseSessionMode
+import com.example.workoutapp.data.local.entity.ExerciseType
+import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen
-import kotlinx.coroutines.launch
 
 @Composable
 fun WorkoutScreen(
@@ -41,42 +68,18 @@ fun WorkoutScreen(
     val sessionElapsedSeconds by viewModel.sessionElapsedSeconds.collectAsState()
     val restTimerDuration by viewModel.restTimerDuration.collectAsState()
     val exerciseSwitchDuration by viewModel.exerciseSwitchDuration.collectAsState()
-
-    // Sensor state
+    val undoLastSetEnabled by viewModel.undoLastSetEnabled.collectAsState()
     val sensorReps by viewModel.sensorReps.collectAsState()
     val sensorState by viewModel.sensorState.collectAsState()
     val sensorDistance by viewModel.sensorDistance.collectAsState()
     val sensorConnected by viewModel.sensorConnected.collectAsState()
-    
+    val activeExerciseId by viewModel.activeExerciseId.collectAsState()
+    val activeExerciseMode by viewModel.activeExerciseMode.collectAsState()
+
     var showSummary by remember { mutableStateOf(false) }
-    var lastSession by remember { mutableStateOf<com.example.workoutapp.data.local.entity.WorkoutSession?>(null) }
-    var selectedExerciseId by remember { mutableStateOf<Int?>(null) }
-    
-    val scope = rememberCoroutineScope()
+    var lastSession by remember { mutableStateOf<WorkoutSession?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    // Keep screen on during workout
     val context = LocalContext.current
-    
-    // Photo picker launcher
-    val photoPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia()
-    ) { uri ->
-        uri?.let {
-            selectedExerciseId?.let { exerciseId ->
-                // Take persistable permission to keep access to the photo
-                try {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                } catch (e: Exception) {
-                    // Permission already granted or not needed
-                }
-                viewModel.updateExercisePhoto(exerciseId, uri.toString())
-            }
-        }
-    }
 
     DisposableEffect(sessionStarted) {
         val window = (context as? androidx.activity.ComponentActivity)?.window
@@ -89,11 +92,9 @@ fun WorkoutScreen(
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
-    
-
 
     if (showSummary && lastSession != null) {
-        AlertDialog(
+        androidx.compose.material3.AlertDialog(
             onDismissRequest = { showSummary = false },
             title = { Text("Workout Completed! 💪") },
             text = {
@@ -121,8 +122,10 @@ fun WorkoutScreen(
         sessionElapsedSeconds = sessionElapsedSeconds,
         restTimerDuration = restTimerDuration,
         exerciseSwitchDuration = exerciseSwitchDuration,
+        undoLastSetEnabled = undoLastSetEnabled,
         snackbarHostState = snackbarHostState,
         onNavigate = { route -> navController.navigate(route) },
+        onOpenLibrary = { navController.navigate(Screen.Workouts.route) },
         onStartSession = { viewModel.startSession() },
         onCompleteSession = {
             viewModel.completeSession { session ->
@@ -130,11 +133,8 @@ fun WorkoutScreen(
                 showSummary = true
             }
         },
-        onAddExercise = { viewModel.addExercise() },
         onCompleteNextSet = { viewModel.completeNextSet(it) },
         onUndoSet = { viewModel.undoSet(it) },
-        onUpdateExercise = { viewModel.updateExercise(it) },
-        onDeleteExercise = { viewModel.deleteExercise(it) },
         onStartTimer = { viewModel.startTimer(it) },
         onPauseTimer = { viewModel.pauseTimer() },
         onResumeTimer = { viewModel.resumeTimer() },
@@ -145,18 +145,15 @@ fun WorkoutScreen(
         sensorState = sensorState,
         sensorDistance = sensorDistance,
         sensorConnected = sensorConnected,
-        onPhotoUpload = { exerciseId ->
-            selectedExerciseId = exerciseId
-            photoPickerLauncher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-            )
-        }
+        activeExerciseId = activeExerciseId,
+        activeExerciseMode = activeExerciseMode
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreenContent(
-    exercises: List<com.example.workoutapp.data.local.entity.Exercise>,
+    exercises: List<Exercise>,
     timerSeconds: Int,
     isTimerRunning: Boolean,
     isTimerPaused: Boolean,
@@ -165,15 +162,14 @@ fun WorkoutScreenContent(
     sessionElapsedSeconds: Int,
     restTimerDuration: Int,
     exerciseSwitchDuration: Int,
+    undoLastSetEnabled: Boolean,
     snackbarHostState: SnackbarHostState,
     onNavigate: (String) -> Unit,
+    onOpenLibrary: () -> Unit,
     onStartSession: () -> Unit,
     onCompleteSession: () -> Unit,
-    onAddExercise: () -> Unit,
     onCompleteNextSet: (Int) -> Unit,
     onUndoSet: (Int) -> Unit,
-    onUpdateExercise: (com.example.workoutapp.data.local.entity.Exercise) -> Unit,
-    onDeleteExercise: (Int) -> Unit,
     onStartTimer: (Int) -> Unit,
     onPauseTimer: () -> Unit,
     onResumeTimer: () -> Unit,
@@ -184,22 +180,16 @@ fun WorkoutScreenContent(
     sensorState: String,
     sensorDistance: Int,
     sensorConnected: Boolean,
-    onPhotoUpload: (Int) -> Unit
+    activeExerciseId: Int?,
+    activeExerciseMode: ExerciseSessionMode
 ) {
-    // Removed ModalNavigationDrawer - using bottom nav instead
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            BottomNavBar(
-                currentRoute = "workout",
-                onNavigate = onNavigate
-            )
+            BottomNavBar(currentRoute = "workout", onNavigate = onNavigate)
         },
         topBar = {
             Column {
-                // Removed hamburger menu - using bottom nav instead
-                
-                // Session Timer Display
                 if (sessionStarted) {
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer,
@@ -219,36 +209,39 @@ fun WorkoutScreenContent(
                             )
                         }
                     }
-                }
 
-                TimerHeader(
-                    seconds = timerSeconds,
-                    isRunning = isTimerRunning,
-                    isPaused = isTimerPaused,
-                    restTimerDuration = restTimerDuration,
-                    exerciseSwitchDuration = exerciseSwitchDuration,
-                    onStartRest = { onStartTimer(restTimerDuration) },
-                    onStartExerciseSwitch = { onStartTimer(exerciseSwitchDuration) },
-                    onPause = onPauseTimer,
-                    onResume = onResumeTimer,
-                    onStop = onStopTimer,
-                    onSetRestDuration = onSetRestDuration,
-                    onSetExerciseSwitchDuration = onSetExerciseSwitchDuration
-                )
+                    TimerHeader(
+                        seconds = timerSeconds,
+                        isRunning = isTimerRunning,
+                        isPaused = isTimerPaused,
+                        restTimerDuration = restTimerDuration,
+                        exerciseSwitchDuration = exerciseSwitchDuration,
+                        onStartRest = { onStartTimer(restTimerDuration) },
+                        onStartExerciseSwitch = { onStartTimer(exerciseSwitchDuration) },
+                        onPause = onPauseTimer,
+                        onResume = onResumeTimer,
+                        onStop = onStopTimer,
+                        onSetRestDuration = onSetRestDuration,
+                        onSetExerciseSwitchDuration = onSetExerciseSwitchDuration
+                    )
+                } else {
+                    TopAppBar(
+                        title = { Text("Workout") },
+                        actions = {
+                            Text(
+                                text = "${exercises.size} exercises",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(end = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    )
+                }
             }
         },
-
-        floatingActionButton = {
-            if (!sessionStarted) {
-                FloatingActionButton(onClick = onAddExercise) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Exercise")
-                }
-            }
-        }
+        floatingActionButton = {}
     ) { padding ->
-
         if (sessionStarted) {
-            // Focus Mode: Show active exercise with completed exercises at top
             val completedExercises = exercises.filter { exercise ->
                 val setCount = completedSets[exercise.id] ?: 0
                 setCount >= exercise.sets
@@ -262,7 +255,7 @@ fun WorkoutScreenContent(
             if (activeExercise != null) {
                 val setCount = completedSets[activeExercise.id] ?: 0
                 val isCompleted = setCount >= activeExercise.sets
-                
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -270,45 +263,46 @@ fun WorkoutScreenContent(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Show last 2 completed exercises at top in collapsed form
                     visibleCompletedExercises.forEach { exercise ->
                         val completedSetCount = completedSets[exercise.id] ?: 0
                         ExerciseCard(
                             exercise = exercise,
                             completedSetCount = completedSetCount,
                             isCompleted = true,
-                            onCompleteSet = { },
-                            onUndoSet = { },
-                            onUpdate = { },
-                            onDelete = { },
+                            onCompleteSet = {},
+                            onUndoSet = {},
+                            onUpdate = {},
+                            onDelete = {},
+                            undoEnabled = false,
                             cardMode = ExerciseCardMode.LIST_COMPACT,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    
-                    // Show active exercise
+
                     ExerciseCard(
                         exercise = activeExercise,
                         completedSetCount = setCount,
                         isCompleted = isCompleted,
                         onCompleteSet = { onCompleteNextSet(activeExercise.id) },
                         onUndoSet = { onUndoSet(activeExercise.id) },
-                        onUpdate = { onUpdateExercise(it) },
-                        onDelete = { onDeleteExercise(activeExercise.id) },
+                        onUpdate = {},
+                        onDelete = {},
+                        undoEnabled = undoLastSetEnabled,
                         cardMode = ExerciseCardMode.SESSION,
                         sensorReps = sensorReps,
                         sensorState = sensorState,
                         sensorDistance = sensorDistance,
-                        sensorConnected = sensorConnected,
+                        sensorConnected = sensorConnected &&
+                            activeExerciseId == activeExercise.id &&
+                            activeExerciseMode == ExerciseSessionMode.SENSOR_REPS,
+                        activeExerciseMode = activeExerciseMode,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    
-                    // Spacer to push button to bottom
+
                     Spacer(modifier = Modifier.weight(1f))
-                    
-                    // COMPLETE SESSION Button
+
                     Button(
-                        onClick = { onCompleteSession() },
+                        onClick = onCompleteSession,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -325,7 +319,6 @@ fun WorkoutScreenContent(
                     }
                 }
             } else {
-                // All exercises completed in this session
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -339,11 +332,9 @@ fun WorkoutScreenContent(
                         style = MaterialTheme.typography.headlineMedium,
                         textAlign = TextAlign.Center
                     )
-                    
                     Spacer(modifier = Modifier.height(24.dp))
-                    
                     Button(
-                        onClick = { onCompleteSession() },
+                        onClick = onCompleteSession,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
@@ -361,117 +352,156 @@ fun WorkoutScreenContent(
                 }
             }
         } else {
-            // Normal Mode: List all exercises
-            var expandedExerciseId by remember { mutableStateOf<Int?>(null) }
-            
-            // Separate completed and incomplete exercises
-            val completedExercises = exercises.filter { exercise ->
-                val setCount = completedSets[exercise.id] ?: 0
-                setCount >= exercise.sets
-            }
-            val incompleteExercises = exercises.filter { exercise ->
-                val setCount = completedSets[exercise.id] ?: 0
-                setCount < exercise.sets
-            }
-            
-            // Show only last 2 completed exercises
-            val visibleCompletedExercises = completedExercises.takeLast(1)
-            
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Show last 2 completed exercises at the top
-                items(visibleCompletedExercises) { exercise ->
-                    val setCount = completedSets[exercise.id] ?: 0
-                    val isCompleted = setCount >= exercise.sets
-                    
-                    ExerciseCard(
-                        exercise = exercise,
-                        completedSetCount = setCount,
-                        isCompleted = isCompleted,
-                        onCompleteSet = { },
-                        onUndoSet = { },
-                        onUpdate = { },
-                        onDelete = { },
-                        cardMode = ExerciseCardMode.LIST_COMPACT,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                    )
-                }
-                
-                // Show all incomplete exercises
-                items(incompleteExercises) { exercise ->
-                    val setCount = completedSets[exercise.id] ?: 0
-                    val isCompleted = setCount >= exercise.sets
-                    val isExpanded = expandedExerciseId == exercise.id
-                    
-                    ExerciseCard(
-                        exercise = exercise,
-                        completedSetCount = setCount,
-                        isCompleted = isCompleted,
-                        onCompleteSet = { onCompleteNextSet(exercise.id) },
-                        onUndoSet = { onUndoSet(exercise.id) },
-                        onUpdate = { onUpdateExercise(it) },
-                        onDelete = { onDeleteExercise(exercise.id) },
-                        cardMode = if (isExpanded) ExerciseCardMode.LIST_EXPANDED else ExerciseCardMode.LIST_COMPACT,
-                        onPhotoUpload = { onPhotoUpload(exercise.id) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                            .clickable {
-                                expandedExerciseId = if (isExpanded) null else exercise.id
-                            }
-                    )
-                }
-                
-                // START SESSION / COMPLETE SESSION Button
-                item {
-                    Button(
-                        onClick = {
-                            if (sessionStarted) {
-                                onCompleteSession()
-                            } else {
-                                onStartSession()
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (sessionStarted) Color.Red else NeonGreen,
-                            contentColor = if (sessionStarted) Color.White else Color.Black
-                        )
-                    ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = if (sessionStarted) "COMPLETE SESSION" else "START SESSION",
-                            style = MaterialTheme.typography.titleLarge,
+                            text = "Ready to train?",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
+                        Text(
+                            text = "Manage your exercise library from Workouts tab, then start session here.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(
+                                onClick = onStartSession,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = NeonGreen,
+                                    contentColor = Color.Black
+                                )
+                            ) {
+                                Text("START SESSION", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = onOpenLibrary,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(50.dp)
+                            ) {
+                                Icon(Icons.Default.Book, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("WORKOUT LIBRARY")
+                            }
+                        }
                     }
                 }
-                
-                // Footer
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
+
+                if (exercises.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "No exercises yet. Add from Workout Library.",
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(onClick = onOpenLibrary) {
+                                Icon(Icons.Default.Book, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Workout Library")
+                            }
+                        }
+                    }
+                } else {
+                    val previewExercises = exercises.take(8)
+
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentPadding = PaddingValues(bottom = 86.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        items(previewExercises) { exercise ->
+                            ExerciseLibraryPreviewRow(
+                                exercise = exercise,
+                                onClick = onOpenLibrary
+                            )
+                        }
+                        if (exercises.size > previewExercises.size) {
+                            item {
+                                Text(
+                                    text = "Showing ${previewExercises.size} of ${exercises.size}. Manage all in Workout Library.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseLibraryPreviewRow(
+    exercise: Exercise,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = exercise.name, fontWeight = FontWeight.Bold)
+                Text(
+                    text = when (exercise.exerciseType) {
+                        ExerciseType.HOLD.name -> "${exercise.sets} sets × ${exercise.holdDurationSeconds}s hold"
+                        ExerciseType.BODYWEIGHT.name -> "${exercise.sets} sets × ${exercise.reps} reps (bodyweight)"
+                        else -> "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = when (exercise.exerciseType) {
+                            ExerciseType.HOLD.name -> "Hold"
+                            ExerciseType.BODYWEIGHT.name -> "Bodyweight"
+                            else -> "Standard"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (exercise.usesSensor) {
                         Text(
-                            text = "Developed by Milan Ples @2025",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            text = "Sensor",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
             }
+            Text(
+                text = "Edit in Library",
+                style = MaterialTheme.typography.bodySmall,
+                color = NeonGreen
+            )
         }
     }
 }

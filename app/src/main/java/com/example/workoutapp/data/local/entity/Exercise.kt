@@ -3,6 +3,12 @@ package com.example.workoutapp.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+enum class ExerciseType {
+    STANDARD,
+    BODYWEIGHT,
+    HOLD
+}
+
 @Entity(tableName = "exercises")
 data class Exercise(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
@@ -10,6 +16,9 @@ data class Exercise(
     val weight: Float,
     val reps: Int = 13, // Customizable reps per set
     val sets: Int = 4,  // Customizable number of sets
+    val exerciseType: String = ExerciseType.STANDARD.name,
+    val usesSensor: Boolean = true,
+    val holdDurationSeconds: Int = 30,
     val isDeleted: Boolean = false,
     val photoUri: String? = null // Exercise photo URI
 )
