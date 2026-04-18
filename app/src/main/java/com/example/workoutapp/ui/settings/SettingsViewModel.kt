@@ -3,8 +3,10 @@ package com.example.workoutapp.ui.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.Settings
+import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.SensorRepository
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,7 +20,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repository: WorkoutRepository,
+    private val settingsRepository: SettingsRepository,
+    private val exerciseRepository: ExerciseRepository,
+    private val sessionHistoryRepository: SessionHistoryRepository,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
@@ -47,7 +51,7 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            repository.getSettings().collect { dbSettings ->
+            settingsRepository.getSettings().collect { dbSettings ->
                 dbSettings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
             }
         }
@@ -138,8 +142,8 @@ class SettingsViewModel @Inject constructor(
     fun exportData(onComplete: (String) -> Unit) {
         viewModelScope.launch {
             // Get all data
-            val sessions = repository.getSessions().first()
-            val exercises = repository.getExercises().first()
+            val sessions = sessionHistoryRepository.getSessions().first()
+            val exercises = exerciseRepository.getExercises().first()
             
             // Create CSV format
             val csv = buildString {

@@ -4,8 +4,11 @@ import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.repository.ExerciseRepository
+import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.SensorRepository
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
@@ -37,7 +40,10 @@ import org.junit.Test
 class WorkoutViewModelTest {
 
     private lateinit var viewModel: WorkoutViewModel
-    private lateinit var repository: WorkoutRepository
+    private lateinit var exerciseRepository: ExerciseRepository
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var sessionHistoryRepository: SessionHistoryRepository
+    private lateinit var settingsRepository: SettingsRepository
     private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
     private lateinit var syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository
     private lateinit var soundManager: SoundManager
@@ -48,7 +54,10 @@ class WorkoutViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        repository = mockk(relaxed = true)
+        exerciseRepository = mockk(relaxed = true)
+        profileRepository = mockk(relaxed = true)
+        sessionHistoryRepository = mockk(relaxed = true)
+        settingsRepository = mockk(relaxed = true)
         localAppPreferencesRepository = mockk(relaxed = true)
         syncedWorkoutSettingsRepository = mockk(relaxed = true)
         soundManager = mockk(relaxed = true)
@@ -56,19 +65,22 @@ class WorkoutViewModelTest {
         sessionCompletionCalculator = SessionCompletionCalculator()
 
         // Default mocks
-        coEvery { repository.getExercises() } returns flowOf(
+        coEvery { exerciseRepository.getExercises() } returns flowOf(
             listOf(
                 Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4),
                 Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 5)
             )
         )
-        coEvery { repository.getSettings() } returns flowOf(Settings())
-        coEvery { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
+        coEvery { settingsRepository.getSettings() } returns flowOf(Settings())
+        coEvery { profileRepository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
         every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns flowOf(WorkoutSessionSettings())
 
         viewModel = WorkoutViewModel(
-            repository,
+            exerciseRepository,
+            profileRepository,
+            sessionHistoryRepository,
+            settingsRepository,
             localAppPreferencesRepository,
             syncedWorkoutSettingsRepository,
             soundManager,
@@ -100,7 +112,7 @@ class WorkoutViewModelTest {
         viewModel.completeNextSet(1) // Bench Press set 1
         advanceUntilIdle()
         
-        coEvery { repository.saveSession(any()) } returns 1L
+        coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
         
         viewModel.completeSession { session ->
             assertEquals(3599L, session.durationSeconds)
@@ -108,8 +120,8 @@ class WorkoutViewModelTest {
         }
         advanceUntilIdle()
         
-        coVerify { repository.saveSession(any()) }
-        coVerify { repository.saveSessionExercises(any()) }
+        coVerify { sessionHistoryRepository.saveSession(any()) }
+        coVerify { sessionHistoryRepository.saveSessionExercises(any()) }
         
         assertFalse(viewModel.sessionStarted.value)
         assertEquals(0, viewModel.sessionElapsedSeconds.value)

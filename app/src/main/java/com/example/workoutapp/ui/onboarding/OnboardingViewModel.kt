@@ -3,7 +3,7 @@ package com.example.workoutapp.ui.onboarding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OnboardingViewModel @Inject constructor(
-    private val repository: WorkoutRepository
+    private val repository: ProfileRepository
 ) : ViewModel() {
 
     private val _hasProfiles = MutableStateFlow(false)

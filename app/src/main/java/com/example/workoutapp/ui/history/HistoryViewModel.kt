@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.SessionExercise
 import com.example.workoutapp.data.local.entity.WorkoutSession
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -20,7 +20,7 @@ import kotlin.math.roundToInt
 
 @HiltViewModel
 class HistoryViewModel @Inject constructor(
-    private val repository: WorkoutRepository
+    private val repository: SessionHistoryRepository
 ) : ViewModel() {
     val sessions = repository.getSessions()
         .catch { Timber.e(it, "sessions flow error") }

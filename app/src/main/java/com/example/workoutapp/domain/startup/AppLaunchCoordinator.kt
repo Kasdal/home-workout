@@ -1,7 +1,7 @@
 package com.example.workoutapp.domain.startup
 
 import com.example.workoutapp.auth.AuthManager
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 @Singleton
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppLaunchCoordinator @Inject constructor(
-    private val repository: WorkoutRepository,
+    private val repository: ProfileRepository,
     private val authManager: AuthManager
 ) {
     fun startDestination(): Flow<String?> {

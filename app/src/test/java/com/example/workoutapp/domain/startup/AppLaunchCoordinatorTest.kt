@@ -2,7 +2,7 @@ package com.example.workoutapp.domain.startup
 
 import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.ProfileRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,7 +15,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppLaunchCoordinatorTest {
 
-    private val repository = mockk<WorkoutRepository>()
+    private val repository = mockk<ProfileRepository>()
     private val authManager = mockk<AuthManager>()
 
     @Test

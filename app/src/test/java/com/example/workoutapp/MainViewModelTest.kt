@@ -1,7 +1,7 @@
 package com.example.workoutapp
 
 import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
@@ -25,7 +25,7 @@ import org.junit.Test
 class MainViewModelTest {
 
     private lateinit var viewModel: MainViewModel
-    private lateinit var repository: WorkoutRepository
+    private lateinit var repository: SettingsRepository
     private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
     private lateinit var appLaunchCoordinator: AppLaunchCoordinator
     private val testDispatcher = StandardTestDispatcher()

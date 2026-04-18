@@ -10,7 +10,8 @@
 
 ## Verified Room status
 
-- `WorkoutRepository` is bound to `CloudWorkoutRepository` in `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
+- Active app code no longer depends on `WorkoutRepository`.
+- `CloudWorkoutRepository` remains the single Firestore-backed runtime implementation, exposed through focused repository interfaces.
 - Room is still built and injected in `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
 - The only active runtime Room dependency is `MigrationOrchestrator`, now reading through `LegacyMigrationDataSource`, used from `AuthViewModel` during sign-in or manual legacy backup export.
 - `WorkoutRepositoryImpl` has been removed.
@@ -147,6 +148,13 @@ Status:
   - rest day
   - auth/session
 
+Status:
+
+- Complete for active app code.
+- Runtime consumers now depend on focused repository interfaces instead of `WorkoutRepository`.
+- `CloudWorkoutRepository` still implements multiple focused interfaces, which is acceptable for now.
+- Future cleanup, if needed, would split the concrete Firestore implementation itself rather than reintroduce a broad contract.
+
 ### Phase 7: Reshape tests
 
 - Move extracted logic into plain JVM tests.
@@ -190,5 +198,4 @@ Status:
 4. startup/auth coordinator
 5. Room removal
 6. model neutralization
-7. repository split
-8. test-speed improvements
+7. test-speed improvements
