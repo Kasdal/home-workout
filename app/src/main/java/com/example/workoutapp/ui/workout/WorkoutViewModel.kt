@@ -175,6 +175,8 @@ class WorkoutViewModel @Inject constructor(
             
             val endTime = System.currentTimeMillis()
             val duration = _sessionElapsedSeconds.value.toLong()
+            val userMetrics = repository.getUserMetrics().first()
+            val userWeight = userMetrics?.weightKg ?: 70f
             
             // Calculate Stats
             val exerciseList = exercises.first()
@@ -191,7 +193,6 @@ class WorkoutViewModel @Inject constructor(
                         }
 
                         com.example.workoutapp.data.local.entity.ExerciseType.BODYWEIGHT.name -> {
-                            val userWeight = repository.getUserMetrics().first()?.weightKg ?: 70f
                             setCount * exercise.reps * userWeight
                         }
 
@@ -202,7 +203,6 @@ class WorkoutViewModel @Inject constructor(
                 }
             }
 
-            val userMetrics = repository.getUserMetrics().first()
             val calories = CalorieCalculator.calculateCalories(
                 completedSets = _completedSets.value,
                 exercises = exerciseList,
@@ -244,7 +244,6 @@ class WorkoutViewModel @Inject constructor(
                             }
 
                             com.example.workoutapp.data.local.entity.ExerciseType.BODYWEIGHT.name -> {
-                                val userWeight = repository.getUserMetrics().first()?.weightKg ?: 70f
                                 completedSets * exercise.reps * userWeight
                             }
 

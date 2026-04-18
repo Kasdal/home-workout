@@ -91,22 +91,6 @@ fun HistoryScreen(
         totalWorkouts = 0
     ))
 
-    val weeklySummary by viewModel.weeklySummary.collectAsState(initial = SummaryComparison(
-        current = PeriodSummary(0, 0f, 0L, 0L, "This Week"),
-        previous = PeriodSummary(0, 0f, 0L, 0L, "Last Week"),
-        volumeChangePercent = 0f,
-        frequencyChange = 0,
-        durationChangePercent = 0f
-    ))
-
-    val monthlySummary by viewModel.monthlySummary.collectAsState(initial = SummaryComparison(
-        current = PeriodSummary(0, 0f, 0L, 0L, "This Month"),
-        previous = PeriodSummary(0, 0f, 0L, 0L, "Last Month"),
-        volumeChangePercent = 0f,
-        frequencyChange = 0,
-        durationChangePercent = 0f
-    ))
-
     val weeklyOverview by viewModel.weeklyOverview.collectAsState(initial = WeeklyOverview(
         workoutsThisWeek = 0, workoutsLastWeek = 0, volumeThisWeek = 0f,
         volumeLastWeek = 0f, avgDurationMin = 0, caloriesThisWeek = 0f,

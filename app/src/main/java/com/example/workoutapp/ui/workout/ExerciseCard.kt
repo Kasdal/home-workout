@@ -613,8 +613,24 @@ fun ExerciseEditDialog(
     onSave: (String, Float, Int, Int) -> Unit
 ) {
     var name by remember { mutableStateOf(exercise.name) }
-    var weight by remember { mutableStateOf(exercise.weight.toString()) }
-    var reps by remember { mutableStateOf(exercise.reps.toString()) }
+    var weight by remember {
+        mutableStateOf(
+            if (exercise.exerciseType == ExerciseType.STANDARD.name) {
+                exercise.weight.toString()
+            } else {
+                "0"
+            }
+        )
+    }
+    var reps by remember {
+        mutableStateOf(
+            if (exercise.exerciseType == ExerciseType.HOLD.name) {
+                exercise.holdDurationSeconds.toString()
+            } else {
+                exercise.reps.toString()
+            }
+        )
+    }
     var sets by remember { mutableStateOf(exercise.sets.toString()) }
 
     AlertDialog(
@@ -632,7 +648,8 @@ fun ExerciseEditDialog(
                     value = weight,
                     onValueChange = { weight = it },
                     label = { Text("Weight (kg)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = exercise.exerciseType == ExerciseType.STANDARD.name
                 )
                 OutlinedTextField(
                     value = reps,
@@ -659,8 +676,10 @@ fun ExerciseEditDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val w = weight.toFloatOrNull() ?: exercise.weight
-                    val r = reps.toIntOrNull() ?: exercise.reps
+                    val w = weight.toFloatOrNull()
+                        ?: if (exercise.exerciseType == ExerciseType.STANDARD.name) exercise.weight else 0f
+                    val r = reps.toIntOrNull()
+                        ?: if (exercise.exerciseType == ExerciseType.HOLD.name) exercise.holdDurationSeconds else exercise.reps
                     val s = sets.toIntOrNull() ?: exercise.sets
                     onSave(name, w, r, s)
                 }

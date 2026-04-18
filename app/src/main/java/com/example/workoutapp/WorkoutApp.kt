@@ -8,7 +8,9 @@ import timber.log.Timber
 class WorkoutApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        Timber.plant(Timber.DebugTree())
-        Timber.i("WorkoutApp started")
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+            Timber.d("WorkoutApp started")
+        }
     }
 }
