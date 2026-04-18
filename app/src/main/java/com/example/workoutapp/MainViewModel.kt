@@ -2,40 +2,36 @@ package com.example.workoutapp
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
+import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val repository: WorkoutRepository,
-    private val authManager: AuthManager
+    private val localAppPreferencesRepository: LocalAppPreferencesRepository,
+    appLaunchCoordinator: AppLaunchCoordinator
 ) : ViewModel() {
 
-    private val _startDestination = MutableStateFlow<String?>(null)
-    val startDestination: StateFlow<String?> = _startDestination.asStateFlow()
+    val startDestination: StateFlow<String?> = appLaunchCoordinator.startDestination()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    val settings = repository.getSettings()
+    val themeMode = localAppPreferencesRepository.settings
 
     init {
-        checkUserMetrics()
+        migrateLegacyThemeIfNeeded()
     }
 
-    private fun checkUserMetrics() {
+    private fun migrateLegacyThemeIfNeeded() {
         viewModelScope.launch {
-            if (authManager.currentUserId() == null) {
-                _startDestination.value = null
-                return@launch
-            }
-
-            repository.getUserMetrics().collect { metrics ->
-                _startDestination.value = if (metrics != null) "workout" else "onboarding"
+            repository.getSettings().collect { settings ->
+                settings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
             }
         }
     }

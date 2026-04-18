@@ -1,12 +1,16 @@
-package com.example.workoutapp.data.local.entity
+package com.example.workoutapp.data.local.room.entity
 
-data class Settings(
-    val id: Int = 1, // Singleton
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "settings")
+data class RoomSettings(
+    @PrimaryKey val id: Int = 1,
     val soundsEnabled: Boolean = true,
     val soundVolume: Float = 1.0f,
     val timerSoundType: String = "beep",
     val celebrationSoundType: String = "cheer",
-    val themeMode: String = "dark", // light/dark/auto
+    val themeMode: String = "dark",
     val tutorialCompleted: Boolean = false,
     val tutorialVersion: Int = 1,
     val restTimerDuration: Int = 30,

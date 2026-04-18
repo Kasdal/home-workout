@@ -1,17 +1,13 @@
 package com.example.workoutapp.data.local.entity
 
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-
 enum class ExerciseType {
     STANDARD,
     BODYWEIGHT,
     HOLD
 }
 
-@Entity(tableName = "exercises")
 data class Exercise(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val id: Int = 0,
     val name: String,
     val weight: Float,
     val reps: Int = 13, // Customizable reps per set

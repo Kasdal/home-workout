@@ -1,6 +1,7 @@
 package com.example.workoutapp.ui.auth
 
 import android.util.Log
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
@@ -27,9 +28,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.FileProvider
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
+import java.io.File
 
 @Composable
 fun AuthGateScreen(
@@ -37,6 +41,7 @@ fun AuthGateScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val context = LocalContext.current
 
     val signInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -59,6 +64,21 @@ fun AuthGateScreen(
                 Log.e("AuthGate", "Google sign-in failed", e)
             }
             viewModel.onSignInError(e.message ?: "Google sign-in failed")
+        }
+    }
+
+    val importBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    ?: error("Unable to read backup file")
+            }.onSuccess {
+                viewModel.importLegacyBackup(it)
+            }.onFailure {
+                viewModel.onSignInError(it.message ?: "Failed to read backup file")
+            }
         }
     }
 
@@ -161,9 +181,48 @@ fun AuthGateScreen(
                     Text("Retry Migration")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = {
+                        viewModel.exportLegacyBackup { backupJson ->
+                            val file = File(context.cacheDir, "legacy_workout_backup.json")
+                            file.writeText(backupJson)
+
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.provider",
+                                file
+                            )
+
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                type = "application/json"
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Export Legacy Backup"))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Export Local Backup")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { importBackupLauncher.launch(arrayOf("application/json", "text/plain")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Import Backup File")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Sign out")
                 }
+            } else if (state.infoMessage != null) {
+                Text(
+                    text = state.infoMessage ?: "",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         }
     }

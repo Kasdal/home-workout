@@ -213,7 +213,7 @@ fun SettingsScreen(
                     }
                     
                     Text(
-                        text = "Note: Theme changes take effect on app restart",
+                        text = "Theme changes apply immediately on this device.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

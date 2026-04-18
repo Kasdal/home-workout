@@ -10,12 +10,12 @@
 - Main entrypoints are `app/src/main/java/com/example/workoutapp/WorkoutApp.kt` and `MainActivity.kt`.
 - Runtime startup flow is `SplashScreen -> AuthGateScreen -> MainViewModel` before navigation picks `workout` or `onboarding`.
 - `WorkoutRepository` is bound to `CloudWorkoutRepository` in `di/AppModule.kt`; Firestore is the live data source.
-- Local Room still matters for migration and safety fallback: `MigrationOrchestrator` reads from `WorkoutDao` and uploads to Firestore on sign-in.
+- Local Room is now legacy-only: `MigrationOrchestrator` reads through `LegacyMigrationDataSource` for migration/export fallback, while shared app models are plain Kotlin data classes.
 
 ## High-risk changes
 
 - Auth, startup, or profile-state changes affect the sign-in gate and one-time migration path. Read `ui/auth/AuthViewModel.kt`, `MainViewModel.kt`, and `data/remote/MigrationOrchestrator.kt` first.
-- Room schema changes are risky because `AppModule.kt` still uses `fallbackToDestructiveMigration()`. Add explicit migrations when possible and review migration impact carefully.
+- Room changes are isolated to the legacy layer under `data/local/room/` plus `WorkoutDao`/`WorkoutDatabase`. Do not reintroduce Room annotations onto shared models in `data/local/entity/`.
 - Current Room DB facts are in code: DB name `workout_db`, version `9`, migrations `3->4`, `4->5`, `6->7`, `7->8`, `8->9`.
 - ESP sensor support depends on both the settings schema and cleartext network config. Keep `android:networkSecurityConfig="@xml/network_security_config"` in the manifest while the feature exists.
 
@@ -35,6 +35,7 @@
 - Do not commit `app/google-services.json`; it is gitignored.
 - CI rebuilds that file from `GOOGLE_SERVICES_JSON_B64` in `.github/workflows/release.yml` before `assembleDebug` and `assembleRelease`.
 - `local.properties` is also gitignored; local Android SDK resolution comes from that file.
+- If Gradle/KSP starts failing with missing generated files or duplicate `*_Factory` classes, clear stale outputs before retrying: remove `app/build/generated/ksp`, `app/build/intermediates`, and `app/build/tmp`, then rerun `./gradlew --no-daemon`.
 
 ## Release/versioning
 

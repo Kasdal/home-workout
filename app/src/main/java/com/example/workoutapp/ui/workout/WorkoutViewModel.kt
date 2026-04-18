@@ -8,7 +8,11 @@ import com.example.workoutapp.data.local.entity.ExerciseType
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
-import com.example.workoutapp.util.CalorieCalculator
+import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
+import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
+import com.example.workoutapp.domain.session.PostSetTimerRequest
+import com.example.workoutapp.domain.session.SessionCompletionCalculator
+import com.example.workoutapp.domain.session.WorkoutSessionReducer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -21,13 +25,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.math.roundToInt
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     private val repository: WorkoutRepository,
+    private val localAppPreferencesRepository: LocalAppPreferencesRepository,
+    private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
-    private val sensorRepository: SensorRepository
+    private val sensorRepository: SensorRepository,
+    private val sessionCompletionCalculator: SessionCompletionCalculator,
+    private val sessionReducer: WorkoutSessionReducer = WorkoutSessionReducer()
 ) : ViewModel() {
 
     // Exercises from DB
@@ -105,22 +112,39 @@ class WorkoutViewModel @Inject constructor(
 
     init {
         initializeDefaultExercises()
-        observeSettings()
+        observeSyncedSettings()
+        observeLocalSettings()
     }
 
-    private fun observeSettings() {
+    private fun observeSyncedSettings() {
+        viewModelScope.launch {
+            syncedWorkoutSettingsRepository.observeSessionSettings().collect { settings ->
+                _restTimerDuration.value = settings.restTimerDuration
+                _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
+                _undoLastSetEnabled.value = settings.undoLastSetEnabled
+            }
+        }
+
         viewModelScope.launch {
             repository.getSettings().collect { settings ->
-                if (settings != null) {
-                    _restTimerDuration.value = settings.restTimerDuration
-                    _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
-                    _undoLastSetEnabled.value = settings.undoLastSetEnabled
-                    soundsEnabled = settings.soundsEnabled
-                    soundVolume = settings.soundVolume
-                    timerSoundType = settings.timerSoundType
-                    celebrationSoundType = settings.celebrationSoundType
-                    sensorEnabled = settings.sensorEnabled
-                    sensorIpAddress = settings.sensorIpAddress
+                settings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
+            }
+        }
+    }
+
+    private fun observeLocalSettings() {
+        viewModelScope.launch {
+            localAppPreferencesRepository.settings.collect { settings ->
+                soundsEnabled = settings.soundsEnabled
+                soundVolume = settings.soundVolume
+                timerSoundType = settings.timerSoundType
+                celebrationSoundType = settings.celebrationSoundType
+                sensorEnabled = settings.sensorEnabled
+                sensorIpAddress = settings.sensorIpAddress
+                if (_sessionStarted.value && sensorEnabled && sensorPollingJob == null) {
+                    startSensorPolling()
+                } else if (!sensorEnabled && sensorPollingJob != null) {
+                    stopSensorPolling()
                 }
             }
         }
@@ -154,7 +178,11 @@ class WorkoutViewModel @Inject constructor(
         _sessionStarted.value = true
         sessionStartTime = System.currentTimeMillis()
         _sessionElapsedSeconds.value = 0
-        refreshActiveExerciseState()
+        viewModelScope.launch {
+            applyActiveExerciseSelection(
+                sessionReducer.selectActiveExercise(exercises.first(), _completedSets.value)
+            )
+        }
         
         // Start session timer
         sessionTimerJob = viewModelScope.launch {
@@ -176,83 +204,21 @@ class WorkoutViewModel @Inject constructor(
             val endTime = System.currentTimeMillis()
             val duration = _sessionElapsedSeconds.value.toLong()
             val userMetrics = repository.getUserMetrics().first()
-            val userWeight = userMetrics?.weightKg ?: 70f
-            
-            // Calculate Stats
             val exerciseList = exercises.first()
-            var totalWeight = 0f
-            var totalVolume = 0f
-            
-            _completedSets.value.forEach { (exId, setCount) ->
-                val exercise = exerciseList.find { it.id == exId }
-                if (exercise != null) {
-                    val weight = when (exercise.exerciseType) {
-                        com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name -> {
-                            val holdRepsEquivalent = (exercise.holdDurationSeconds / 5f).roundToInt().coerceAtLeast(1)
-                            setCount * holdRepsEquivalent * 1f
-                        }
-
-                        com.example.workoutapp.data.local.entity.ExerciseType.BODYWEIGHT.name -> {
-                            setCount * exercise.reps * userWeight
-                        }
-
-                        else -> setCount * exercise.reps * exercise.weight
-                    }
-                    totalWeight += weight
-                    totalVolume += weight
-                }
-            }
-
-            val calories = CalorieCalculator.calculateCalories(
-                completedSets = _completedSets.value,
+            val completion = sessionCompletionCalculator.calculate(
                 exercises = exerciseList,
+                completedSets = _completedSets.value,
+                elapsedSeconds = duration,
+                endTime = endTime,
                 userMetrics = userMetrics,
-                restSecondsBetweenSets = _restTimerDuration.value,
-                restSecondsBetweenExercises = _exerciseSwitchDuration.value
-            )
-
-            val session = WorkoutSession(
-                date = endTime,
-                durationSeconds = duration,
-                totalWeightLifted = totalWeight,
-                caloriesBurned = calories,
-                totalVolume = totalVolume
+                restTimerDuration = _restTimerDuration.value,
+                exerciseSwitchDuration = _exerciseSwitchDuration.value
             )
             
-            val sessionId = repository.saveSession(session)
-            
-            // NEW: Save individual exercise details
-            val sessionExercises = exerciseList.mapIndexed { index, exercise ->
-                val completedSets = _completedSets.value[exercise.id] ?: 0
-                if (completedSets > 0) {
-                    val displayReps = if (exercise.exerciseType == com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name) {
-                        exercise.holdDurationSeconds
-                    } else {
-                        exercise.reps
-                    }
-
-                    com.example.workoutapp.data.local.entity.SessionExercise(
-                        sessionId = sessionId.toInt(),
-                        exerciseName = exercise.name,
-                        weight = exercise.weight,
-                        sets = completedSets,
-                        reps = displayReps,
-                        volume = when (exercise.exerciseType) {
-                            com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name -> {
-                                val holdRepsEquivalent = (exercise.holdDurationSeconds / 5f).roundToInt().coerceAtLeast(1)
-                                completedSets * holdRepsEquivalent * 1f
-                            }
-
-                            com.example.workoutapp.data.local.entity.ExerciseType.BODYWEIGHT.name -> {
-                                completedSets * exercise.reps * userWeight
-                            }
-
-                            else -> completedSets * exercise.reps * exercise.weight
-                        },
-                        sortOrder = index
-                    )
-                } else null
-            }.filterNotNull()
+            val sessionId = repository.saveSession(completion.session)
+            val sessionExercises = completion.sessionExercises.map {
+                it.copy(sessionId = sessionId.toInt())
+            }
             
             if (sessionExercises.isNotEmpty()) {
                 repository.saveSessionExercises(sessionExercises)
@@ -270,7 +236,7 @@ class WorkoutViewModel @Inject constructor(
             // Play celebration sound for completing the workout!
             soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
             
-            onComplete(session.copy(id = sessionId.toInt()))
+            onComplete(completion.session.copy(id = sessionId.toInt()))
         }
     }
     
@@ -295,16 +261,14 @@ class WorkoutViewModel @Inject constructor(
     fun setRestTimerDuration(seconds: Int) {
         _restTimerDuration.value = seconds
         viewModelScope.launch {
-            val currentSettings = repository.getSettings().first() ?: com.example.workoutapp.data.local.entity.Settings()
-            repository.saveSettings(currentSettings.copy(restTimerDuration = seconds))
+            syncedWorkoutSettingsRepository.setRestTimerDuration(seconds)
         }
     }
 
     fun setExerciseSwitchDuration(seconds: Int) {
         _exerciseSwitchDuration.value = seconds
         viewModelScope.launch {
-            val currentSettings = repository.getSettings().first() ?: com.example.workoutapp.data.local.entity.Settings()
-            repository.saveSettings(currentSettings.copy(exerciseSwitchDuration = seconds))
+            syncedWorkoutSettingsRepository.setExerciseSwitchDuration(seconds)
         }
     }
 
@@ -353,28 +317,20 @@ class WorkoutViewModel @Inject constructor(
     // --- Set Completion Logic ---
     fun completeNextSet(exerciseId: Int) {
         viewModelScope.launch {
-            val current = _completedSets.value.toMutableMap()
-            val currentCount = current[exerciseId] ?: 0
-            
-            // Get the actual exercise to check its set count
-            val exercise = exercises.first().find { it.id == exerciseId }
-            val maxSets = exercise?.sets ?: 4
-            
-            if (currentCount < maxSets) {
-                val newCount = currentCount + 1
-                current[exerciseId] = newCount
-                _completedSets.value = current
-                refreshActiveExerciseState()
-                
-                // Auto-start timer after set
-                if (exercise?.exerciseType == com.example.workoutapp.data.local.entity.ExerciseType.HOLD.name) {
-                    startTimer(exercise.holdDurationSeconds)
-                } else if (newCount >= maxSets) {
-                    // Last set - start 90s timer for exercise switch
-                    startTimer(_exerciseSwitchDuration.value)
-                } else {
-                    // Regular set - start 30s rest timer
-                    startTimer(_restTimerDuration.value)
+            val update = sessionReducer.completeNextSet(
+                exercises = exercises.first(),
+                completedSets = _completedSets.value,
+                exerciseId = exerciseId,
+                restTimerDuration = _restTimerDuration.value,
+                exerciseSwitchDuration = _exerciseSwitchDuration.value
+            )
+
+            if (update.completedSets != _completedSets.value) {
+                _completedSets.value = update.completedSets
+                applyActiveExerciseSelection(update.activeExerciseSelection)
+                when (val timerRequest = update.timerRequest) {
+                    is PostSetTimerRequest.Start -> startTimer(timerRequest.seconds)
+                    PostSetTimerRequest.None -> Unit
                 }
             }
         }
@@ -383,12 +339,14 @@ class WorkoutViewModel @Inject constructor(
     fun undoSet(exerciseId: Int) {
         if (!_undoLastSetEnabled.value) return
 
-        val current = _completedSets.value.toMutableMap()
-        val currentCount = current[exerciseId] ?: 0
-        if (currentCount > 0) {
-            current[exerciseId] = currentCount - 1
-            _completedSets.value = current
-            refreshActiveExerciseState()
+        viewModelScope.launch {
+            val update = sessionReducer.undoSet(
+                exercises = exercises.first(),
+                completedSets = _completedSets.value,
+                exerciseId = exerciseId
+            )
+            _completedSets.value = update.completedSets
+            applyActiveExerciseSelection(update.activeExerciseSelection)
         }
     }
     
@@ -488,21 +446,8 @@ class WorkoutViewModel @Inject constructor(
         soundManager.release()
     }
 
-    private fun refreshActiveExerciseState() {
-        viewModelScope.launch {
-            val exerciseList = exercises.first()
-            val activeExercise = exerciseList.firstOrNull { exercise ->
-                val completed = _completedSets.value[exercise.id] ?: 0
-                completed < exercise.sets
-            }
-
-            _activeExerciseId.value = activeExercise?.id
-            _activeExerciseMode.value = when {
-                activeExercise == null -> ExerciseSessionMode.MANUAL_REPS
-                activeExercise.exerciseType == ExerciseType.HOLD.name -> ExerciseSessionMode.HOLD_TIMER
-                activeExercise.usesSensor -> ExerciseSessionMode.SENSOR_REPS
-                else -> ExerciseSessionMode.MANUAL_REPS
-            }
-        }
+    private fun applyActiveExerciseSelection(selection: com.example.workoutapp.domain.session.ActiveExerciseSelection) {
+        _activeExerciseId.value = selection.activeExerciseId
+        _activeExerciseMode.value = selection.activeExerciseMode
     }
 }
