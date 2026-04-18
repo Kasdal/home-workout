@@ -110,6 +110,7 @@ class WorkoutViewModelTest {
     @Test
     fun `undoSet decrements completed set count`() = runTest {
         viewModel.completeNextSet(1)
+        advanceUntilIdle()
 
         viewModel.undoSet(1)
 
