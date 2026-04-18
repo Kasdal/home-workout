@@ -30,33 +30,35 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val localSettings by mainViewModel.themeMode.collectAsState(
+                initial = com.example.workoutapp.data.settings.LocalAppSettings()
+            )
             var showSplash by remember { mutableStateOf(true) }
             var appUnlocked by remember { mutableStateOf(false) }
 
+            val darkTheme = when (localSettings.themeMode) {
+                "light" -> false
+                "dark" -> true
+                else -> isSystemInDarkTheme()
+            }
+
             if (showSplash) {
-                WorkoutAppTheme(darkTheme = true) {
+                WorkoutAppTheme(darkTheme = darkTheme) {
                     com.example.workoutapp.ui.splash.SplashScreen(
                         onTimeout = { showSplash = false }
                     )
                 }
             } else if (!appUnlocked) {
-                WorkoutAppTheme(darkTheme = true) {
+                WorkoutAppTheme(darkTheme = darkTheme) {
                     AuthGateScreen(
                         onReady = { appUnlocked = true }
                     )
                 }
             } else {
-                val mainViewModel: MainViewModel = hiltViewModel()
                 val startDestination by mainViewModel.startDestination.collectAsState()
-                val settings by mainViewModel.settings.collectAsState(initial = null)
 
-                WorkoutAppTheme(
-                    darkTheme = when (settings?.themeMode) {
-                        "light" -> false
-                        "dark" -> true
-                        else -> isSystemInDarkTheme()
-                    }
-                ) {
+                WorkoutAppTheme(darkTheme = darkTheme) {
                     if (startDestination != null) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),

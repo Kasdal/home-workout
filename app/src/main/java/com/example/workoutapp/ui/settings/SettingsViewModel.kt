@@ -5,17 +5,22 @@ import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
+import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: WorkoutRepository,
+    private val localAppPreferencesRepository: LocalAppPreferencesRepository,
+    private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
     private val sensorRepository: SensorRepository
 ) : ViewModel() {
@@ -32,65 +37,85 @@ class SettingsViewModel @Inject constructor(
 
     private fun loadSettings() {
         viewModelScope.launch {
+            syncedWorkoutSettingsRepository.observeSessionSettings().collect { sessionSettings ->
+                _settings.value = (_settings.value.copy(
+                    restTimerDuration = sessionSettings.restTimerDuration,
+                    exerciseSwitchDuration = sessionSettings.exerciseSwitchDuration,
+                    undoLastSetEnabled = sessionSettings.undoLastSetEnabled
+                ))
+            }
+        }
+
+        viewModelScope.launch {
             repository.getSettings().collect { dbSettings ->
-                _settings.value = dbSettings ?: Settings()
+                dbSettings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
+            }
+        }
+
+        viewModelScope.launch {
+            localAppPreferencesRepository.settings.collect { localSettings ->
+                _settings.update {
+                    it.copy(
+                        themeMode = localSettings.themeMode,
+                        soundsEnabled = localSettings.soundsEnabled,
+                        soundVolume = localSettings.soundVolume,
+                        timerSoundType = localSettings.timerSoundType,
+                        celebrationSoundType = localSettings.celebrationSoundType,
+                        tutorialCompleted = localSettings.tutorialCompleted,
+                        tutorialVersion = localSettings.tutorialVersion,
+                        sensorEnabled = localSettings.sensorEnabled,
+                        sensorIpAddress = localSettings.sensorIpAddress
+                    )
+                }
             }
         }
     }
 
     fun toggleSounds(enabled: Boolean) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(soundsEnabled = enabled)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.updateSoundSettings(enabled = enabled)
         }
     }
 
     fun setSoundVolume(volume: Float) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(soundVolume = volume)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.updateSoundSettings(volume = volume)
         }
     }
 
     fun setTimerSound(soundType: String) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(timerSoundType = soundType)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.updateSoundSettings(timerSoundType = soundType)
         }
     }
 
     fun setCelebrationSound(soundType: String) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(celebrationSoundType = soundType)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.updateSoundSettings(celebrationSoundType = soundType)
         }
     }
 
     fun setThemeMode(mode: String) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(themeMode = mode)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.setThemeMode(mode)
         }
     }
 
     fun setRestTimerDuration(seconds: Int) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(restTimerDuration = seconds)
-            repository.saveSettings(updated)
+            syncedWorkoutSettingsRepository.setRestTimerDuration(seconds)
         }
     }
 
     fun setExerciseSwitchDuration(seconds: Int) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(exerciseSwitchDuration = seconds)
-            repository.saveSettings(updated)
+            syncedWorkoutSettingsRepository.setExerciseSwitchDuration(seconds)
         }
     }
 
     fun toggleUndoLastSet(enabled: Boolean) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(undoLastSetEnabled = enabled)
-            repository.saveSettings(updated)
+            syncedWorkoutSettingsRepository.setUndoLastSetEnabled(enabled)
         }
     }
     
@@ -141,15 +166,13 @@ class SettingsViewModel @Inject constructor(
 
     fun toggleSensor(enabled: Boolean) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(sensorEnabled = enabled)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.updateSensorSettings(enabled = enabled)
         }
     }
 
     fun setSensorIpAddress(ipAddress: String) {
         viewModelScope.launch {
-            val updated = _settings.value.copy(sensorIpAddress = ipAddress)
-            repository.saveSettings(updated)
+            localAppPreferencesRepository.updateSensorSettings(ipAddress = ipAddress)
         }
     }
 

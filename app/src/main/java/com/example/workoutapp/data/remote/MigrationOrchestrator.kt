@@ -1,15 +1,13 @@
 package com.example.workoutapp.data.remote
 
-import com.example.workoutapp.data.local.dao.WorkoutDao
-import com.example.workoutapp.data.local.entity.Settings
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MigrationOrchestrator @Inject constructor(
-    private val dao: WorkoutDao,
-    private val firestoreRepository: FirestoreRepository
+    private val legacyMigrationDataSource: LegacyMigrationDataSource,
+    private val firestoreRepository: FirestoreRepository,
+    private val legacyMigrationBackupCodec: LegacyMigrationBackupCodec
 ) {
 
     suspend fun migrateIfNeeded(uid: String): Result<Unit> {
@@ -17,24 +15,37 @@ class MigrationOrchestrator @Inject constructor(
             val existingMeta = firestoreRepository.getMigrationMeta(uid)
             if (existingMeta?.migrationComplete == true) return@runCatching
 
-            val userMetrics = dao.getAllUserMetrics().first()
-            val exercises = dao.getAllExercises().first()
-            val sessions = dao.getAllSessions().first()
-            val restDays = dao.getAllRestDays().first()
-            val settings = dao.getSettings().first() ?: Settings()
-
-            val sessionExercises = sessions.flatMap { session ->
-                dao.getSessionExercises(session.id).first()
-            }
+            val payload = legacyMigrationDataSource.loadPayload()
 
             firestoreRepository.performInitialMigration(
                 uid = uid,
-                userMetrics = userMetrics,
-                exercises = exercises,
-                sessions = sessions,
-                sessionExercises = sessionExercises,
-                restDays = restDays,
-                settings = settings
+                userMetrics = payload.userMetrics,
+                exercises = payload.exercises,
+                sessions = payload.sessions,
+                sessionExercises = payload.sessionExercises,
+                restDays = payload.restDays,
+                settings = payload.settings
+            )
+        }
+    }
+
+    suspend fun exportLegacyBackup(): Result<String> {
+        return runCatching {
+            legacyMigrationBackupCodec.encode(legacyMigrationDataSource.loadPayload())
+        }
+    }
+
+    suspend fun importLegacyBackup(uid: String, backupJson: String): Result<Unit> {
+        return runCatching {
+            val payload = legacyMigrationBackupCodec.decode(backupJson)
+            firestoreRepository.performInitialMigration(
+                uid = uid,
+                userMetrics = payload.userMetrics,
+                exercises = payload.exercises,
+                sessions = payload.sessions,
+                sessionExercises = payload.sessionExercises,
+                restDays = payload.restDays,
+                settings = payload.settings
             )
         }
     }

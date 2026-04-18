@@ -6,6 +6,11 @@ import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
+import com.example.workoutapp.data.settings.LocalAppSettings
+import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
+import com.example.workoutapp.data.settings.WorkoutSessionSettings
+import com.example.workoutapp.domain.session.SessionCompletionCalculator
 import com.example.workoutapp.util.SoundManager
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -33,16 +38,22 @@ class WorkoutViewModelTest {
 
     private lateinit var viewModel: WorkoutViewModel
     private lateinit var repository: WorkoutRepository
+    private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
+    private lateinit var syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository
     private lateinit var soundManager: SoundManager
     private lateinit var sensorRepository: SensorRepository
+    private lateinit var sessionCompletionCalculator: SessionCompletionCalculator
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         repository = mockk(relaxed = true)
+        localAppPreferencesRepository = mockk(relaxed = true)
+        syncedWorkoutSettingsRepository = mockk(relaxed = true)
         soundManager = mockk(relaxed = true)
         sensorRepository = mockk(relaxed = true)
+        sessionCompletionCalculator = SessionCompletionCalculator()
 
         // Default mocks
         coEvery { repository.getExercises() } returns flowOf(
@@ -53,8 +64,17 @@ class WorkoutViewModelTest {
         )
         coEvery { repository.getSettings() } returns flowOf(Settings())
         coEvery { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
+        every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
+        every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns flowOf(WorkoutSessionSettings())
 
-        viewModel = WorkoutViewModel(repository, soundManager, sensorRepository)
+        viewModel = WorkoutViewModel(
+            repository,
+            localAppPreferencesRepository,
+            syncedWorkoutSettingsRepository,
+            soundManager,
+            sensorRepository,
+            sessionCompletionCalculator
+        )
     }
 
     @After
@@ -75,10 +95,10 @@ class WorkoutViewModelTest {
     fun `completeSession saves session and resets state`() = runTest {
         viewModel.startSession()
         advanceTimeBy(3600000) // 1 hour
-        advanceUntilIdle()
         
         // Simulate completing sets
         viewModel.completeNextSet(1) // Bench Press set 1
+        advanceUntilIdle()
         
         coEvery { repository.saveSession(any()) } returns 1L
         
@@ -139,10 +159,10 @@ class WorkoutViewModelTest {
         viewModel.startTimer(5)
         
         advanceTimeBy(2000) // 3 seconds remaining
-        verify(atLeast = 1) { soundManager.playCountdownBeep() }
+        verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
         
         advanceTimeBy(3000) // Finished
-        verify { soundManager.playFinishedBeep() }
+        verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
         assertFalse(viewModel.isTimerRunning.value)
     }
 }

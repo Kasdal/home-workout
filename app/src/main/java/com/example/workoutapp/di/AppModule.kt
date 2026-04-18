@@ -6,6 +6,8 @@ import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.local.WorkoutDatabase
 import com.example.workoutapp.data.local.dao.WorkoutDao
 import com.example.workoutapp.data.remote.FirestoreRepository
+import com.example.workoutapp.data.remote.LegacyMigrationDataSource
+import com.example.workoutapp.data.remote.RoomLegacyMigrationDataSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.workoutapp.data.repository.CloudWorkoutRepository
@@ -88,6 +90,14 @@ object AppModule {
     @Singleton
     fun provideWorkoutDao(db: WorkoutDatabase): WorkoutDao {
         return db.workoutDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideLegacyMigrationDataSource(
+        roomLegacyMigrationDataSource: RoomLegacyMigrationDataSource
+    ): LegacyMigrationDataSource {
+        return roomLegacyMigrationDataSource
     }
 
     @Provides

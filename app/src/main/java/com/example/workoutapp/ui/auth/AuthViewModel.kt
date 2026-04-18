@@ -20,6 +20,7 @@ data class AuthUiState(
     val isLoading: Boolean = false,
     val isSignedIn: Boolean = false,
     val isMigrationComplete: Boolean = false,
+    val infoMessage: String? = null,
     val errorMessage: String? = null
 )
 
@@ -42,18 +43,20 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             authManager.currentUser.collect { user ->
                 if (user == null) {
-                    _state.value = AuthUiState(
-                        isLoading = false,
-                        isSignedIn = false,
-                        isMigrationComplete = false,
-                        errorMessage = null
-                    )
+                _state.value = AuthUiState(
+                    isLoading = false,
+                    isSignedIn = false,
+                    isMigrationComplete = false,
+                    infoMessage = null,
+                    errorMessage = null
+                )
                     return@collect
                 }
 
                 _state.value = _state.value.copy(
                     isSignedIn = true,
                     isLoading = false,
+                    infoMessage = null,
                     errorMessage = null
                 )
 
@@ -75,6 +78,7 @@ class AuthViewModel @Inject constructor(
             }
             _state.value = _state.value.copy(
                 isLoading = false,
+                infoMessage = null,
                 errorMessage = result.exceptionOrNull()?.message
             )
         }
@@ -83,8 +87,35 @@ class AuthViewModel @Inject constructor(
     fun onSignInError(message: String) {
         _state.value = _state.value.copy(
             isLoading = false,
+            infoMessage = null,
             errorMessage = message
         )
+    }
+
+    fun exportLegacyBackup(onComplete: (String) -> Unit) {
+        viewModelScope.launch {
+            val result = migrationOrchestrator.exportLegacyBackup()
+            result.onSuccess {
+                _state.value = _state.value.copy(infoMessage = "Legacy backup exported.", errorMessage = null)
+                onComplete(it)
+            }.onFailure {
+                _state.value = _state.value.copy(infoMessage = null, errorMessage = it.message ?: "Failed to export backup")
+            }
+        }
+    }
+
+    fun importLegacyBackup(backupJson: String) {
+        val uid = authManager.currentUserId() ?: return
+        viewModelScope.launch {
+            _state.value = _state.value.copy(isLoading = true, infoMessage = null, errorMessage = null)
+            val result = migrationOrchestrator.importLegacyBackup(uid, backupJson)
+            _state.value = _state.value.copy(
+                isLoading = false,
+                isMigrationComplete = result.isSuccess,
+                infoMessage = if (result.isSuccess) "Backup imported to cloud." else null,
+                errorMessage = result.exceptionOrNull()?.message
+            )
+        }
     }
 
     fun retryMigration() {
@@ -106,6 +137,7 @@ class AuthViewModel @Inject constructor(
             _state.value = _state.value.copy(
                 isLoading = false,
                 isMigrationComplete = migrationResult.isSuccess,
+                infoMessage = null,
                 errorMessage = migrationResult.exceptionOrNull()?.message
             )
         }
