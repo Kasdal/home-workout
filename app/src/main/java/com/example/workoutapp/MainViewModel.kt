@@ -2,7 +2,7 @@ package com.example.workoutapp
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.data.repository.SettingsRepository
+import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository,
+    private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     appLaunchCoordinator: AppLaunchCoordinator
 ) : ViewModel() {
@@ -31,9 +31,7 @@ class MainViewModel @Inject constructor(
 
     private fun migrateLegacyThemeIfNeeded() {
         viewModelScope.launch {
-            settingsRepository.getSettings().collect { settings ->
-                settings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
-            }
+            legacySettingsBootstrapper.seedFromLegacySettingsIfPresent()
         }
     }
 }

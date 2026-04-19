@@ -10,7 +10,7 @@ import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
-import com.example.workoutapp.data.repository.SettingsRepository
+import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.domain.session.PostSetTimerRequest
@@ -34,7 +34,7 @@ class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val profileRepository: ProfileRepository,
     private val sessionHistoryRepository: SessionHistoryRepository,
-    private val settingsRepository: SettingsRepository,
+    private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
@@ -132,9 +132,7 @@ class WorkoutViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            settingsRepository.getSettings().collect { settings ->
-                settings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
-            }
+            legacySettingsBootstrapper.seedFromLegacySettingsIfPresent()
         }
     }
 
