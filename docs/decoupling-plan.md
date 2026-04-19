@@ -6,7 +6,7 @@
 - Room is no longer used for normal repository reads or writes.
 - Shared app models are no longer Room entities.
 - Room still exists only as a legacy read adapter for migration/export fallback.
-- The biggest remaining coupling hotspots are legacy `Settings` blob boundaries and `WorkoutViewModel`.
+- The biggest remaining coupling hotspots are the legacy `Settings` blob boundaries that still exist for migration, backup, and bootstrap-only flows, plus remaining `WorkoutViewModel` cleanup.
 
 ## Verified Room status
 
@@ -80,10 +80,12 @@ Status:
 - Active synced workout-session settings now flow through the focused `SyncedWorkoutSettingsRepository` contract.
 - `SettingsScreen` now renders from `SettingsScreenState`.
 - `SettingsViewModel` now composes DataStore-backed local settings and synced workout-session settings into that UI state.
-- Persisted `Settings` is no longer exposed directly to the settings UI or used by the active synced-settings read/write path.
-- Persisted `Settings` remains only in migration, backup, and bootstrap or seeding paths.
+- Active runtime ViewModels no longer read the legacy persisted `Settings` blob directly.
+- Legacy settings seeding now runs through the dedicated `LegacySettingsBootstrapper` seam instead of direct blob reads in runtime state assembly.
+- Persisted `Settings` remains only behind migration, backup, and bootstrap or seeding boundaries.
+- The direct runtime `Settings` readers cleanup is complete.
 - The active synced-settings seam is complete.
-- Further cleanup of the legacy persisted `Settings` blob is future work behind those migration and backup boundaries.
+- Further cleanup of the legacy persisted `Settings` blob is future work behind those migration, backup, and bootstrap boundaries.
 
 ### Phase 2: Workout session engine
 
