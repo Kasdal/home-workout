@@ -108,7 +108,11 @@ Status:
 Status:
 
 - Partially done.
-- `AppLaunchCoordinator` now owns start-destination selection.
+- Launch routing cleanup is complete.
+- Splash remains a local UI timer in `MainActivity`.
+- Post-splash app entry now renders from a single `appEntryState` exposed by `MainViewModel`.
+- `AppLaunchCoordinator` now owns auth-required vs migration-in-progress vs ready routing, and derives readiness from Firestore migration metadata.
+- `AuthViewModel` still owns sign-in and migration execution, so startup/auth behavior is not fully consolidated into a single coordinator yet.
 
 ### Phase 4: Retire Room runtime
 
@@ -166,7 +170,8 @@ Status:
 - Focused JVM tests now exist for:
   - `WorkoutSessionReducer`
   - `SessionCompletionCalculator`
-  - `AppLaunchCoordinator`
+- Earlier focused tests existed for the pre-migration `AppLaunchCoordinator` seam.
+- The current migration-aware `appEntryState` flow is not yet covered by updated coordinator tests.
 
 ## Multi-agent execution plan
 
