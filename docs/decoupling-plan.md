@@ -10,7 +10,8 @@
 
 ## Verified Room status
 
-- `WorkoutRepository` is bound to `CloudWorkoutRepository` in `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
+- Active app code no longer depends on `WorkoutRepository`.
+- `CloudWorkoutRepository` remains the single Firestore-backed runtime implementation, exposed through focused repository interfaces.
 - Room is still built and injected in `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
 - The only active runtime Room dependency is `MigrationOrchestrator`, now reading through `LegacyMigrationDataSource`, used from `AuthViewModel` during sign-in or manual legacy backup export.
 - `WorkoutRepositoryImpl` has been removed.
@@ -77,6 +78,12 @@ Status:
 - Done, and expanded.
 - Local-only settings now live in `LocalAppPreferencesRepository` backed by DataStore.
 - Synced workout-session settings are isolated in `SyncedWorkoutSettingsRepository`.
+- `SettingsScreen` now renders from `SettingsScreenState`.
+- `SettingsViewModel` now composes DataStore-backed local settings and synced workout-session settings into that UI state.
+- Persisted `Settings` is no longer exposed directly to the settings UI.
+- Persisted `Settings` still participates in the active synced-settings repository path and in legacy seeding into DataStore.
+- The settings split is complete at the UI boundary.
+- Further persisted-settings cleanup is future work only if it is still useful after migration fallback retirement.
 
 ### Phase 2: Workout session engine
 
@@ -107,7 +114,11 @@ Status:
 Status:
 
 - Partially done.
-- `AppLaunchCoordinator` now owns start-destination selection.
+- Launch routing cleanup is complete.
+- Splash remains a local UI timer in `MainActivity`.
+- Post-splash app entry now renders from a single `appEntryState` exposed by `MainViewModel`.
+- `AppLaunchCoordinator` now owns auth-required vs migration-in-progress vs ready routing, and derives readiness from Firestore migration metadata.
+- `AuthViewModel` still owns sign-in and migration execution, so startup/auth behavior is not fully consolidated into a single coordinator yet.
 
 ### Phase 4: Retire Room runtime
 
@@ -147,6 +158,13 @@ Status:
   - rest day
   - auth/session
 
+Status:
+
+- Complete for active app code.
+- Runtime consumers now depend on focused repository interfaces instead of `WorkoutRepository`.
+- `CloudWorkoutRepository` still implements multiple focused interfaces, which is acceptable for now.
+- Future cleanup, if needed, would split the concrete Firestore implementation itself rather than reintroduce a broad contract.
+
 ### Phase 7: Reshape tests
 
 - Move extracted logic into plain JVM tests.
@@ -158,7 +176,8 @@ Status:
 - Focused JVM tests now exist for:
   - `WorkoutSessionReducer`
   - `SessionCompletionCalculator`
-  - `AppLaunchCoordinator`
+- Earlier focused tests existed for the pre-migration `AppLaunchCoordinator` seam.
+- The current migration-aware `appEntryState` flow is not yet covered by updated coordinator tests.
 
 ## Multi-agent execution plan
 
@@ -190,5 +209,4 @@ Status:
 4. startup/auth coordinator
 5. Room removal
 6. model neutralization
-7. repository split
-8. test-speed improvements
+7. test-speed improvements

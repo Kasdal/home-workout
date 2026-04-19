@@ -6,8 +6,11 @@ import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.ExerciseSessionMode
 import com.example.workoutapp.data.local.entity.ExerciseType
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.repository.ExerciseRepository
+import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.SensorRepository
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.domain.session.PostSetTimerRequest
@@ -28,7 +31,10 @@ import javax.inject.Inject
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
-    private val repository: WorkoutRepository,
+    private val exerciseRepository: ExerciseRepository,
+    private val profileRepository: ProfileRepository,
+    private val sessionHistoryRepository: SessionHistoryRepository,
+    private val settingsRepository: SettingsRepository,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
@@ -38,7 +44,7 @@ class WorkoutViewModel @Inject constructor(
 ) : ViewModel() {
 
     // Exercises from DB
-    val exercises = repository.getExercises()
+    val exercises = exerciseRepository.getExercises()
 
     // Timer State (rest timer between sets/exercises)
     private val _timerSeconds = MutableStateFlow(0)
@@ -126,7 +132,7 @@ class WorkoutViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            repository.getSettings().collect { settings ->
+            settingsRepository.getSettings().collect { settings ->
                 settings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
             }
         }
@@ -152,14 +158,14 @@ class WorkoutViewModel @Inject constructor(
 
     private fun initializeDefaultExercises() {
         viewModelScope.launch {
-            if (repository.getExercises().first().isEmpty()) {
+            if (exerciseRepository.getExercises().first().isEmpty()) {
                 val defaults = listOf(
                     "Bench Press", "Squat", "Deadlift", "Overhead Press",
                     "Barbell Row", "Pull Up", "Dips", "Bicep Curl",
                     "Tricep Extension", "Lateral Raise", "Calf Raise"
                 )
                 defaults.forEach { name ->
-                    repository.addExercise(
+                    exerciseRepository.addExercise(
                         Exercise(
                             name = name,
                             weight = 20f,
@@ -203,7 +209,7 @@ class WorkoutViewModel @Inject constructor(
             
             val endTime = System.currentTimeMillis()
             val duration = _sessionElapsedSeconds.value.toLong()
-            val userMetrics = repository.getUserMetrics().first()
+            val userMetrics = profileRepository.getUserMetrics().first()
             val exerciseList = exercises.first()
             val completion = sessionCompletionCalculator.calculate(
                 exercises = exerciseList,
@@ -215,13 +221,13 @@ class WorkoutViewModel @Inject constructor(
                 exerciseSwitchDuration = _exerciseSwitchDuration.value
             )
             
-            val sessionId = repository.saveSession(completion.session)
+            val sessionId = sessionHistoryRepository.saveSession(completion.session)
             val sessionExercises = completion.sessionExercises.map {
                 it.copy(sessionId = sessionId.toInt())
             }
             
             if (sessionExercises.isNotEmpty()) {
-                repository.saveSessionExercises(sessionExercises)
+                sessionHistoryRepository.saveSessionExercises(sessionExercises)
             }
             
             // Reset state
@@ -352,7 +358,7 @@ class WorkoutViewModel @Inject constructor(
     
     fun updateExercise(exercise: Exercise) {
         viewModelScope.launch {
-            repository.updateExercise(exercise)
+            exerciseRepository.updateExercise(exercise)
         }
     }
     
@@ -361,26 +367,26 @@ class WorkoutViewModel @Inject constructor(
             val exerciseList = exercises.first()
             val exercise = exerciseList.find { it.id == exerciseId }
             exercise?.let {
-                repository.updateExercise(it.copy(photoUri = photoUri))
+                exerciseRepository.updateExercise(it.copy(photoUri = photoUri))
             }
         }
     }
 
     fun addExercise() {
         viewModelScope.launch {
-            repository.addExercise(Exercise(name = "New Exercise", weight = 0f))
+            exerciseRepository.addExercise(Exercise(name = "New Exercise", weight = 0f))
         }
     }
 
     fun addExercise(exercise: Exercise) {
         viewModelScope.launch {
-            repository.addExercise(exercise)
+            exerciseRepository.addExercise(exercise)
         }
     }
 
     fun deleteExercise(exerciseId: Int) {
         viewModelScope.launch {
-            repository.deleteExercise(exerciseId)
+            exerciseRepository.deleteExercise(exerciseId)
         }
     }
 

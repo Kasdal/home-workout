@@ -1,7 +1,7 @@
 package com.example.workoutapp.data.settings
 
 import com.example.workoutapp.data.local.entity.Settings
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -16,10 +16,10 @@ data class WorkoutSessionSettings(
 
 @Singleton
 class SyncedWorkoutSettingsRepository @Inject constructor(
-    private val workoutRepository: WorkoutRepository
+    private val settingsRepository: SettingsRepository
 ) {
     fun observeSessionSettings(): Flow<WorkoutSessionSettings> {
-        return workoutRepository.getSettings().map { settings ->
+        return settingsRepository.getSettings().map { settings ->
             WorkoutSessionSettings(
                 restTimerDuration = settings?.restTimerDuration ?: 30,
                 exerciseSwitchDuration = settings?.exerciseSwitchDuration ?: 90,
@@ -29,17 +29,17 @@ class SyncedWorkoutSettingsRepository @Inject constructor(
     }
 
     suspend fun setRestTimerDuration(seconds: Int) {
-        val current = workoutRepository.getSettings().first() ?: Settings()
-        workoutRepository.saveSettings(current.copy(restTimerDuration = seconds))
+        val current = settingsRepository.getSettings().first() ?: Settings()
+        settingsRepository.saveSettings(current.copy(restTimerDuration = seconds))
     }
 
     suspend fun setExerciseSwitchDuration(seconds: Int) {
-        val current = workoutRepository.getSettings().first() ?: Settings()
-        workoutRepository.saveSettings(current.copy(exerciseSwitchDuration = seconds))
+        val current = settingsRepository.getSettings().first() ?: Settings()
+        settingsRepository.saveSettings(current.copy(exerciseSwitchDuration = seconds))
     }
 
     suspend fun setUndoLastSetEnabled(enabled: Boolean) {
-        val current = workoutRepository.getSettings().first() ?: Settings()
-        workoutRepository.saveSettings(current.copy(undoLastSetEnabled = enabled))
+        val current = settingsRepository.getSettings().first() ?: Settings()
+        settingsRepository.saveSettings(current.copy(undoLastSetEnabled = enabled))
     }
 }

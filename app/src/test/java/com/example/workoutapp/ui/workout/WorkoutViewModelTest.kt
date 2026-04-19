@@ -4,8 +4,11 @@ import com.example.workoutapp.data.local.entity.Exercise
 import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.data.repository.ExerciseRepository
+import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.SensorRepository
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
@@ -24,6 +27,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -37,7 +41,10 @@ import org.junit.Test
 class WorkoutViewModelTest {
 
     private lateinit var viewModel: WorkoutViewModel
-    private lateinit var repository: WorkoutRepository
+    private lateinit var exerciseRepository: ExerciseRepository
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var sessionHistoryRepository: SessionHistoryRepository
+    private lateinit var settingsRepository: SettingsRepository
     private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
     private lateinit var syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository
     private lateinit var soundManager: SoundManager
@@ -48,7 +55,10 @@ class WorkoutViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        repository = mockk(relaxed = true)
+        exerciseRepository = mockk(relaxed = true)
+        profileRepository = mockk(relaxed = true)
+        sessionHistoryRepository = mockk(relaxed = true)
+        settingsRepository = mockk(relaxed = true)
         localAppPreferencesRepository = mockk(relaxed = true)
         syncedWorkoutSettingsRepository = mockk(relaxed = true)
         soundManager = mockk(relaxed = true)
@@ -56,19 +66,22 @@ class WorkoutViewModelTest {
         sessionCompletionCalculator = SessionCompletionCalculator()
 
         // Default mocks
-        coEvery { repository.getExercises() } returns flowOf(
+        coEvery { exerciseRepository.getExercises() } returns flowOf(
             listOf(
                 Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4),
                 Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 5)
             )
         )
-        coEvery { repository.getSettings() } returns flowOf(Settings())
-        coEvery { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
+        coEvery { settingsRepository.getSettings() } returns flowOf(Settings())
+        coEvery { profileRepository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
         every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns flowOf(WorkoutSessionSettings())
 
         viewModel = WorkoutViewModel(
-            repository,
+            exerciseRepository,
+            profileRepository,
+            sessionHistoryRepository,
+            settingsRepository,
             localAppPreferencesRepository,
             syncedWorkoutSettingsRepository,
             soundManager,
@@ -89,6 +102,8 @@ class WorkoutViewModelTest {
         
         advanceTimeBy(1001)
         assertEquals(1, viewModel.sessionElapsedSeconds.value)
+
+        viewModel.pauseSession()
     }
 
     @Test
@@ -98,18 +113,18 @@ class WorkoutViewModelTest {
         
         // Simulate completing sets
         viewModel.completeNextSet(1) // Bench Press set 1
-        advanceUntilIdle()
+        runCurrent()
         
-        coEvery { repository.saveSession(any()) } returns 1L
+        coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
         
         viewModel.completeSession { session ->
-            assertEquals(3599L, session.durationSeconds)
+            assertEquals(3600L, session.durationSeconds)
             assertEquals(1000f, session.totalWeightLifted) // 1 set * 10 reps * 100 weight
         }
-        advanceUntilIdle()
+        runCurrent()
         
-        coVerify { repository.saveSession(any()) }
-        coVerify { repository.saveSessionExercises(any()) }
+        coVerify { sessionHistoryRepository.saveSession(any()) }
+        coVerify { sessionHistoryRepository.saveSessionExercises(any()) }
         
         assertFalse(viewModel.sessionStarted.value)
         assertEquals(0, viewModel.sessionElapsedSeconds.value)
@@ -118,6 +133,7 @@ class WorkoutViewModelTest {
     @Test
     fun `completeNextSet increments set count and starts rest timer`() = runTest {
         viewModel.completeNextSet(1)
+        runCurrent()
         
         val sets = viewModel.completedSets.value
         assertEquals(1, sets[1])
@@ -130,9 +146,10 @@ class WorkoutViewModelTest {
     @Test
     fun `undoSet decrements completed set count`() = runTest {
         viewModel.completeNextSet(1)
-        advanceUntilIdle()
+        runCurrent()
 
         viewModel.undoSet(1)
+        runCurrent()
 
         val sets = viewModel.completedSets.value
         assertEquals(0, sets[1])
@@ -142,9 +159,13 @@ class WorkoutViewModelTest {
     fun `completeNextSet starts exercise switch timer on last set`() = runTest {
         // Bench press has 4 sets
         viewModel.completeNextSet(1)
+        runCurrent()
         viewModel.completeNextSet(1)
+        runCurrent()
         viewModel.completeNextSet(1)
+        runCurrent()
         viewModel.completeNextSet(1)
+        runCurrent()
         
         val sets = viewModel.completedSets.value
         assertEquals(4, sets[1])
@@ -159,9 +180,11 @@ class WorkoutViewModelTest {
         viewModel.startTimer(5)
         
         advanceTimeBy(2000) // 3 seconds remaining
+        runCurrent()
         verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
         
         advanceTimeBy(3000) // Finished
+        runCurrent()
         verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
         assertFalse(viewModel.isTimerRunning.value)
     }

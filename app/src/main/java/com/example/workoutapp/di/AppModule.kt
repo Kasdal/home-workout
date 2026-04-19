@@ -11,9 +11,13 @@ import com.example.workoutapp.data.remote.RoomLegacyMigrationDataSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.workoutapp.data.repository.CloudWorkoutRepository
+import com.example.workoutapp.data.repository.ExerciseRepository
+import com.example.workoutapp.data.repository.ProfileRepository
+import com.example.workoutapp.data.repository.RestDayRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
+import com.example.workoutapp.data.repository.SettingsRepository
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import com.example.workoutapp.data.repository.WorkoutRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -129,13 +133,43 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideWorkoutRepository(
+    fun provideCloudWorkoutRepository(
         authManager: AuthManager,
         firestoreRepository: FirestoreRepository
-    ): WorkoutRepository {
+    ): CloudWorkoutRepository {
         return CloudWorkoutRepository(
             authManager = authManager,
             firestoreRepository = firestoreRepository
         )
     }
+
+    @Provides
+    @Singleton
+    fun provideProfileRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): ProfileRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideSessionHistoryRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): SessionHistoryRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideRestDayRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): RestDayRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideExerciseRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): ExerciseRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): SettingsRepository = cloudWorkoutRepository
 }

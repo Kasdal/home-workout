@@ -3,7 +3,7 @@ package com.example.workoutapp.ui.restdays
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.local.entity.RestDay
-import com.example.workoutapp.data.repository.WorkoutRepository
+import com.example.workoutapp.data.repository.RestDayRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,7 +15,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class RestDaysViewModel @Inject constructor(
-    private val repository: WorkoutRepository
+    private val repository: RestDayRepository
 ) : ViewModel() {
 
     private val _restDays = MutableStateFlow<List<RestDay>>(emptyList())

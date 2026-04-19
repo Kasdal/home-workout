@@ -265,6 +265,31 @@ class FirestoreRepository @Inject constructor(
         awaitClose { listener?.remove() }
     }.conflate()
 
+    fun observeMigrationMeta(uid: String): Flow<CloudMigrationMeta?> = callbackFlow {
+        val migrationDoc = userRoot(uid).collection("meta").document("migration")
+
+        try {
+            trySend(migrationDoc.get().await().toObject(CloudMigrationMeta::class.java))
+        } catch (_: Exception) {
+            // Ignore seed read failures so they do not look like missing metadata.
+        }
+
+        var listener: com.google.firebase.firestore.ListenerRegistration? = null
+        try {
+            listener = migrationDoc.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    return@addSnapshotListener
+                }
+
+                trySend(snapshot?.toObject(CloudMigrationMeta::class.java))
+            }
+        } catch (_: Exception) {
+            listener?.remove()
+        }
+
+        awaitClose { listener?.remove() }
+    }.conflate()
+
     suspend fun saveSettings(uid: String, settings: Settings) {
         userRoot(uid).collection("settings").document("default").set(settings.toCloud()).await()
     }
@@ -506,6 +531,13 @@ class FirestoreRepository @Inject constructor(
 
         val root = userRoot(uid)
         val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, Any>>()
+        val localCounts = MigrationCounts(
+            userMetrics = userMetrics.size,
+            exercises = exercises.size,
+            sessions = sessions.size,
+            sessionExercises = sessionExercises.size,
+            restDays = restDays.size
+        )
 
         userMetrics.forEach { metric ->
             writes.add(root.collection("profiles").document(metric.id.toString()) to metric.toCloud())
@@ -539,36 +571,40 @@ class FirestoreRepository @Inject constructor(
             batch.commit().await()
         }
 
-        val remoteProfiles = root.collection("profiles").get().await().size()
-        val remoteExercises = root.collection("exercises").get().await().size()
-        val remoteSessions = root.collection("sessions").get().await().size()
-        val remoteSessionExercises = root.collection("sessionExercises").get().await().size()
-        val remoteRestDays = root.collection("restDays").get().await().size()
+        val remoteCounts = MigrationCounts(
+            userMetrics = root.collection("profiles").get().await().size(),
+            exercises = root.collection("exercises").get().await().size(),
+            sessions = root.collection("sessions").get().await().size(),
+            sessionExercises = root.collection("sessionExercises").get().await().size(),
+            restDays = root.collection("restDays").get().await().size()
+        )
 
-        val countsMatch =
-            remoteProfiles == userMetrics.size &&
-                remoteExercises == exercises.size &&
-                remoteSessions == sessions.size &&
-                remoteSessionExercises == sessionExercises.size &&
-                remoteRestDays == restDays.size
+        if (localCounts.isEmpty()) {
+            setMigrationMeta(uid, remoteCounts.toMigrationMeta())
+
+            if (remoteCounts.userMetrics > 0) {
+                val profiles = root.collection("profiles").get().await()
+                val hasActiveProfile = profiles.documents.any { it.getBoolean("isActive") == true }
+                if (!hasActiveProfile) {
+                    val fallbackProfileId = profiles.documents
+                        .mapNotNull { it.getLong("id")?.toInt() }
+                        .minOrNull()
+
+                    if (fallbackProfileId != null) {
+                        setActiveProfile(uid, fallbackProfileId)
+                    }
+                }
+            }
+            return
+        }
+
+        val countsMatch = remoteCounts == localCounts
 
         if (!countsMatch) {
             throw IllegalStateException("Cloud migration verification failed. Local data remains intact.")
         }
 
-        setMigrationMeta(
-            uid,
-            CloudMigrationMeta(
-                migrationComplete = true,
-                migratedAt = System.currentTimeMillis(),
-                userMetricsCount = userMetrics.size,
-                exercisesCount = exercises.size,
-                sessionsCount = sessions.size,
-                sessionExercisesCount = sessionExercises.size,
-                restDaysCount = restDays.size,
-                schemaVersion = 1
-            )
-        )
+        setMigrationMeta(uid, localCounts.toMigrationMeta())
 
         if (userMetrics.isNotEmpty() && userMetrics.none { it.isActive }) {
             val fallbackProfileId = userMetrics.minByOrNull { it.id }?.id
@@ -580,6 +616,33 @@ class FirestoreRepository @Inject constructor(
 
     private suspend fun nextSessionId(uid: String): Int {
         return nextNumericId(uid, "sessions")
+    }
+
+    private data class MigrationCounts(
+        val userMetrics: Int,
+        val exercises: Int,
+        val sessions: Int,
+        val sessionExercises: Int,
+        val restDays: Int
+    ) {
+        fun isEmpty(): Boolean {
+            return userMetrics == 0 &&
+                exercises == 0 &&
+                sessions == 0 &&
+                sessionExercises == 0 &&
+                restDays == 0
+        }
+
+        fun toMigrationMeta() = CloudMigrationMeta(
+            migrationComplete = true,
+            migratedAt = System.currentTimeMillis(),
+            userMetricsCount = userMetrics,
+            exercisesCount = exercises,
+            sessionsCount = sessions,
+            sessionExercisesCount = sessionExercises,
+            restDaysCount = restDays,
+            schemaVersion = 1
+        )
     }
 
     private suspend fun nextNumericId(uid: String, collection: String): Int {

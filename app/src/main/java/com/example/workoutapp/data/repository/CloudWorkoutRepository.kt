@@ -19,7 +19,7 @@ import javax.inject.Inject
 class CloudWorkoutRepository @Inject constructor(
     private val authManager: AuthManager,
     private val firestoreRepository: FirestoreRepository
-) : WorkoutRepository {
+) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository {
 
     override fun getUserMetrics(): Flow<UserMetrics?> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(null) else firestoreRepository.observeUserMetrics(user.uid)
