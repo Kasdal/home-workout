@@ -9,17 +9,20 @@ import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.local.entity.WorkoutStats
 import com.example.workoutapp.data.remote.FirestoreRepository
+import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
+import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CloudWorkoutRepository @Inject constructor(
     private val authManager: AuthManager,
     private val firestoreRepository: FirestoreRepository
-) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository {
+) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore {
 
     override fun getUserMetrics(): Flow<UserMetrics?> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(null) else firestoreRepository.observeUserMetrics(user.uid)
@@ -89,8 +92,15 @@ class CloudWorkoutRepository @Inject constructor(
         if (user == null) flowOf(null) else firestoreRepository.observeSettings(user.uid)
     }
 
-    override suspend fun saveSettings(settings: Settings) {
-        firestoreRepository.saveSettings(requireUid(), settings)
+    override fun observeSyncedWorkoutSettings(): Flow<WorkoutSessionSettings> {
+        return authManager.currentUser.flatMapLatest { user ->
+            if (user == null) flowOf(WorkoutSessionSettings())
+            else firestoreRepository.observeSyncedWorkoutSettings(user.uid)
+        }
+    }
+
+    override suspend fun saveSyncedWorkoutSettings(settings: WorkoutSessionSettings) {
+        firestoreRepository.saveSyncedWorkoutSettings(requireUid(), settings)
     }
 
     override fun getRestDays(): Flow<List<RestDay>> = authManager.currentUser.flatMapLatest { user ->
