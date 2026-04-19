@@ -78,6 +78,12 @@ Status:
 - Done, and expanded.
 - Local-only settings now live in `LocalAppPreferencesRepository` backed by DataStore.
 - Synced workout-session settings are isolated in `SyncedWorkoutSettingsRepository`.
+- `SettingsScreen` now renders from `SettingsScreenState`.
+- `SettingsViewModel` now composes DataStore-backed local settings and synced workout-session settings into that UI state.
+- Persisted `Settings` is no longer exposed directly to the settings UI.
+- Persisted `Settings` still participates in the active synced-settings repository path and in legacy seeding into DataStore.
+- The settings split is complete at the UI boundary.
+- Further persisted-settings cleanup is future work only if it is still useful after migration fallback retirement.
 
 ### Phase 2: Workout session engine
 

@@ -2,7 +2,6 @@ package com.example.workoutapp.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.data.local.entity.Settings
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
@@ -29,8 +28,8 @@ class SettingsViewModel @Inject constructor(
     private val sensorRepository: SensorRepository
 ) : ViewModel() {
 
-    private val _settings = MutableStateFlow(Settings())
-    val settings: StateFlow<Settings> = _settings.asStateFlow()
+    private val _settings = MutableStateFlow(SettingsScreenState())
+    val settings: StateFlow<SettingsScreenState> = _settings.asStateFlow()
 
     private val _sensorConnectionState = MutableStateFlow<String?>(null)
     val sensorConnectionState: StateFlow<String?> = _sensorConnectionState.asStateFlow()
@@ -42,11 +41,13 @@ class SettingsViewModel @Inject constructor(
     private fun loadSettings() {
         viewModelScope.launch {
             syncedWorkoutSettingsRepository.observeSessionSettings().collect { sessionSettings ->
-                _settings.value = (_settings.value.copy(
-                    restTimerDuration = sessionSettings.restTimerDuration,
-                    exerciseSwitchDuration = sessionSettings.exerciseSwitchDuration,
-                    undoLastSetEnabled = sessionSettings.undoLastSetEnabled
-                ))
+                _settings.update {
+                    it.copy(
+                        restTimerDuration = sessionSettings.restTimerDuration,
+                        exerciseSwitchDuration = sessionSettings.exerciseSwitchDuration,
+                        undoLastSetEnabled = sessionSettings.undoLastSetEnabled
+                    )
+                }
             }
         }
 
