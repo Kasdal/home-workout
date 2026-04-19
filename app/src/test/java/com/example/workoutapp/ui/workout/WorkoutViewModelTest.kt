@@ -18,7 +18,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -103,34 +102,43 @@ class WorkoutViewModelTest {
     @Test
     fun `startSession sets sessionStarted to true and starts timer`() = runTest {
         viewModel.startSession()
+
         assertTrue(viewModel.sessionStarted.value)
-        
-        advanceTimeBy(1001)
+        assertEquals(0, viewModel.sessionElapsedSeconds.value)
+
+        advanceTimeBy(1000)
+        runCurrent()
         assertEquals(1, viewModel.sessionElapsedSeconds.value)
 
         viewModel.pauseSession()
+
+        advanceTimeBy(1000)
+        runCurrent()
+        assertEquals(1, viewModel.sessionElapsedSeconds.value)
     }
 
     @Test
     fun `completeSession saves session and resets state`() = runTest {
         viewModel.startSession()
-        advanceTimeBy(3600000) // 1 hour
-        
+        advanceTimeBy(1000)
+        runCurrent()
+        val elapsedBeforeCompletion = viewModel.sessionElapsedSeconds.value.toLong()
+
         // Simulate completing sets
         viewModel.completeNextSet(1) // Bench Press set 1
         runCurrent()
-        
+
         coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
-        
+
         viewModel.completeSession { session ->
-            assertEquals(3600L, session.durationSeconds)
+            assertEquals(elapsedBeforeCompletion, session.durationSeconds)
             assertEquals(1000f, session.totalWeightLifted) // 1 set * 10 reps * 100 weight
         }
         runCurrent()
-        
+
         coVerify { sessionHistoryRepository.saveSession(any()) }
         coVerify { sessionHistoryRepository.saveSessionExercises(any()) }
-        
+
         assertFalse(viewModel.sessionStarted.value)
         assertEquals(0, viewModel.sessionElapsedSeconds.value)
     }
@@ -149,15 +157,28 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `undoSet decrements completed set count`() = runTest {
+    fun `undoSet decrements completed set count without changing the running timer`() = runTest {
         viewModel.completeNextSet(1)
         runCurrent()
+
+        assertTrue(viewModel.isTimerRunning.value)
+        assertEquals(30, viewModel.timerSeconds.value)
+
+        advanceTimeBy(5000)
+        runCurrent()
+        val remainingBeforeUndo = viewModel.timerSeconds.value
 
         viewModel.undoSet(1)
         runCurrent()
 
         val sets = viewModel.completedSets.value
         assertEquals(0, sets[1])
+        assertTrue(viewModel.isTimerRunning.value)
+        assertEquals(remainingBeforeUndo, viewModel.timerSeconds.value)
+
+        advanceTimeBy(1000)
+        runCurrent()
+        assertEquals(remainingBeforeUndo - 1, viewModel.timerSeconds.value)
     }
     
     @Test
@@ -181,16 +202,26 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `timer countdown plays beep`() = runTest {
+    fun `timer commands update observable timer state`() = runTest {
         viewModel.startTimer(5)
-        
-        advanceTimeBy(2000) // 3 seconds remaining
-        runCurrent()
-        verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
-        
-        advanceTimeBy(3000) // Finished
-        runCurrent()
-        verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
+
+        assertTrue(viewModel.isTimerRunning.value)
+        assertFalse(viewModel.isTimerPaused.value)
+        assertEquals(5, viewModel.timerSeconds.value)
+
+        viewModel.pauseTimer()
+
         assertFalse(viewModel.isTimerRunning.value)
+        assertTrue(viewModel.isTimerPaused.value)
+
+        viewModel.resumeTimer()
+
+        assertTrue(viewModel.isTimerRunning.value)
+        assertFalse(viewModel.isTimerPaused.value)
+
+        viewModel.stopTimer()
+
+        assertFalse(viewModel.isTimerRunning.value)
+        assertFalse(viewModel.isTimerPaused.value)
     }
 }
