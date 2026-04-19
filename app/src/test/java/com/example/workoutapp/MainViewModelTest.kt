@@ -4,12 +4,14 @@ import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
+import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -39,7 +41,7 @@ class MainViewModelTest {
 
         coEvery { repository.getSettings() } returns flowOf(null)
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
-        every { appLaunchCoordinator.startDestination() } returns flowOf("workout")
+        every { appLaunchCoordinator.appEntryState() } returns flowOf(AppEntryState.Ready("workout"))
     }
 
     @After
@@ -48,32 +50,38 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `startDestination is workout when user metrics exist`() = runTest {
-        every { appLaunchCoordinator.startDestination() } returns flowOf("workout")
+    fun `appEntryState starts as null before coordinator emits`() = runTest {
+        val upstream = MutableSharedFlow<AppEntryState>()
+        every { appLaunchCoordinator.appEntryState() } returns upstream
 
         viewModel = MainViewModel(repository, localAppPreferencesRepository, appLaunchCoordinator)
-        advanceUntilIdle()
-        
-        assertEquals("workout", viewModel.startDestination.value)
+
+        assertEquals(null, viewModel.appEntryState.value)
     }
 
     @Test
-    fun `startDestination is onboarding when user metrics do not exist`() = runTest {
-        every { appLaunchCoordinator.startDestination() } returns flowOf("onboarding")
+    fun `appEntryState updates when coordinator emits after initialization`() = runTest {
+        val upstream = MutableSharedFlow<AppEntryState>()
+        every { appLaunchCoordinator.appEntryState() } returns upstream
 
         viewModel = MainViewModel(repository, localAppPreferencesRepository, appLaunchCoordinator)
         advanceUntilIdle()
-        
-        assertEquals("onboarding", viewModel.startDestination.value)
+
+        assertEquals(null, viewModel.appEntryState.value)
+
+        upstream.emit(AppEntryState.Ready("onboarding"))
+        advanceUntilIdle()
+
+        assertEquals(AppEntryState.Ready("onboarding"), viewModel.appEntryState.value)
     }
 
     @Test
-    fun `startDestination is null when user is not signed in`() = runTest {
-        every { appLaunchCoordinator.startDestination() } returns flowOf(null)
+    fun `appEntryState forwards migration in progress from coordinator`() = runTest {
+        every { appLaunchCoordinator.appEntryState() } returns flowOf(AppEntryState.MigrationInProgress)
 
         viewModel = MainViewModel(repository, localAppPreferencesRepository, appLaunchCoordinator)
         advanceUntilIdle()
 
-        assertEquals(null, viewModel.startDestination.value)
+        assertEquals(AppEntryState.MigrationInProgress, viewModel.appEntryState.value)
     }
 }

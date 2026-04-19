@@ -17,6 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.ui.history.HistoryScreen
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.onboarding.OnboardingScreen
@@ -35,7 +36,7 @@ class MainActivity : ComponentActivity() {
                 initial = com.example.workoutapp.data.settings.LocalAppSettings()
             )
             var showSplash by remember { mutableStateOf(true) }
-            var appUnlocked by remember { mutableStateOf(false) }
+            val appEntryState by mainViewModel.appEntryState.collectAsState()
 
             val darkTheme = when (localSettings.themeMode) {
                 "light" -> false
@@ -49,58 +50,55 @@ class MainActivity : ComponentActivity() {
                         onTimeout = { showSplash = false }
                     )
                 }
-            } else if (!appUnlocked) {
-                WorkoutAppTheme(darkTheme = darkTheme) {
-                    AuthGateScreen(
-                        onReady = { appUnlocked = true }
-                    )
-                }
             } else {
-                val startDestination by mainViewModel.startDestination.collectAsState()
-
                 WorkoutAppTheme(darkTheme = darkTheme) {
-                    if (startDestination != null) {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        val navController = rememberNavController()
-                        NavHost(navController = navController, startDestination = startDestination!!) {
-                            composable(Screen.Onboarding.route) {
-                                OnboardingScreen(navController = navController)
-                            }
-                            composable(Screen.Workout.route) {
-                                WorkoutScreen(navController = navController)
-                            }
-                            composable(Screen.History.route) {
-                                HistoryScreen(navController = navController)
-                            }
-                            composable(Screen.Profile.route) {
-                                com.example.workoutapp.ui.profile.ProfileScreen(navController = navController)
-                            }
-                            composable(Screen.Settings.route) {
-                                com.example.workoutapp.ui.settings.SettingsScreen(navController = navController)
-                            }
-                            composable(Screen.Tutorial.route) {
-                                com.example.workoutapp.ui.tutorial.TutorialScreen(navController = navController)
-                            }
-                            composable(Screen.RestDays.route) {
-                                com.example.workoutapp.ui.restdays.RestDaysScreen(navController = navController)
-                            }
-                            composable(Screen.About.route) {
-                                com.example.workoutapp.ui.about.AboutScreen(navController = navController)
-                            }
-                            composable(Screen.Workouts.route) {
-                                com.example.workoutapp.ui.workouts.WorkoutsScreen(navController = navController)
-                            }
-                            composable(Screen.Insights.route) {
-                                com.example.workoutapp.ui.insights.InsightsScreen(navController = navController)
+                    when (val entryState = appEntryState) {
+                        null,
+                        AppEntryState.AuthRequired,
+                        AppEntryState.MigrationInProgress -> AuthGateScreen(onReady = {})
+                        is AppEntryState.Ready -> {
+                            Surface(
+                                modifier = Modifier.fillMaxSize(),
+                                color = MaterialTheme.colorScheme.background
+                            ) {
+                                val navController = rememberNavController()
+                                NavHost(
+                                    navController = navController,
+                                    startDestination = entryState.startDestination
+                                ) {
+                                    composable(Screen.Onboarding.route) {
+                                        OnboardingScreen(navController = navController)
+                                    }
+                                    composable(Screen.Workout.route) {
+                                        WorkoutScreen(navController = navController)
+                                    }
+                                    composable(Screen.History.route) {
+                                        HistoryScreen(navController = navController)
+                                    }
+                                    composable(Screen.Profile.route) {
+                                        com.example.workoutapp.ui.profile.ProfileScreen(navController = navController)
+                                    }
+                                    composable(Screen.Settings.route) {
+                                        com.example.workoutapp.ui.settings.SettingsScreen(navController = navController)
+                                    }
+                                    composable(Screen.Tutorial.route) {
+                                        com.example.workoutapp.ui.tutorial.TutorialScreen(navController = navController)
+                                    }
+                                    composable(Screen.RestDays.route) {
+                                        com.example.workoutapp.ui.restdays.RestDaysScreen(navController = navController)
+                                    }
+                                    composable(Screen.About.route) {
+                                        com.example.workoutapp.ui.about.AboutScreen(navController = navController)
+                                    }
+                                    composable(Screen.Workouts.route) {
+                                        com.example.workoutapp.ui.workouts.WorkoutsScreen(navController = navController)
+                                    }
+                                    composable(Screen.Insights.route) {
+                                        com.example.workoutapp.ui.insights.InsightsScreen(navController = navController)
+                                    }
+                                }
                             }
                         }
-
-                    }
-                    } else {
-                        Surface(color = MaterialTheme.colorScheme.background) {}
                     }
                 }
             }

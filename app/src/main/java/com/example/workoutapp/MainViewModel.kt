@@ -4,11 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
+import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,7 +20,7 @@ class MainViewModel @Inject constructor(
     appLaunchCoordinator: AppLaunchCoordinator
 ) : ViewModel() {
 
-    val startDestination: StateFlow<String?> = appLaunchCoordinator.startDestination()
+    val appEntryState: StateFlow<AppEntryState?> = appLaunchCoordinator.appEntryState()
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val themeMode = localAppPreferencesRepository.settings
