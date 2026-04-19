@@ -15,6 +15,8 @@ import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.domain.session.PostSetTimerRequest
 import com.example.workoutapp.domain.session.SessionCompletionCalculator
+import com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator
+import com.example.workoutapp.domain.session.WorkoutSessionClock
 import com.example.workoutapp.domain.session.WorkoutSessionReducer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -46,17 +48,19 @@ class WorkoutViewModel @Inject constructor(
     // Exercises from DB
     val exercises = exerciseRepository.getExercises()
 
+    private val countdownOrchestrator = WorkoutCountdownOrchestrator(
+        scope = viewModelScope,
+        onTimerSound = {
+            soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
+        }
+    )
+
+    private val sessionClock = WorkoutSessionClock(viewModelScope)
+
     // Timer State (rest timer between sets/exercises)
-    private val _timerSeconds = MutableStateFlow(0)
-    val timerSeconds: StateFlow<Int> = _timerSeconds.asStateFlow()
-
-    private val _isTimerRunning = MutableStateFlow(false)
-    val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
-
-    private val _isTimerPaused = MutableStateFlow(false)
-    val isTimerPaused: StateFlow<Boolean> = _isTimerPaused.asStateFlow()
-
-    private var timerJob: Job? = null
+    val timerSeconds: StateFlow<Int> = countdownOrchestrator.timerSeconds
+    val isTimerRunning: StateFlow<Boolean> = countdownOrchestrator.isTimerRunning
+    val isTimerPaused: StateFlow<Boolean> = countdownOrchestrator.isTimerPaused
 
     // Custom timer durations
     private val _restTimerDuration = MutableStateFlow(30)
@@ -72,11 +76,10 @@ class WorkoutViewModel @Inject constructor(
     private val _sessionStarted = MutableStateFlow(false)
     val sessionStarted: StateFlow<Boolean> = _sessionStarted.asStateFlow()
 
-    // Session elapsed time (total time since session started)
-    private val _sessionElapsedSeconds = MutableStateFlow(0)
-    val sessionElapsedSeconds: StateFlow<Int> = _sessionElapsedSeconds.asStateFlow()
+    private val _isCompletingSession = MutableStateFlow(false)
 
-    private var sessionTimerJob: Job? = null
+    // Session elapsed time (total time since session started)
+    val sessionElapsedSeconds: StateFlow<Int> = sessionClock.elapsedSeconds
 
     // Map of ExerciseId -> Number of Completed Sets (0-4)
     private val _completedSets = MutableStateFlow<Map<Int, Int>>(emptyMap())
@@ -179,21 +182,14 @@ class WorkoutViewModel @Inject constructor(
 
     // --- Session Management ---
     fun startSession() {
+        _isCompletingSession.value = false
         _sessionStarted.value = true
         sessionStartTime = System.currentTimeMillis()
-        _sessionElapsedSeconds.value = 0
+        sessionClock.start()
         viewModelScope.launch {
             applyActiveExerciseSelection(
                 sessionReducer.selectActiveExercise(exercises.first(), _completedSets.value)
             )
-        }
-        
-        // Start session timer
-        sessionTimerJob = viewModelScope.launch {
-            while (_sessionStarted.value) {
-                delay(1000L)
-                _sessionElapsedSeconds.value++
-            }
         }
 
         if (sensorEnabled) {
@@ -203,10 +199,11 @@ class WorkoutViewModel @Inject constructor(
 
     fun completeSession(onComplete: (WorkoutSession) -> Unit) {
         viewModelScope.launch {
-            sessionTimerJob?.cancel()
-            
+            _isCompletingSession.value = true
+            sessionClock.pause()
+
             val endTime = System.currentTimeMillis()
-            val duration = _sessionElapsedSeconds.value.toLong()
+            val duration = sessionElapsedSeconds.value.toLong()
             val userMetrics = profileRepository.getUserMetrics().first()
             val exerciseList = exercises.first()
             val completion = sessionCompletionCalculator.calculate(
@@ -231,7 +228,8 @@ class WorkoutViewModel @Inject constructor(
             // Reset state
             _completedSets.value = emptyMap()
             _sessionStarted.value = false
-            _sessionElapsedSeconds.value = 0
+            sessionClock.stop()
+            _isCompletingSession.value = false
             _activeExerciseId.value = null
             _activeExerciseMode.value = ExerciseSessionMode.MANUAL_REPS
 
@@ -246,18 +244,13 @@ class WorkoutViewModel @Inject constructor(
     
     // Pause session timer
     fun pauseSession() {
-        sessionTimerJob?.cancel()
+        sessionClock.pause()
     }
     
     // Resume session timer
     fun resumeSession() {
-        if (_sessionStarted.value) {
-            sessionTimerJob = viewModelScope.launch {
-                while (_sessionStarted.value) {
-                    delay(1000L)
-                    _sessionElapsedSeconds.value++
-                }
-            }
+        if (_sessionStarted.value && !_isCompletingSession.value) {
+            sessionClock.resume()
         }
     }
 
@@ -277,45 +270,19 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startTimer(seconds: Int) {
-        timerJob?.cancel()
-        _timerSeconds.value = seconds
-        _isTimerRunning.value = true
-        _isTimerPaused.value = false
-        startTimerJob()
+        countdownOrchestrator.startTimer(seconds)
     }
 
     fun pauseTimer() {
-        timerJob?.cancel()
-        _isTimerPaused.value = true
-        _isTimerRunning.value = false
+        countdownOrchestrator.pauseTimer()
     }
 
     fun resumeTimer() {
-        _isTimerPaused.value = false
-        _isTimerRunning.value = true
-        startTimerJob()
-    }
-
-    private fun startTimerJob() {
-        timerJob = viewModelScope.launch {
-            while (_timerSeconds.value > 0) {
-                val remaining = _timerSeconds.value
-                if (remaining <= 3) {
-                    soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
-                }
-                delay(1000L)
-                _timerSeconds.value--
-            }
-            // Timer finished - just beep, no celebration
-            soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
-            _isTimerRunning.value = false
-        }
+        countdownOrchestrator.resumeTimer()
     }
 
     fun stopTimer() {
-        timerJob?.cancel()
-        _isTimerRunning.value = false
-        _isTimerPaused.value = false
+        countdownOrchestrator.stopTimer()
     }
 
     // --- Set Completion Logic ---
