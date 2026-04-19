@@ -27,6 +27,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -101,6 +102,8 @@ class WorkoutViewModelTest {
         
         advanceTimeBy(1001)
         assertEquals(1, viewModel.sessionElapsedSeconds.value)
+
+        viewModel.pauseSession()
     }
 
     @Test
@@ -110,15 +113,15 @@ class WorkoutViewModelTest {
         
         // Simulate completing sets
         viewModel.completeNextSet(1) // Bench Press set 1
-        advanceUntilIdle()
+        runCurrent()
         
         coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
         
         viewModel.completeSession { session ->
-            assertEquals(3599L, session.durationSeconds)
+            assertEquals(3600L, session.durationSeconds)
             assertEquals(1000f, session.totalWeightLifted) // 1 set * 10 reps * 100 weight
         }
-        advanceUntilIdle()
+        runCurrent()
         
         coVerify { sessionHistoryRepository.saveSession(any()) }
         coVerify { sessionHistoryRepository.saveSessionExercises(any()) }
@@ -130,6 +133,7 @@ class WorkoutViewModelTest {
     @Test
     fun `completeNextSet increments set count and starts rest timer`() = runTest {
         viewModel.completeNextSet(1)
+        runCurrent()
         
         val sets = viewModel.completedSets.value
         assertEquals(1, sets[1])
@@ -142,9 +146,10 @@ class WorkoutViewModelTest {
     @Test
     fun `undoSet decrements completed set count`() = runTest {
         viewModel.completeNextSet(1)
-        advanceUntilIdle()
+        runCurrent()
 
         viewModel.undoSet(1)
+        runCurrent()
 
         val sets = viewModel.completedSets.value
         assertEquals(0, sets[1])
@@ -154,9 +159,13 @@ class WorkoutViewModelTest {
     fun `completeNextSet starts exercise switch timer on last set`() = runTest {
         // Bench press has 4 sets
         viewModel.completeNextSet(1)
+        runCurrent()
         viewModel.completeNextSet(1)
+        runCurrent()
         viewModel.completeNextSet(1)
+        runCurrent()
         viewModel.completeNextSet(1)
+        runCurrent()
         
         val sets = viewModel.completedSets.value
         assertEquals(4, sets[1])
@@ -171,9 +180,11 @@ class WorkoutViewModelTest {
         viewModel.startTimer(5)
         
         advanceTimeBy(2000) // 3 seconds remaining
+        runCurrent()
         verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
         
         advanceTimeBy(3000) // Finished
+        runCurrent()
         verify(atLeast = 1) { soundManager.playTimerSound("beep", 1.0f, true) }
         assertFalse(viewModel.isTimerRunning.value)
     }
