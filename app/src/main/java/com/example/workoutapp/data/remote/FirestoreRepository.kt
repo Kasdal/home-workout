@@ -11,6 +11,8 @@ import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.remote.model.CloudSettings
 import com.example.workoutapp.data.remote.model.toCloud
 import com.example.workoutapp.data.remote.model.toLocal
+import com.example.workoutapp.data.settings.WorkoutSessionSettings
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -265,6 +267,22 @@ class FirestoreRepository @Inject constructor(
         awaitClose { listener?.remove() }
     }.conflate()
 
+    fun observeSyncedWorkoutSettings(uid: String): Flow<WorkoutSessionSettings> = callbackFlow {
+        var listener: com.google.firebase.firestore.ListenerRegistration? = null
+        try {
+            listener = userRoot(uid)
+                .collection("settings")
+                .document("default")
+                .addSnapshotListener { snapshot, error ->
+                    syncedWorkoutSettingsEvent(snapshot, error)?.let { trySend(it) }
+                }
+        } catch (_: Exception) {
+            listener?.remove()
+        }
+
+        awaitClose { listener?.remove() }
+    }.conflate()
+
     fun observeMigrationMeta(uid: String): Flow<CloudMigrationMeta?> = callbackFlow {
         val migrationDoc = userRoot(uid).collection("meta").document("migration")
 
@@ -293,6 +311,22 @@ class FirestoreRepository @Inject constructor(
     suspend fun saveSettings(uid: String, settings: Settings) {
         userRoot(uid).collection("settings").document("default").set(settings.toCloud()).await()
     }
+
+    suspend fun saveSyncedWorkoutSettings(uid: String, settings: WorkoutSessionSettings) {
+        userRoot(uid)
+            .collection("settings")
+            .document("default")
+            .set(
+                mapOf(
+                    "restTimerDuration" to settings.restTimerDuration,
+                    "exerciseSwitchDuration" to settings.exerciseSwitchDuration,
+                    "undoLastSetEnabled" to settings.undoLastSetEnabled
+                ),
+                SetOptions.merge()
+            )
+            .await()
+    }
+
 
     fun observeRestDays(uid: String): Flow<List<RestDay>> = callbackFlow {
         var listener: com.google.firebase.firestore.ListenerRegistration? = null
@@ -656,4 +690,23 @@ class FirestoreRepository @Inject constructor(
         val currentMax = snapshot.documents.firstOrNull()?.getLong("id")?.toInt() ?: 0
         return currentMax + 1
     }
+}
+
+internal fun syncedWorkoutSettingsEvent(
+    snapshot: DocumentSnapshot?,
+    error: com.google.firebase.firestore.FirebaseFirestoreException?
+): WorkoutSessionSettings? {
+    if (error != null) {
+        return null
+    }
+
+    if (snapshot == null || !snapshot.exists()) {
+        return WorkoutSessionSettings()
+    }
+
+    return WorkoutSessionSettings(
+        restTimerDuration = snapshot.getLong("restTimerDuration")?.toInt() ?: 30,
+        exerciseSwitchDuration = snapshot.getLong("exerciseSwitchDuration")?.toInt() ?: 90,
+        undoLastSetEnabled = snapshot.getBoolean("undoLastSetEnabled") ?: true
+    )
 }
