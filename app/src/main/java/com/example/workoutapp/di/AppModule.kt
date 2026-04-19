@@ -16,6 +16,7 @@ import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.RestDayRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.repository.SettingsRepository
+import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import dagger.Module
@@ -172,4 +173,10 @@ object AppModule {
     fun provideSettingsRepository(
         cloudWorkoutRepository: CloudWorkoutRepository
     ): SettingsRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideSyncedWorkoutSettingsStore(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): SyncedWorkoutSettingsStore = cloudWorkoutRepository
 }

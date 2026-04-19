@@ -1,10 +1,7 @@
 package com.example.workoutapp.data.settings
 
-import com.example.workoutapp.data.local.entity.Settings
-import com.example.workoutapp.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,30 +13,22 @@ data class WorkoutSessionSettings(
 
 @Singleton
 class SyncedWorkoutSettingsRepository @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val syncedWorkoutSettingsStore: SyncedWorkoutSettingsStore
 ) {
-    fun observeSessionSettings(): Flow<WorkoutSessionSettings> {
-        return settingsRepository.getSettings().map { settings ->
-            WorkoutSessionSettings(
-                restTimerDuration = settings?.restTimerDuration ?: 30,
-                exerciseSwitchDuration = settings?.exerciseSwitchDuration ?: 90,
-                undoLastSetEnabled = settings?.undoLastSetEnabled ?: true
-            )
-        }
-    }
+    fun observeSessionSettings(): Flow<WorkoutSessionSettings> = syncedWorkoutSettingsStore.observeSyncedWorkoutSettings()
 
     suspend fun setRestTimerDuration(seconds: Int) {
-        val current = settingsRepository.getSettings().first() ?: Settings()
-        settingsRepository.saveSettings(current.copy(restTimerDuration = seconds))
+        val current = syncedWorkoutSettingsStore.observeSyncedWorkoutSettings().first()
+        syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(current.copy(restTimerDuration = seconds))
     }
 
     suspend fun setExerciseSwitchDuration(seconds: Int) {
-        val current = settingsRepository.getSettings().first() ?: Settings()
-        settingsRepository.saveSettings(current.copy(exerciseSwitchDuration = seconds))
+        val current = syncedWorkoutSettingsStore.observeSyncedWorkoutSettings().first()
+        syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(current.copy(exerciseSwitchDuration = seconds))
     }
 
     suspend fun setUndoLastSetEnabled(enabled: Boolean) {
-        val current = settingsRepository.getSettings().first() ?: Settings()
-        settingsRepository.saveSettings(current.copy(undoLastSetEnabled = enabled))
+        val current = syncedWorkoutSettingsStore.observeSyncedWorkoutSettings().first()
+        syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(current.copy(undoLastSetEnabled = enabled))
     }
 }
