@@ -21,6 +21,7 @@ version.txt
 # Local helper docs
 AGENT.MD
 Architecture.md
+.worktrees/
 
 # Firebase local config
 app/google-services.json
