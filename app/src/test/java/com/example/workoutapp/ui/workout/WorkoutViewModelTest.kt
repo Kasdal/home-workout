@@ -12,14 +12,14 @@ import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
+import com.example.workoutapp.data.remote.EspSensorData
 import com.example.workoutapp.domain.session.SessionCompletionCalculator
 import com.example.workoutapp.util.SoundManager
-import io.mockk.coEvery
-import io.mockk.coVerify
-import io.mockk.every
-import io.mockk.mockk
+import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -48,6 +48,9 @@ class WorkoutViewModelTest {
     private lateinit var soundManager: SoundManager
     private lateinit var sensorRepository: SensorRepository
     private lateinit var sessionCompletionCalculator: SessionCompletionCalculator
+    private lateinit var exercisesFlow: MutableStateFlow<List<Exercise>>
+    private lateinit var localSettingsFlow: MutableStateFlow<LocalAppSettings>
+    private lateinit var sessionSettingsFlow: MutableStateFlow<WorkoutSessionSettings>
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -62,19 +65,26 @@ class WorkoutViewModelTest {
         soundManager = mockk(relaxed = true)
         sensorRepository = mockk(relaxed = true)
         sessionCompletionCalculator = SessionCompletionCalculator()
-
-        // Default mocks
-        coEvery { exerciseRepository.getExercises() } returns flowOf(
+        exercisesFlow = MutableStateFlow(
             listOf(
                 Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4),
                 Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 5)
             )
         )
-        coEvery { profileRepository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
-        every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
-        every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns flowOf(WorkoutSessionSettings())
+        localSettingsFlow = MutableStateFlow(LocalAppSettings())
+        sessionSettingsFlow = MutableStateFlow(WorkoutSessionSettings())
 
-        viewModel = WorkoutViewModel(
+        // Default mocks
+        every { exerciseRepository.getExercises() } returns exercisesFlow
+        every { profileRepository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
+        every { localAppPreferencesRepository.settings } returns localSettingsFlow
+        every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns sessionSettingsFlow
+
+        viewModel = createViewModel()
+    }
+
+    private fun createViewModel(): WorkoutViewModel {
+        return WorkoutViewModel(
             exerciseRepository,
             profileRepository,
             sessionHistoryRepository,
@@ -223,5 +233,85 @@ class WorkoutViewModelTest {
 
         assertFalse(viewModel.isTimerRunning.value)
         assertFalse(viewModel.isTimerPaused.value)
+    }
+
+    @Test
+    fun `sensor state is surfaced through observable view model state`() = runTest {
+        localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
+        val sensorStatusFlow = MutableSharedFlow<EspSensorData?>()
+        every { sensorRepository.pollSensorStatus("10.0.0.5", any()) } returns sensorStatusFlow
+
+        viewModel.startSession()
+        runCurrent()
+
+        sensorStatusFlow.emit(EspSensorData(reps = 7, state = "LIFTING", dist = 33))
+        runCurrent()
+
+        assertTrue(viewModel.sensorConnected.value)
+        assertEquals(7, viewModel.sensorReps.value)
+        assertEquals("LIFTING", viewModel.sensorState.value)
+        assertEquals(33, viewModel.sensorDistance.value)
+
+        localSettingsFlow.value = localSettingsFlow.value.copy(sensorEnabled = false)
+        runCurrent()
+        viewModel.pauseSession()
+    }
+
+    @Test
+    fun `session lifecycle gates sensor updates and resets sensor state on completion`() = runTest {
+        localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
+        val sensorStatusFlow = MutableSharedFlow<EspSensorData?>()
+        every { sensorRepository.pollSensorStatus("10.0.0.5", any()) } returns sensorStatusFlow
+        io.mockk.coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
+
+        sensorStatusFlow.emit(EspSensorData(reps = 4, state = "TOP", dist = 12))
+        runCurrent()
+
+        assertFalse(viewModel.sensorConnected.value)
+        assertEquals(0, viewModel.sensorReps.value)
+
+        viewModel.startSession()
+        runCurrent()
+
+        sensorStatusFlow.emit(EspSensorData(reps = 4, state = "TOP", dist = 12))
+        runCurrent()
+
+        assertTrue(viewModel.sensorConnected.value)
+        assertEquals(4, viewModel.sensorReps.value)
+
+        viewModel.completeSession { }
+        runCurrent()
+
+        assertFalse(viewModel.sensorConnected.value)
+        assertEquals(0, viewModel.sensorReps.value)
+        assertEquals("REST", viewModel.sensorState.value)
+        assertEquals(0, viewModel.sensorDistance.value)
+    }
+
+    @Test
+    fun `sensor driven set completion updates workout progress`() = runTest {
+        localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
+        val sensorStatusFlow = MutableSharedFlow<EspSensorData?>()
+        every { sensorRepository.pollSensorStatus("10.0.0.5", any()) } returns sensorStatusFlow
+        io.mockk.coEvery { sensorRepository.resetCounter("10.0.0.5") } returns true
+
+        viewModel.startSession()
+        runCurrent()
+
+        sensorStatusFlow.emit(EspSensorData(reps = 10, state = "TOP", dist = 20))
+        runCurrent()
+
+        assertEquals(1, viewModel.completedSets.value[1])
+        assertTrue(viewModel.isTimerRunning.value)
+        assertEquals(30, viewModel.timerSeconds.value)
+
+        advanceTimeBy(1000)
+        runCurrent()
+
+        assertEquals(0, viewModel.sensorReps.value)
+
+        localSettingsFlow.value = localSettingsFlow.value.copy(sensorEnabled = false)
+        runCurrent()
+        viewModel.pauseSession()
     }
 }
