@@ -19,15 +19,11 @@ import com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator
 import com.example.workoutapp.domain.session.WorkoutSessionClock
 import com.example.workoutapp.domain.session.WorkoutSessionReducer
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -56,6 +52,13 @@ class WorkoutViewModel @Inject constructor(
     )
 
     private val sessionClock = WorkoutSessionClock(viewModelScope)
+    private val sensorOrchestrator = WorkoutSensorOrchestrator(
+        scope = viewModelScope,
+        pollSensorStatus = sensorRepository::pollSensorStatus,
+        currentSetCompletionTarget = ::getSensorSetCompletionTarget,
+        onSetCompletionTriggered = ::onSensorSetCompletionTriggered,
+        resetCounter = sensorRepository::resetCounter
+    )
 
     // Timer State (rest timer between sets/exercises)
     val timerSeconds: StateFlow<Int> = countdownOrchestrator.timerSeconds
@@ -110,9 +113,6 @@ class WorkoutViewModel @Inject constructor(
     private val _sensorConnected = MutableStateFlow(false)
     val sensorConnected: StateFlow<Boolean> = _sensorConnected.asStateFlow()
 
-    private var sensorPollingJob: Job? = null
-    private var lastSensorReps = 0
-
     private val _activeExerciseId = MutableStateFlow<Int?>(null)
     val activeExerciseId: StateFlow<Int?> = _activeExerciseId.asStateFlow()
 
@@ -123,6 +123,18 @@ class WorkoutViewModel @Inject constructor(
         initializeDefaultExercises()
         observeSyncedSettings()
         observeLocalSettings()
+        observeSensorSnapshot()
+    }
+
+    private fun observeSensorSnapshot() {
+        viewModelScope.launch {
+            sensorOrchestrator.sensorSnapshot.collect { snapshot ->
+                _sensorConnected.value = snapshot.connected
+                _sensorReps.value = snapshot.reps
+                _sensorState.value = snapshot.state
+                _sensorDistance.value = snapshot.distance
+            }
+        }
     }
 
     private fun observeSyncedSettings() {
@@ -148,9 +160,9 @@ class WorkoutViewModel @Inject constructor(
                 celebrationSoundType = settings.celebrationSoundType
                 sensorEnabled = settings.sensorEnabled
                 sensorIpAddress = settings.sensorIpAddress
-                if (_sessionStarted.value && sensorEnabled && sensorPollingJob == null) {
+                if (_sessionStarted.value && sensorEnabled && !sensorOrchestrator.isPolling) {
                     startSensorPolling()
-                } else if (!sensorEnabled && sensorPollingJob != null) {
+                } else if (!sensorEnabled && sensorOrchestrator.isPolling) {
                     stopSensorPolling()
                 }
             }
@@ -288,22 +300,7 @@ class WorkoutViewModel @Inject constructor(
     // --- Set Completion Logic ---
     fun completeNextSet(exerciseId: Int) {
         viewModelScope.launch {
-            val update = sessionReducer.completeNextSet(
-                exercises = exercises.first(),
-                completedSets = _completedSets.value,
-                exerciseId = exerciseId,
-                restTimerDuration = _restTimerDuration.value,
-                exerciseSwitchDuration = _exerciseSwitchDuration.value
-            )
-
-            if (update.completedSets != _completedSets.value) {
-                _completedSets.value = update.completedSets
-                applyActiveExerciseSelection(update.activeExerciseSelection)
-                when (val timerRequest = update.timerRequest) {
-                    is PostSetTimerRequest.Start -> startTimer(timerRequest.seconds)
-                    PostSetTimerRequest.None -> Unit
-                }
-            }
+            completeNextSetInternal(exerciseId)
         }
     }
 
@@ -356,39 +353,14 @@ class WorkoutViewModel @Inject constructor(
     }
 
     private fun startSensorPolling() {
-        sensorPollingJob?.cancel()
-        sensorPollingJob = viewModelScope.launch {
-            sensorRepository.pollSensorStatus(sensorIpAddress, 200)
-                .catch { emitAll(flowOf(null)) }
-                .collect { sensorData ->
-                if (sensorData != null) {
-                    _sensorConnected.value = true
-                    _sensorReps.value = sensorData.reps
-                    _sensorState.value = sensorData.state
-                    _sensorDistance.value = sensorData.dist
-
-                    if (sensorData.reps > lastSensorReps && sensorData.reps > 0) {
-                        checkAndCompleteSet(sensorData.reps)
-                    }
-                    lastSensorReps = sensorData.reps
-                } else {
-                    _sensorConnected.value = false
-                }
-            }
-        }
+        sensorOrchestrator.start(sensorIpAddress)
     }
 
     private fun stopSensorPolling() {
-        sensorPollingJob?.cancel()
-        sensorPollingJob = null
-        _sensorConnected.value = false
-        _sensorReps.value = 0
-        _sensorState.value = "REST"
-        _sensorDistance.value = 0
-        lastSensorReps = 0
+        sensorOrchestrator.stop()
     }
 
-    private suspend fun checkAndCompleteSet(currentReps: Int) {
+    private suspend fun getSensorSetCompletionTarget(): SensorSetCompletionTarget? {
         val exerciseList = exercises.first()
         val incompleteExercise = exerciseList.firstOrNull { exercise ->
             val completedSets = _completedSets.value[exercise.id] ?: 0
@@ -397,18 +369,39 @@ class WorkoutViewModel @Inject constructor(
                 exercise.exerciseType != ExerciseType.HOLD.name
         }
 
-        incompleteExercise?.let { exercise ->
-            if (currentReps >= exercise.reps) {
-                completeNextSet(exercise.id)
-
-                viewModelScope.launch {
-                    delay(1000)
-                    sensorRepository.resetCounter(sensorIpAddress)
-                    lastSensorReps = 0
-                    _sensorReps.value = 0
-                }
-            }
+        return incompleteExercise?.let { exercise ->
+            SensorSetCompletionTarget(
+                exerciseId = exercise.id,
+                targetReps = exercise.reps
+            )
         }
+    }
+
+    private suspend fun onSensorSetCompletionTriggered(exerciseId: Int): Boolean {
+        return completeNextSetInternal(exerciseId)
+    }
+
+    private suspend fun completeNextSetInternal(exerciseId: Int): Boolean {
+        val previousCompletedSets = _completedSets.value
+        val update = sessionReducer.completeNextSet(
+            exercises = exercises.first(),
+            completedSets = previousCompletedSets,
+            exerciseId = exerciseId,
+            restTimerDuration = _restTimerDuration.value,
+            exerciseSwitchDuration = _exerciseSwitchDuration.value
+        )
+
+        if (update.completedSets == previousCompletedSets) {
+            return false
+        }
+
+        _completedSets.value = update.completedSets
+        applyActiveExerciseSelection(update.activeExerciseSelection)
+        when (val timerRequest = update.timerRequest) {
+            is PostSetTimerRequest.Start -> startTimer(timerRequest.seconds)
+            PostSetTimerRequest.None -> Unit
+        }
+        return true
     }
     
     override fun onCleared() {
