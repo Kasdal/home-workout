@@ -5,6 +5,7 @@ import com.example.workoutapp.data.local.entity.ExerciseSessionMode
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.SessionHistoryRepository
+import javax.inject.Inject
 
 data class WorkoutSessionStateUpdate(
     val completedSets: Map<Int, Int>,
@@ -22,7 +23,7 @@ data class WorkoutSessionPersistenceResult(
     val stateUpdate: WorkoutSessionStateUpdate
 )
 
-class WorkoutSessionCoordinator(
+class WorkoutSessionCoordinator @Inject constructor(
     private val sessionReducer: WorkoutSessionReducer,
     private val sessionCompletionCalculator: SessionCompletionCalculator,
     private val sessionHistoryRepository: SessionHistoryRepository
