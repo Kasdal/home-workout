@@ -6,13 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.auth.GoogleSignInClientFactory
-import com.example.workoutapp.data.remote.MigrationOrchestrator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,12 +25,11 @@ data class AuthUiState(
 class AuthViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val googleSignInClientFactory: GoogleSignInClientFactory,
-    private val migrationOrchestrator: MigrationOrchestrator
+    private val authMigrationCoordinator: AuthMigrationCoordinator
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AuthUiState())
     val state: StateFlow<AuthUiState> = _state.asStateFlow()
-    private val migrationMutex = Mutex()
 
     init {
         observeAuthState()
@@ -94,7 +90,7 @@ class AuthViewModel @Inject constructor(
 
     fun exportLegacyBackup(onComplete: (String) -> Unit) {
         viewModelScope.launch {
-            val result = migrationOrchestrator.exportLegacyBackup()
+            val result = authMigrationCoordinator.exportLegacyBackup()
             result.onSuccess {
                 _state.value = _state.value.copy(infoMessage = "Legacy backup exported.", errorMessage = null)
                 onComplete(it)
@@ -108,7 +104,7 @@ class AuthViewModel @Inject constructor(
         val uid = authManager.currentUserId() ?: return
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, infoMessage = null, errorMessage = null)
-            val result = migrationOrchestrator.importLegacyBackup(uid, backupJson)
+            val result = authMigrationCoordinator.importLegacyBackup(uid, backupJson)
             _state.value = _state.value.copy(
                 isLoading = false,
                 isMigrationComplete = result.isSuccess,
@@ -131,15 +127,13 @@ class AuthViewModel @Inject constructor(
     }
 
     private suspend fun migrate(uid: String) {
-        migrationMutex.withLock {
-            _state.value = _state.value.copy(isLoading = true, errorMessage = null, isMigrationComplete = false)
-            val migrationResult = migrationOrchestrator.migrateIfNeeded(uid)
-            _state.value = _state.value.copy(
-                isLoading = false,
-                isMigrationComplete = migrationResult.isSuccess,
-                infoMessage = null,
-                errorMessage = migrationResult.exceptionOrNull()?.message
-            )
-        }
+        _state.value = _state.value.copy(isLoading = true, errorMessage = null, isMigrationComplete = false)
+        val migrationResult = authMigrationCoordinator.migrateIfNeeded(uid)
+        _state.value = _state.value.copy(
+            isLoading = false,
+            isMigrationComplete = migrationResult.isSuccess,
+            infoMessage = null,
+            errorMessage = migrationResult.exceptionOrNull()?.message
+        )
     }
 }
