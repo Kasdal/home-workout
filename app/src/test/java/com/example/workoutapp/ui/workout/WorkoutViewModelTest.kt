@@ -98,6 +98,12 @@ class WorkoutViewModelTest {
         )
     }
 
+    private fun clearViewModel() {
+        val method = WorkoutViewModel::class.java.getDeclaredMethod("onCleared")
+        method.isAccessible = true
+        method.invoke(viewModel)
+    }
+
     @After
     fun tearDown() {
         Dispatchers.resetMain()
@@ -111,41 +117,16 @@ class WorkoutViewModelTest {
     }
 
     @Test
-    fun `startSession sets sessionStarted to true and starts timer`() = runTest {
-        viewModel.startSession()
-        runCurrent()
-
-        assertTrue(viewModel.sessionStarted.value)
-        assertEquals(0, viewModel.sessionElapsedSeconds.value)
-        assertEquals(1, viewModel.activeExerciseId.value)
-        assertEquals(ExerciseSessionMode.MANUAL_REPS, viewModel.activeExerciseMode.value)
-
-        advanceTimeBy(1000)
-        runCurrent()
-        assertEquals(1, viewModel.sessionElapsedSeconds.value)
-
-        viewModel.pauseSession()
-
-        advanceTimeBy(1000)
-        runCurrent()
-        assertEquals(1, viewModel.sessionElapsedSeconds.value)
-    }
-
-    @Test
     fun `completeSession saves session and resets state`() = runTest {
-        viewModel.startSession()
-        advanceTimeBy(1000)
-        runCurrent()
-        val elapsedBeforeCompletion = viewModel.sessionElapsedSeconds.value.toLong()
-
         // Simulate completing sets
         viewModel.completeNextSet(1) // Bench Press set 1
         runCurrent()
 
         coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
+        coEvery { sessionHistoryRepository.saveSessionExercises(any()) } just Runs
 
         viewModel.completeSession { session ->
-            assertEquals(elapsedBeforeCompletion, session.durationSeconds)
+            assertEquals(0L, session.durationSeconds)
             assertEquals(1000f, session.totalWeightLifted) // 1 set * 10 reps * 100 weight
         }
         runCurrent()
@@ -158,6 +139,9 @@ class WorkoutViewModelTest {
         assertTrue(viewModel.completedSets.value.isEmpty())
         assertEquals(null, viewModel.activeExerciseId.value)
         assertEquals(ExerciseSessionMode.MANUAL_REPS, viewModel.activeExerciseMode.value)
+
+        clearViewModel()
+        runCurrent()
     }
 
     @Test

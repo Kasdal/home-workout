@@ -393,6 +393,8 @@ class WorkoutViewModel @Inject constructor(
     }
     
     override fun onCleared() {
+        countdownOrchestrator.stopTimer()
+        sessionClock.stop()
         super.onCleared()
         stopSensorPolling()
         soundManager.release()
