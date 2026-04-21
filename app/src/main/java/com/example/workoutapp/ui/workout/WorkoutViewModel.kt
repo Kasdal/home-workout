@@ -8,17 +8,15 @@ import com.example.workoutapp.data.local.entity.ExerciseType
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
-import com.example.workoutapp.data.repository.SensorRepository
-import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.domain.session.PostSetTimerRequest
-import com.example.workoutapp.domain.session.SessionCompletionCalculator
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator
+import com.example.workoutapp.domain.session.WorkoutCountdownOrchestratorFactory
 import com.example.workoutapp.domain.session.WorkoutSessionClock
+import com.example.workoutapp.domain.session.WorkoutSessionClockFactory
 import com.example.workoutapp.domain.session.WorkoutSessionCoordinator
-import com.example.workoutapp.domain.session.WorkoutSessionReducer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,40 +30,32 @@ import javax.inject.Inject
 class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
     private val profileRepository: ProfileRepository,
-    private val sessionHistoryRepository: SessionHistoryRepository,
     private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
-    private val sensorRepository: SensorRepository,
-    private val sessionCompletionCalculator: SessionCompletionCalculator,
-    private val sessionReducer: WorkoutSessionReducer = WorkoutSessionReducer()
+    private val sessionCoordinator: WorkoutSessionCoordinator,
+    private val countdownOrchestratorFactory: WorkoutCountdownOrchestratorFactory,
+    private val sessionClockFactory: WorkoutSessionClockFactory,
+    private val sensorOrchestratorFactory: WorkoutSensorOrchestratorFactory
 ) : ViewModel() {
 
     // Exercises from DB
     val exercises = exerciseRepository.getExercises()
 
-    private val countdownOrchestrator = WorkoutCountdownOrchestrator(
+    private val countdownOrchestrator: WorkoutCountdownOrchestrator = countdownOrchestratorFactory.create(
         scope = viewModelScope,
         onTimerSound = {
             soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
         }
     )
 
-    private val sessionClock = WorkoutSessionClock(viewModelScope)
-    private val sensorOrchestrator = WorkoutSensorOrchestrator(
+    private val sessionClock: WorkoutSessionClock = sessionClockFactory.create(viewModelScope)
+    private val sensorOrchestrator: WorkoutSensorOrchestrator = sensorOrchestratorFactory.create(
         scope = viewModelScope,
-        pollSensorStatus = sensorRepository::pollSensorStatus,
         currentSetCompletionTarget = ::getSensorSetCompletionTarget,
-        onSetCompletionTriggered = ::onSensorSetCompletionTriggered,
-        resetCounter = sensorRepository::resetCounter
+        onSetCompletionTriggered = ::onSensorSetCompletionTriggered
     )
-    private val sessionCoordinator = WorkoutSessionCoordinator(
-        sessionReducer = sessionReducer,
-        sessionCompletionCalculator = sessionCompletionCalculator,
-        sessionHistoryRepository = sessionHistoryRepository
-    )
-
     // Timer State (rest timer between sets/exercises)
     val timerSeconds: StateFlow<Int> = countdownOrchestrator.timerSeconds
     val isTimerRunning: StateFlow<Boolean> = countdownOrchestrator.isTimerRunning
