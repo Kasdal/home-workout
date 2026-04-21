@@ -1,6 +1,7 @@
 package com.example.workoutapp.ui.workout
 
 import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.data.local.entity.ExerciseSessionMode
 import com.example.workoutapp.data.local.entity.UserMetrics
 import com.example.workoutapp.data.local.entity.WorkoutSession
 import com.example.workoutapp.data.repository.ExerciseRepository
@@ -112,9 +113,12 @@ class WorkoutViewModelTest {
     @Test
     fun `startSession sets sessionStarted to true and starts timer`() = runTest {
         viewModel.startSession()
+        runCurrent()
 
         assertTrue(viewModel.sessionStarted.value)
         assertEquals(0, viewModel.sessionElapsedSeconds.value)
+        assertEquals(1, viewModel.activeExerciseId.value)
+        assertEquals(ExerciseSessionMode.MANUAL_REPS, viewModel.activeExerciseMode.value)
 
         advanceTimeBy(1000)
         runCurrent()
@@ -151,23 +155,37 @@ class WorkoutViewModelTest {
 
         assertFalse(viewModel.sessionStarted.value)
         assertEquals(0, viewModel.sessionElapsedSeconds.value)
+        assertTrue(viewModel.completedSets.value.isEmpty())
+        assertEquals(null, viewModel.activeExerciseId.value)
+        assertEquals(ExerciseSessionMode.MANUAL_REPS, viewModel.activeExerciseMode.value)
     }
 
     @Test
-    fun `completeNextSet increments set count and starts rest timer`() = runTest {
+    fun `completeNextSet updates visible workout progress state`() = runTest {
         viewModel.completeNextSet(1)
         runCurrent()
-        
+
         val sets = viewModel.completedSets.value
         assertEquals(1, sets[1])
-        
-        // Should start rest timer (default 30s)
-        assertTrue(viewModel.isTimerRunning.value)
-        assertEquals(30, viewModel.timerSeconds.value)
+        assertEquals(1, viewModel.activeExerciseId.value)
+        assertEquals(ExerciseSessionMode.SENSOR_REPS, viewModel.activeExerciseMode.value)
     }
 
     @Test
-    fun `undoSet decrements completed set count without changing the running timer`() = runTest {
+    fun `completeNextSet surfaces timer requests through public timer state`() = runTest {
+        viewModel.setRestTimerDuration(17)
+        runCurrent()
+
+        viewModel.completeNextSet(1)
+        runCurrent()
+
+        assertTrue(viewModel.isTimerRunning.value)
+        assertFalse(viewModel.isTimerPaused.value)
+        assertEquals(17, viewModel.timerSeconds.value)
+    }
+
+    @Test
+    fun `undoSet updates visible workout progress state without disturbing the active timer`() = runTest {
         viewModel.completeNextSet(1)
         runCurrent()
 
@@ -183,6 +201,8 @@ class WorkoutViewModelTest {
 
         val sets = viewModel.completedSets.value
         assertEquals(0, sets[1])
+        assertEquals(1, viewModel.activeExerciseId.value)
+        assertEquals(ExerciseSessionMode.SENSOR_REPS, viewModel.activeExerciseMode.value)
         assertTrue(viewModel.isTimerRunning.value)
         assertEquals(remainingBeforeUndo, viewModel.timerSeconds.value)
 
@@ -192,8 +212,10 @@ class WorkoutViewModelTest {
     }
     
     @Test
-    fun `completeNextSet starts exercise switch timer on last set`() = runTest {
-        // Bench press has 4 sets
+    fun `completeNextSet uses public timer state for final-set timer requests`() = runTest {
+        viewModel.setExerciseSwitchDuration(61)
+        runCurrent()
+
         viewModel.completeNextSet(1)
         runCurrent()
         viewModel.completeNextSet(1)
@@ -205,10 +227,10 @@ class WorkoutViewModelTest {
         
         val sets = viewModel.completedSets.value
         assertEquals(4, sets[1])
-        
-        // Should start switch timer (default 90s)
+
         assertTrue(viewModel.isTimerRunning.value)
-        assertEquals(90, viewModel.timerSeconds.value)
+        assertFalse(viewModel.isTimerPaused.value)
+        assertEquals(61, viewModel.timerSeconds.value)
     }
 
     @Test
