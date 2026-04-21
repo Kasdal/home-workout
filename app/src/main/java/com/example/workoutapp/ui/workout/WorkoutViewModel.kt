@@ -17,6 +17,7 @@ import com.example.workoutapp.domain.session.PostSetTimerRequest
 import com.example.workoutapp.domain.session.SessionCompletionCalculator
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator
 import com.example.workoutapp.domain.session.WorkoutSessionClock
+import com.example.workoutapp.domain.session.WorkoutSessionCoordinator
 import com.example.workoutapp.domain.session.WorkoutSessionReducer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +59,11 @@ class WorkoutViewModel @Inject constructor(
         currentSetCompletionTarget = ::getSensorSetCompletionTarget,
         onSetCompletionTriggered = ::onSensorSetCompletionTriggered,
         resetCounter = sensorRepository::resetCounter
+    )
+    private val sessionCoordinator = WorkoutSessionCoordinator(
+        sessionReducer = sessionReducer,
+        sessionCompletionCalculator = sessionCompletionCalculator,
+        sessionHistoryRepository = sessionHistoryRepository
     )
 
     // Timer State (rest timer between sets/exercises)
@@ -199,8 +205,11 @@ class WorkoutViewModel @Inject constructor(
         sessionStartTime = System.currentTimeMillis()
         sessionClock.start()
         viewModelScope.launch {
-            applyActiveExerciseSelection(
-                sessionReducer.selectActiveExercise(exercises.first(), _completedSets.value)
+            applySessionStateUpdate(
+                sessionCoordinator.startSession(
+                    exercises = exercises.first(),
+                    completedSets = _completedSets.value
+                )
             )
         }
 
@@ -214,43 +223,26 @@ class WorkoutViewModel @Inject constructor(
             _isCompletingSession.value = true
             sessionClock.pause()
 
-            val endTime = System.currentTimeMillis()
-            val duration = sessionElapsedSeconds.value.toLong()
-            val userMetrics = profileRepository.getUserMetrics().first()
-            val exerciseList = exercises.first()
-            val completion = sessionCompletionCalculator.calculate(
-                exercises = exerciseList,
+            val result = sessionCoordinator.completeSession(
+                exercises = exercises.first(),
                 completedSets = _completedSets.value,
-                elapsedSeconds = duration,
-                endTime = endTime,
-                userMetrics = userMetrics,
+                elapsedSeconds = sessionElapsedSeconds.value.toLong(),
+                endTime = System.currentTimeMillis(),
+                userMetrics = profileRepository.getUserMetrics().first(),
                 restTimerDuration = _restTimerDuration.value,
                 exerciseSwitchDuration = _exerciseSwitchDuration.value
             )
-            
-            val sessionId = sessionHistoryRepository.saveSession(completion.session)
-            val sessionExercises = completion.sessionExercises.map {
-                it.copy(sessionId = sessionId.toInt())
-            }
-            
-            if (sessionExercises.isNotEmpty()) {
-                sessionHistoryRepository.saveSessionExercises(sessionExercises)
-            }
-            
-            // Reset state
-            _completedSets.value = emptyMap()
+
+            applySessionStateUpdate(result.stateUpdate)
             _sessionStarted.value = false
             sessionClock.stop()
             _isCompletingSession.value = false
-            _activeExerciseId.value = null
-            _activeExerciseMode.value = ExerciseSessionMode.MANUAL_REPS
 
             stopSensorPolling()
-            
-            // Play celebration sound for completing the workout!
+
             soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
-            
-            onComplete(completion.session.copy(id = sessionId.toInt()))
+
+            onComplete(result.completedSession)
         }
     }
     
@@ -305,16 +297,14 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun undoSet(exerciseId: Int) {
-        if (!_undoLastSetEnabled.value) return
-
         viewModelScope.launch {
-            val update = sessionReducer.undoSet(
+            val result = sessionCoordinator.undoSet(
                 exercises = exercises.first(),
                 completedSets = _completedSets.value,
-                exerciseId = exerciseId
+                exerciseId = exerciseId,
+                undoEnabled = _undoLastSetEnabled.value
             )
-            _completedSets.value = update.completedSets
-            applyActiveExerciseSelection(update.activeExerciseSelection)
+            applySessionStateUpdate(result.stateUpdate)
         }
     }
     
@@ -382,22 +372,20 @@ class WorkoutViewModel @Inject constructor(
     }
 
     private suspend fun completeNextSetInternal(exerciseId: Int): Boolean {
-        val previousCompletedSets = _completedSets.value
-        val update = sessionReducer.completeNextSet(
+        val result = sessionCoordinator.completeNextSet(
             exercises = exercises.first(),
-            completedSets = previousCompletedSets,
+            completedSets = _completedSets.value,
             exerciseId = exerciseId,
             restTimerDuration = _restTimerDuration.value,
             exerciseSwitchDuration = _exerciseSwitchDuration.value
         )
 
-        if (update.completedSets == previousCompletedSets) {
+        if (!result.didUpdate) {
             return false
         }
 
-        _completedSets.value = update.completedSets
-        applyActiveExerciseSelection(update.activeExerciseSelection)
-        when (val timerRequest = update.timerRequest) {
+        applySessionStateUpdate(result.stateUpdate)
+        when (val timerRequest = result.timerRequest) {
             is PostSetTimerRequest.Start -> startTimer(timerRequest.seconds)
             PostSetTimerRequest.None -> Unit
         }
@@ -413,5 +401,11 @@ class WorkoutViewModel @Inject constructor(
     private fun applyActiveExerciseSelection(selection: com.example.workoutapp.domain.session.ActiveExerciseSelection) {
         _activeExerciseId.value = selection.activeExerciseId
         _activeExerciseMode.value = selection.activeExerciseMode
+    }
+
+    private fun applySessionStateUpdate(update: com.example.workoutapp.domain.session.WorkoutSessionStateUpdate?) {
+        if (update == null) return
+        _completedSets.value = update.completedSets
+        applyActiveExerciseSelection(update.activeExerciseSelection)
     }
 }
