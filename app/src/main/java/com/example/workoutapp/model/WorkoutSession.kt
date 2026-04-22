@@ -1,4 +1,4 @@
-package com.example.workoutapp.data.local.entity
+package com.example.workoutapp.model
 
 data class WorkoutSession(
     val id: Int = 0,

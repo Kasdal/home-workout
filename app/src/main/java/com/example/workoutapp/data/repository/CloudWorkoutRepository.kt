@@ -1,13 +1,13 @@
 package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.auth.AuthManager
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.RestDay
-import com.example.workoutapp.data.local.entity.SessionExercise
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.RestDay
+import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.data.local.entity.Settings
-import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.local.entity.WorkoutSession
-import com.example.workoutapp.data.local.entity.WorkoutStats
+import com.example.workoutapp.model.UserMetrics
+import com.example.workoutapp.model.WorkoutSession
+import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
 import com.example.workoutapp.data.settings.WorkoutSessionSettings

@@ -2,7 +2,7 @@ package com.example.workoutapp.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.data.local.entity.UserMetrics
+import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.data.repository.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

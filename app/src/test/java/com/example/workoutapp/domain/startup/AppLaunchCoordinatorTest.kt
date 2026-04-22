@@ -1,7 +1,7 @@
 package com.example.workoutapp.domain.startup
 
 import com.example.workoutapp.auth.AuthManager
-import com.example.workoutapp.data.local.entity.UserMetrics
+import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.repository.ProfileRepository

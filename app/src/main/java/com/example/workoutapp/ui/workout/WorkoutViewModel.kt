@@ -2,10 +2,10 @@ package com.example.workoutapp.ui.workout
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseSessionMode
-import com.example.workoutapp.data.local.entity.ExerciseType
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseSessionMode
+import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
@@ -178,7 +178,7 @@ class WorkoutViewModel @Inject constructor(
                         Exercise(
                             name = name,
                             weight = 20f,
-                            exerciseType = com.example.workoutapp.data.local.entity.ExerciseType.STANDARD.name,
+                            exerciseType = com.example.workoutapp.model.ExerciseType.STANDARD.name,
                             usesSensor = true,
                             holdDurationSeconds = 30
                         )

@@ -46,10 +46,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseSessionMode
-import com.example.workoutapp.data.local.entity.ExerciseType
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseSessionMode
+import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen

@@ -1,8 +1,8 @@
 package com.example.workoutapp.data.repository
 
-import com.example.workoutapp.data.local.entity.SessionExercise
-import com.example.workoutapp.data.local.entity.WorkoutSession
-import com.example.workoutapp.data.local.entity.WorkoutStats
+import com.example.workoutapp.model.SessionExercise
+import com.example.workoutapp.model.WorkoutSession
+import com.example.workoutapp.model.WorkoutStats
 import kotlinx.coroutines.flow.Flow
 
 interface SessionHistoryRepository {

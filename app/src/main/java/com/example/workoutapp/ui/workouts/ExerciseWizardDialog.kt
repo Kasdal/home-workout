@@ -24,8 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseType
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseType
 
 @Composable
 fun ExerciseWizardDialog(

@@ -34,9 +34,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseSessionMode
-import com.example.workoutapp.data.local.entity.ExerciseType
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseSessionMode
+import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.ui.theme.NeonGreen
 import kotlinx.coroutines.delay
 
