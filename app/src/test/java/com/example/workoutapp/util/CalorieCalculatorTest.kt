@@ -1,8 +1,8 @@
 package com.example.workoutapp.util
 
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseType
-import com.example.workoutapp.data.local.entity.UserMetrics
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.model.UserMetrics
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -1,11 +1,11 @@
 package com.example.workoutapp.data.local.room.entity
 
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.RestDay
-import com.example.workoutapp.data.local.entity.SessionExercise
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.RestDay
+import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.data.local.entity.Settings
-import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.UserMetrics
+import com.example.workoutapp.model.WorkoutSession
 
 fun RoomExercise.toDomain() = Exercise(id, name, weight, reps, sets, exerciseType, usesSensor, holdDurationSeconds, isDeleted, photoUri)
 fun Exercise.toRoom() = RoomExercise(id, name, weight, reps, sets, exerciseType, usesSensor, holdDurationSeconds, isDeleted, photoUri)

@@ -6,11 +6,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private data class SerializableLegacyMigrationPayload(
-    val userMetrics: List<com.example.workoutapp.data.local.entity.UserMetrics>,
-    val exercises: List<com.example.workoutapp.data.local.entity.Exercise>,
-    val sessions: List<com.example.workoutapp.data.local.entity.WorkoutSession>,
-    val sessionExercises: List<com.example.workoutapp.data.local.entity.SessionExercise>,
-    val restDays: List<com.example.workoutapp.data.local.entity.RestDay>,
+    val userMetrics: List<com.example.workoutapp.model.UserMetrics>,
+    val exercises: List<com.example.workoutapp.model.Exercise>,
+    val sessions: List<com.example.workoutapp.model.WorkoutSession>,
+    val sessionExercises: List<com.example.workoutapp.model.SessionExercise>,
+    val restDays: List<com.example.workoutapp.model.RestDay>,
     val settings: Settings?
 )
 

@@ -52,7 +52,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.theme.NeonGreen
 import java.text.SimpleDateFormat
