@@ -1,4 +1,4 @@
-package com.example.workoutapp.data.local.entity
+package com.example.workoutapp.model
 
 data class Settings(
     val id: Int = 1, // Singleton

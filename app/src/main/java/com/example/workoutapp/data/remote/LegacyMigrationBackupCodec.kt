@@ -1,6 +1,6 @@
 package com.example.workoutapp.data.remote
 
-import com.example.workoutapp.data.local.entity.Settings
+import com.example.workoutapp.model.Settings
 import com.google.gson.Gson
 import javax.inject.Inject
 import javax.inject.Singleton

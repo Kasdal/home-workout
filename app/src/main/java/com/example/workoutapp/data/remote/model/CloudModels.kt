@@ -3,7 +3,7 @@ package com.example.workoutapp.data.remote.model
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.RestDay
 import com.example.workoutapp.model.SessionExercise
-import com.example.workoutapp.data.local.entity.Settings
+import com.example.workoutapp.model.Settings
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
 
