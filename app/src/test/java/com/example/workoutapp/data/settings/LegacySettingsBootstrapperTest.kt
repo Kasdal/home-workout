@@ -1,42 +1,40 @@
 package com.example.workoutapp.data.settings
 
-import com.example.workoutapp.data.local.dao.WorkoutDao
-import com.example.workoutapp.data.local.room.entity.RoomSettings
-import com.example.workoutapp.data.local.room.entity.toDomain
+import com.example.workoutapp.data.remote.LegacyMigrationDataSource
+import com.example.workoutapp.model.Settings
 import io.mockk.coVerify
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 
 class LegacySettingsBootstrapperTest {
 
-    private lateinit var workoutDao: WorkoutDao
+    private lateinit var legacyMigrationDataSource: LegacyMigrationDataSource
     private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
     private lateinit var bootstrapper: LegacySettingsBootstrapper
 
     @Before
     fun setup() {
-        workoutDao = mockk()
+        legacyMigrationDataSource = mockk()
         localAppPreferencesRepository = mockk(relaxed = true)
-        bootstrapper = LegacySettingsBootstrapper(workoutDao, localAppPreferencesRepository)
+        bootstrapper = LegacySettingsBootstrapper(legacyMigrationDataSource, localAppPreferencesRepository)
     }
 
     @Test
     fun `seedFromLegacySettingsIfPresent seeds local preferences when legacy settings exist`() = runTest {
-        val legacySettings = RoomSettings(themeMode = "light", soundsEnabled = false)
-        every { workoutDao.getSettings() } returns flowOf(legacySettings)
+        val legacySettings = Settings(themeMode = "light", soundsEnabled = false)
+        coEvery { legacyMigrationDataSource.loadSettings() } returns legacySettings
 
         bootstrapper.seedFromLegacySettingsIfPresent()
 
-        coVerify { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(legacySettings.toDomain()) }
+        coVerify { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(legacySettings) }
     }
 
     @Test
     fun `seedFromLegacySettingsIfPresent does nothing when legacy settings are missing`() = runTest {
-        every { workoutDao.getSettings() } returns flowOf(null)
+        coEvery { legacyMigrationDataSource.loadSettings() } returns null
 
         bootstrapper.seedFromLegacySettingsIfPresent()
 

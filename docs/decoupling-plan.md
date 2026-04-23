@@ -5,7 +5,7 @@
 - Firestore is the real runtime data store.
 - Room is no longer used for normal repository reads or writes.
 - Shared app models are no longer Room entities.
-- Room still exists only as a legacy read adapter for migration/export fallback.
+- Room now exists only as a temporary legacy adapter for the migration/import fallback boundary.
 - The biggest remaining coupling hotspots are the legacy `Settings` blob boundaries that still exist for migration, backup, and bootstrap-only flows, plus remaining `WorkoutViewModel` cleanup.
 
 ## Verified Room status
@@ -13,7 +13,7 @@
 - Active app code no longer depends on `WorkoutRepository`.
 - `CloudWorkoutRepository` remains the single Firestore-backed runtime implementation, exposed through focused repository interfaces.
 - Room is still built and injected in `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
-- The only active runtime Room dependency is `MigrationOrchestrator`, now reading through `LegacyMigrationDataSource`, used from `AuthViewModel` during sign-in or manual legacy backup export.
+- The only active runtime Room dependency is the migration/import fallback boundary: `MigrationOrchestrator` reads through `LegacyMigrationDataSource`, whose current implementation is `RoomLegacyMigrationDataSource`, used from `AuthViewModel` during sign-in or manual legacy backup export.
 - `WorkoutRepositoryImpl` has been removed.
 - `WorkoutDaoTest` has been removed.
 - Room-specific entities now live under `app/src/main/java/com/example/workoutapp/data/local/room/entity/`.
@@ -125,19 +125,44 @@ Status:
 ### Phase 4: Retire Room runtime
 
 - After manual import fallback is available:
+  - remove the remaining Room-backed migration/import fallback boundary
   - delete `MigrationOrchestrator`
   - delete `WorkoutDatabase`
   - delete `WorkoutDao`
+  - delete `data/local/room/entity/*`
+  - delete `RoomMappers`
+  - delete `RoomLegacyMigrationDataSource`
+  - delete `LegacyMigrationDataSource` plus bindings if no storage-neutral fallback seam is still needed
   - remove Room providers from `AppModule`
-  - delete `WorkoutRepositoryImpl`
-  - delete Room DAO tests
+  - delete remaining Room tests
   - remove Room dependencies from Gradle
 
 Status:
 
 - Not complete yet.
 - Manual JSON backup export/import fallback exists.
-- Remaining blocker: the fallback still reads from the legacy Room adapter in the same release line, so full Room removal should happen only after that fallback is no longer needed.
+- Remaining blocker: the fallback still reads from the temporary Room legacy adapter in the same release line, so full Room removal should happen only after that fallback is no longer needed.
+
+Final removal preconditions:
+
+- A non-Room import path must exist for users who still have legacy local-only data.
+- The sign-in retry and manual import/export flows must no longer depend on `MigrationOrchestrator` reading Room-backed payloads.
+- The auth UI promise that local data remains safe after migration failure must still be true without Room.
+- No active runtime code may depend on `LegacyMigrationDataSource`, `RoomLegacyMigrationDataSource`, `WorkoutDao`, or `WorkoutDatabase`.
+- Existing legacy users must have a safe upgrade path in the release line where Room is actually removed.
+
+Final Room-removal checklist:
+
+- Verify the migration/import fallback boundary no longer reads from Room in app code or tests.
+- Delete `app/src/main/java/com/example/workoutapp/data/local/WorkoutDatabase.kt`.
+- Delete `app/src/main/java/com/example/workoutapp/data/local/dao/WorkoutDao.kt`.
+- Delete `app/src/main/java/com/example/workoutapp/data/local/room/entity/*` including `RoomMappers.kt`.
+- Delete `app/src/main/java/com/example/workoutapp/data/remote/RoomLegacyMigrationDataSource.kt`.
+- Delete `app/src/main/java/com/example/workoutapp/data/remote/LegacyMigrationDataSource.kt` and its `AppModule` binding if that seam is no longer needed.
+- Remove `provideWorkoutDatabase`, `provideWorkoutDao`, and `provideLegacyMigrationDataSource` Room-backed wiring from `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
+- Delete any remaining Room-specific tests and fixtures.
+- Remove Room dependencies and any now-unused migration classes from Gradle and DI.
+- Run `./gradlew :app:assembleDebug` after the deletion change to confirm the app no longer links Room.
 
 ### Phase 5: Neutralize shared models
 
