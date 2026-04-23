@@ -1,6 +1,7 @@
 package com.example.workoutapp.ui.auth
 
 import com.example.workoutapp.data.remote.MigrationOrchestrator
+import com.example.workoutapp.data.remote.MigrationBootstrapResult
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -18,7 +19,7 @@ class AuthMigrationCoordinatorTest {
 
     @Test
     fun `migrateIfNeeded returns orchestrator result for the uid`() = runTest {
-        val expected = Result.success(Unit)
+        val expected = Result.success(MigrationBootstrapResult.READY)
         val coordinator = AuthMigrationCoordinator(migrationOrchestrator)
 
         coEvery { migrationOrchestrator.migrateIfNeeded("user-123") } returns expected
@@ -38,7 +39,7 @@ class AuthMigrationCoordinatorTest {
         coEvery { migrationOrchestrator.migrateIfNeeded(any()) } coAnswers {
             firstCallEntered.complete(Unit)
             releaseFirstCall.await()
-            Result.success(Unit)
+            Result.success(MigrationBootstrapResult.READY)
         }
 
         val first = async { coordinator.migrateIfNeeded("user-123") }
@@ -53,19 +54,6 @@ class AuthMigrationCoordinatorTest {
         second.await()
 
         coVerify(exactly = 2) { migrationOrchestrator.migrateIfNeeded("user-123") }
-    }
-
-    @Test
-    fun `exportLegacyBackup returns orchestrator result`() = runTest {
-        val expected = Result.success("backup-json")
-        val coordinator = AuthMigrationCoordinator(migrationOrchestrator)
-
-        coEvery { migrationOrchestrator.exportLegacyBackup() } returns expected
-
-        val actual = coordinator.exportLegacyBackup()
-
-        assertEquals(expected, actual)
-        coVerify(exactly = 1) { migrationOrchestrator.exportLegacyBackup() }
     }
 
     @Test

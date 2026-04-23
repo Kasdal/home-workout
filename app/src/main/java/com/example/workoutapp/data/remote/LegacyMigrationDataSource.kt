@@ -15,9 +15,3 @@ data class LegacyMigrationPayload(
     val restDays: List<RestDay>,
     val settings: Settings?
 )
-
-interface LegacyMigrationDataSource {
-    suspend fun loadPayload(): LegacyMigrationPayload
-
-    suspend fun loadSettings(): Settings?
-}
