@@ -78,6 +78,7 @@ data class CloudSessionExercise(
 
 data class CloudMigrationMeta(
     val migrationComplete: Boolean = false,
+    val backupImportPending: Boolean = false,
     val migratedAt: Long = 0L,
     val userMetricsCount: Int = 0,
     val exercisesCount: Int = 0,

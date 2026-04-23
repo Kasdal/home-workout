@@ -5,6 +5,8 @@ import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.repository.ProfileRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
@@ -28,6 +30,12 @@ class AppLaunchCoordinator @Inject constructor(
     private val firestoreRepository: FirestoreRepository,
     private val authManager: AuthManager
 ) {
+    private val backupImportPending = MutableStateFlow(false)
+
+    fun setBackupImportPending(isPending: Boolean) {
+        backupImportPending.value = isPending
+    }
+
     fun appEntryState(): Flow<AppEntryState> {
         return authManager.currentUser.flatMapLatest { user ->
             if (user == null) {
@@ -35,23 +43,28 @@ class AppLaunchCoordinator @Inject constructor(
             } else {
                 var lastReadyState: AppEntryState.Ready? = null
 
-                firestoreRepository.observeMigrationMeta(user.uid).transformLatest { migrationMeta ->
-                    when {
-                        migrationMeta?.migrationComplete == true -> {
-                            emitAll(
-                                repository.getUserMetrics()
-                                    .map { metrics ->
-                                        AppEntryState.Ready(
-                                            startDestination = if (metrics != null) "workout" else "onboarding"
-                                        )
-                                    }
-                                    .onEach { lastReadyState = it }
-                            )
+                combine(
+                    firestoreRepository.observeMigrationMeta(user.uid),
+                    backupImportPending
+                ) { migrationMeta, isBackupImportPending -> migrationMeta to isBackupImportPending }
+                    .transformLatest { (migrationMeta, isBackupImportPending) ->
+                        when {
+                            isBackupImportPending || migrationMeta?.backupImportPending == true -> emit(AppEntryState.MigrationInProgress)
+                            migrationMeta?.migrationComplete == true -> {
+                                emitAll(
+                                    repository.getUserMetrics()
+                                        .map { metrics ->
+                                            AppEntryState.Ready(
+                                                startDestination = if (metrics != null) "workout" else "onboarding"
+                                            )
+                                        }
+                                        .onEach { lastReadyState = it }
+                                )
+                            }
+                            migrationMeta == null && lastReadyState != null -> emit(lastReadyState!!)
+                            else -> emit(AppEntryState.MigrationInProgress)
                         }
-                        migrationMeta == null && lastReadyState != null -> emit(lastReadyState!!)
-                        else -> emit(AppEntryState.MigrationInProgress)
                     }
-                }
             }
         }.distinctUntilChanged()
     }

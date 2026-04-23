@@ -1,5 +1,6 @@
 package com.example.workoutapp.data.remote
 
+import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -17,7 +18,13 @@ class MigrationOrchestrator @Inject constructor(
     suspend fun migrateIfNeeded(uid: String): Result<MigrationBootstrapResult> {
         return runCatching {
             val existingMeta = firestoreRepository.getMigrationMeta(uid)
-            if (existingMeta?.migrationComplete == true) return@runCatching MigrationBootstrapResult.READY
+            if (existingMeta?.migrationComplete == true) {
+                return@runCatching if (existingMeta.backupImportPending) {
+                    MigrationBootstrapResult.NEEDS_BACKUP_IMPORT
+                } else {
+                    MigrationBootstrapResult.READY
+                }
+            }
 
             firestoreRepository.performInitialMigration(
                 uid = uid,
@@ -38,7 +45,25 @@ class MigrationOrchestrator @Inject constructor(
                     updatedMeta.restDaysCount > 0
                 )
 
-            if (hasRemoteData) MigrationBootstrapResult.READY else MigrationBootstrapResult.NEEDS_BACKUP_IMPORT
+            if (hasRemoteData) {
+                MigrationBootstrapResult.READY
+            } else {
+                firestoreRepository.setMigrationMeta(
+                    uid,
+                    CloudMigrationMeta(
+                        migrationComplete = true,
+                        backupImportPending = true,
+                        migratedAt = System.currentTimeMillis(),
+                        userMetricsCount = 0,
+                        exercisesCount = 0,
+                        sessionsCount = 0,
+                        sessionExercisesCount = 0,
+                        restDaysCount = 0,
+                        schemaVersion = 1
+                    )
+                )
+                MigrationBootstrapResult.NEEDS_BACKUP_IMPORT
+            }
         }
     }
 
@@ -54,6 +79,26 @@ class MigrationOrchestrator @Inject constructor(
                 restDays = payload.restDays,
                 settings = payload.settings,
                 force = true
+            )
+        }
+    }
+
+    suspend fun continueWithoutBackupImport(uid: String): Result<Unit> {
+        return runCatching {
+            val existingMeta = firestoreRepository.getMigrationMeta(uid)
+            firestoreRepository.setMigrationMeta(
+                uid,
+                CloudMigrationMeta(
+                    migrationComplete = true,
+                    backupImportPending = false,
+                    migratedAt = existingMeta?.migratedAt ?: System.currentTimeMillis(),
+                    userMetricsCount = existingMeta?.userMetricsCount ?: 0,
+                    exercisesCount = existingMeta?.exercisesCount ?: 0,
+                    sessionsCount = existingMeta?.sessionsCount ?: 0,
+                    sessionExercisesCount = existingMeta?.sessionExercisesCount ?: 0,
+                    restDaysCount = existingMeta?.restDaysCount ?: 0,
+                    schemaVersion = existingMeta?.schemaVersion ?: 1
+                )
             )
         }
     }
