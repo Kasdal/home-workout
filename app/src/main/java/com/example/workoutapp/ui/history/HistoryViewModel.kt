@@ -2,8 +2,8 @@ package com.example.workoutapp.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.data.local.entity.SessionExercise
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.SessionExercise
+import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow

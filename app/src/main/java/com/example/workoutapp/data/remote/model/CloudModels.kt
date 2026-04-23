@@ -1,11 +1,11 @@
 package com.example.workoutapp.data.remote.model
 
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.RestDay
-import com.example.workoutapp.data.local.entity.SessionExercise
-import com.example.workoutapp.data.local.entity.Settings
-import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.RestDay
+import com.example.workoutapp.model.SessionExercise
+import com.example.workoutapp.model.Settings
+import com.example.workoutapp.model.UserMetrics
+import com.example.workoutapp.model.WorkoutSession
 
 data class CloudUserMetrics(
     val id: Int = 0,
@@ -78,6 +78,7 @@ data class CloudSessionExercise(
 
 data class CloudMigrationMeta(
     val migrationComplete: Boolean = false,
+    val backupImportPending: Boolean = false,
     val migratedAt: Long = 0L,
     val userMetricsCount: Int = 0,
     val exercisesCount: Int = 0,

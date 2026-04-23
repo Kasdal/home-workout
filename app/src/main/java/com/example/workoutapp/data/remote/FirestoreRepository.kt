@@ -1,12 +1,12 @@
 package com.example.workoutapp.data.remote
 
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.RestDay
-import com.example.workoutapp.data.local.entity.SessionExercise
-import com.example.workoutapp.data.local.entity.Settings
-import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.local.entity.WorkoutSession
-import com.example.workoutapp.data.local.entity.WorkoutStats
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.RestDay
+import com.example.workoutapp.model.SessionExercise
+import com.example.workoutapp.model.Settings
+import com.example.workoutapp.model.UserMetrics
+import com.example.workoutapp.model.WorkoutSession
+import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.remote.model.CloudSettings
 import com.example.workoutapp.data.remote.model.toCloud
@@ -559,9 +559,10 @@ class FirestoreRepository @Inject constructor(
         sessions: List<WorkoutSession>,
         sessionExercises: List<SessionExercise>,
         restDays: List<RestDay>,
-        settings: Settings?
+        settings: Settings?,
+        force: Boolean = false
     ) {
-        if (getMigrationMeta(uid)?.migrationComplete == true) return
+        if (!force && getMigrationMeta(uid)?.migrationComplete == true) return
 
         val root = userRoot(uid)
         val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, Any>>()
@@ -669,6 +670,7 @@ class FirestoreRepository @Inject constructor(
 
         fun toMigrationMeta() = CloudMigrationMeta(
             migrationComplete = true,
+            backupImportPending = false,
             migratedAt = System.currentTimeMillis(),
             userMetricsCount = userMetrics,
             exercisesCount = exercises,

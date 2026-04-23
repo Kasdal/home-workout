@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.theme.NeonGreen
 import com.example.workoutapp.ui.theme.SurfaceGrey
 import java.text.SimpleDateFormat

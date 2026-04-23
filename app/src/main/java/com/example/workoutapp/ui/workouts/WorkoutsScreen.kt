@@ -51,8 +51,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseType
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.ui.workout.ExerciseEditDialog
 
 @OptIn(ExperimentalMaterial3Api::class)

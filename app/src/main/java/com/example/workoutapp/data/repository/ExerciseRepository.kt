@@ -1,6 +1,6 @@
 package com.example.workoutapp.data.repository
 
-import com.example.workoutapp.data.local.entity.Exercise
+import com.example.workoutapp.model.Exercise
 import kotlinx.coroutines.flow.Flow
 
 interface ExerciseRepository {

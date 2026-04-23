@@ -2,7 +2,7 @@ package com.example.workoutapp.ui.restdays
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.workoutapp.data.local.entity.RestDay
+import com.example.workoutapp.model.RestDay
 import com.example.workoutapp.data.repository.RestDayRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

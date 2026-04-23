@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
-import com.example.workoutapp.data.repository.SettingsRepository
+import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +19,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settingsRepository: SettingsRepository,
+    private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val exerciseRepository: ExerciseRepository,
     private val sessionHistoryRepository: SessionHistoryRepository,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
@@ -52,9 +52,7 @@ class SettingsViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            settingsRepository.getSettings().collect { dbSettings ->
-                dbSettings?.let { localAppPreferencesRepository.seedFromLegacySettingsIfUnset(it) }
-            }
+            legacySettingsBootstrapper.seedFromLegacySettingsIfPresent()
         }
 
         viewModelScope.launch {

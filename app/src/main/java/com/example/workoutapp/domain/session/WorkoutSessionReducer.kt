@@ -1,8 +1,8 @@
 package com.example.workoutapp.domain.session
 
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseSessionMode
-import com.example.workoutapp.data.local.entity.ExerciseType
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseSessionMode
+import com.example.workoutapp.model.ExerciseType
 import javax.inject.Inject
 
 data class ActiveExerciseSelection(

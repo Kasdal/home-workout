@@ -1,6 +1,6 @@
 package com.example.workoutapp.data.repository
 
-import com.example.workoutapp.data.local.entity.RestDay
+import com.example.workoutapp.model.RestDay
 import kotlinx.coroutines.flow.Flow
 
 interface RestDayRepository {

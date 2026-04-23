@@ -1,6 +1,6 @@
 package com.example.workoutapp.data.repository
 
-import com.example.workoutapp.data.local.entity.UserMetrics
+import com.example.workoutapp.model.UserMetrics
 import kotlinx.coroutines.flow.Flow
 
 interface ProfileRepository {

@@ -1,10 +1,10 @@
 package com.example.workoutapp.domain.session
 
-import com.example.workoutapp.data.local.entity.Exercise
-import com.example.workoutapp.data.local.entity.ExerciseType
-import com.example.workoutapp.data.local.entity.SessionExercise
-import com.example.workoutapp.data.local.entity.UserMetrics
-import com.example.workoutapp.data.local.entity.WorkoutSession
+import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.model.SessionExercise
+import com.example.workoutapp.model.UserMetrics
+import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.util.CalorieCalculator
 import javax.inject.Inject
 import kotlin.math.roundToInt

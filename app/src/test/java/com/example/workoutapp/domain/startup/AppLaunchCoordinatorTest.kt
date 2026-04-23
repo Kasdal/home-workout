@@ -1,7 +1,7 @@
 package com.example.workoutapp.domain.startup
 
 import com.example.workoutapp.auth.AuthManager
-import com.example.workoutapp.data.local.entity.UserMetrics
+import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.repository.ProfileRepository
@@ -115,5 +115,22 @@ class AppLaunchCoordinatorTest {
         assertEquals(listOf(AppEntryState.Ready("workout")), states)
 
         job.cancel()
+    }
+
+    @Test
+    fun `holds app entry in migration state while backup import is pending`() = runTest {
+        every { firebaseUser.uid } returns "user-123"
+        every { authManager.currentUser } returns flowOf(firebaseUser)
+        every { firestoreRepository.observeMigrationMeta("user-123") } returns flowOf(
+            CloudMigrationMeta(migrationComplete = true)
+        )
+        every { repository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
+
+        val coordinator = AppLaunchCoordinator(repository, firestoreRepository, authManager)
+        coordinator.setBackupImportPending(true)
+
+        val result = coordinator.appEntryState()
+
+        assertEquals(AppEntryState.MigrationInProgress, result.first())
     }
 }
