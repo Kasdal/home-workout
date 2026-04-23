@@ -2,6 +2,7 @@ package com.example.workoutapp.ui.auth
 
 import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.auth.GoogleSignInClientFactory
+import com.example.workoutapp.data.remote.MigrationBootstrapResult
 import com.google.firebase.auth.FirebaseUser
 import io.mockk.coEvery
 import io.mockk.every
@@ -47,8 +48,7 @@ class AuthViewModelTest {
         every { authManager.currentUserId() } returns "user-123"
         every { firebaseUser.uid } returns "user-123"
 
-        coEvery { authMigrationCoordinator.migrateIfNeeded("user-123") } returns Result.success(Unit)
-        coEvery { authMigrationCoordinator.exportLegacyBackup() } returns Result.success("backup-json")
+        coEvery { authMigrationCoordinator.migrateIfNeeded("user-123") } returns Result.success(MigrationBootstrapResult.READY)
         coEvery {
             authMigrationCoordinator.importLegacyBackup("user-123", any())
         } returns Result.success(Unit)
@@ -85,7 +85,7 @@ class AuthViewModelTest {
 
     @Test
     fun `migration failure maps coordinator error into auth ui state`() = runTest {
-        val migrationResult = CompletableDeferred<Result<Unit>>()
+        val migrationResult = CompletableDeferred<Result<MigrationBootstrapResult>>()
         coEvery { authMigrationCoordinator.migrateIfNeeded("user-123") } coAnswers {
             migrationResult.await()
         }
@@ -118,36 +118,45 @@ class AuthViewModelTest {
     }
 
     @Test
-    fun `export success sets info message and invokes completion callback`() = runTest {
+    fun `empty remote migration prompts backup import instead of navigating immediately`() = runTest {
+        coEvery { authMigrationCoordinator.migrateIfNeeded("user-123") } returns Result.success(MigrationBootstrapResult.NEEDS_BACKUP_IMPORT)
         val viewModel = createViewModel()
         advanceUntilIdle()
-        var exportedBackup: String? = null
 
-        viewModel.exportLegacyBackup { exportedBackup = it }
+        authFlow.value = firebaseUser
         advanceUntilIdle()
 
-        assertEquals("backup-json", exportedBackup)
-        assertFalse(viewModel.state.value.isLoading)
-        assertEquals("Legacy backup exported.", viewModel.state.value.infoMessage)
-        assertNull(viewModel.state.value.errorMessage)
+        assertEquals(
+            AuthUiState(
+                isSignedIn = true,
+                isMigrationComplete = false,
+                awaitingBackupImport = true,
+                infoMessage = "Import a backup file if you have one, or continue without importing."
+            ),
+            viewModel.state.value
+        )
     }
 
     @Test
-    fun `export failure clears info message and surfaces error`() = runTest {
-        coEvery { authMigrationCoordinator.exportLegacyBackup() } returns Result.failure(
-            IllegalStateException("Export failed")
-        )
+    fun `continueWithoutImport marks migration complete and clears prompt state`() = runTest {
+        coEvery { authMigrationCoordinator.migrateIfNeeded("user-123") } returns Result.success(MigrationBootstrapResult.NEEDS_BACKUP_IMPORT)
         val viewModel = createViewModel()
         advanceUntilIdle()
-        var callbackInvoked = false
 
-        viewModel.exportLegacyBackup { callbackInvoked = true }
+        authFlow.value = firebaseUser
         advanceUntilIdle()
+        viewModel.continueWithoutImport()
 
-        assertFalse(callbackInvoked)
-        assertFalse(viewModel.state.value.isLoading)
-        assertNull(viewModel.state.value.infoMessage)
-        assertEquals("Export failed", viewModel.state.value.errorMessage)
+        assertEquals(
+            AuthUiState(
+                isSignedIn = true,
+                isMigrationComplete = true,
+                awaitingBackupImport = false,
+                infoMessage = null,
+                errorMessage = null
+            ),
+            viewModel.state.value
+        )
     }
 
     @Test
@@ -173,7 +182,8 @@ class AuthViewModelTest {
             AuthUiState(
                 isLoading = false,
                 isMigrationComplete = true,
-                infoMessage = "Backup imported to cloud."
+                awaitingBackupImport = false,
+                infoMessage = null
             ),
             viewModel.state.value
         )
@@ -202,6 +212,7 @@ class AuthViewModelTest {
             AuthUiState(
                 isLoading = false,
                 isMigrationComplete = false,
+                awaitingBackupImport = true,
                 errorMessage = "Import failed"
             ),
             viewModel.state.value

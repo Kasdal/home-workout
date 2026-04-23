@@ -1,7 +1,6 @@
 package com.example.workoutapp.ui.auth
 
 import android.util.Log
-import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
@@ -30,10 +29,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.core.content.FileProvider
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
-import java.io.File
 
 @Composable
 fun AuthGateScreen(
@@ -82,8 +79,8 @@ fun AuthGateScreen(
         }
     }
 
-    LaunchedEffect(state.isSignedIn, state.isMigrationComplete) {
-        if (state.isSignedIn && state.isMigrationComplete) {
+    LaunchedEffect(state.isSignedIn, state.isMigrationComplete, state.awaitingBackupImport, state.infoMessage) {
+        if (state.isSignedIn && state.isMigrationComplete && !state.awaitingBackupImport && state.infoMessage == null) {
             onReady()
         }
     }
@@ -161,6 +158,37 @@ fun AuthGateScreen(
                 ) {
                     Text("Sign in with Google")
                 }
+            } else if (state.awaitingBackupImport) {
+                Text(
+                    text = state.infoMessage ?: "Import a backup file if you have one, or continue without importing.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (state.errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = state.errorMessage ?: "",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Red,
+                        textAlign = TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { importBackupLauncher.launch(arrayOf("application/json", "text/plain")) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Import Backup File")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = { viewModel.continueWithoutImport() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Continue Without Import")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(onClick = { viewModel.signOut() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Sign out")
+                }
             } else if (state.errorMessage != null) {
                 val errorMessage = state.errorMessage ?: "Unknown error"
                 Text(
@@ -179,31 +207,6 @@ fun AuthGateScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = { viewModel.retryMigration() }, modifier = Modifier.fillMaxWidth()) {
                     Text("Retry Migration")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = {
-                        viewModel.exportLegacyBackup { backupJson ->
-                            val file = File(context.cacheDir, "legacy_workout_backup.json")
-                            file.writeText(backupJson)
-
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.provider",
-                                file
-                            )
-
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/json"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Export Legacy Backup"))
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Export Local Backup")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(

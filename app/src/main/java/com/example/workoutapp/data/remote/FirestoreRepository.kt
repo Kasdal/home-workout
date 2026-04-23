@@ -559,9 +559,10 @@ class FirestoreRepository @Inject constructor(
         sessions: List<WorkoutSession>,
         sessionExercises: List<SessionExercise>,
         restDays: List<RestDay>,
-        settings: Settings?
+        settings: Settings?,
+        force: Boolean = false
     ) {
-        if (getMigrationMeta(uid)?.migrationComplete == true) return
+        if (!force && getMigrationMeta(uid)?.migrationComplete == true) return
 
         val root = userRoot(uid)
         val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, Any>>()

@@ -2,32 +2,33 @@
 
 ## Current assessment
 
-- Firestore is the real runtime data store.
-- Room is no longer used for normal repository reads or writes.
-- Shared app models are no longer Room entities.
-- Room now exists only as a temporary legacy adapter for the migration/import fallback boundary.
-- The biggest remaining coupling hotspots are the legacy `Settings` blob boundaries that still exist for migration, backup, and bootstrap-only flows, plus remaining `WorkoutViewModel` cleanup.
+- Firestore is the persisted runtime data store.
+- Room has been removed from the codebase.
+- Shared app models are plain Kotlin data classes, not Room entities.
+- Legacy recovery is now limited to manual backup import into Firestore.
+- The old Room-backed migration fallback path is retired.
+- The biggest remaining coupling hotspots are the legacy `Settings` blob boundaries that still exist for backup import and compatibility-only flows, plus remaining `WorkoutViewModel` cleanup.
 
 ## Verified Room status
 
 - Active app code no longer depends on `WorkoutRepository`.
 - `CloudWorkoutRepository` remains the single Firestore-backed runtime implementation, exposed through focused repository interfaces.
-- Room is still built and injected in `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
-- The only active runtime Room dependency is the migration/import fallback boundary: `MigrationOrchestrator` reads through `LegacyMigrationDataSource`, whose current implementation is `RoomLegacyMigrationDataSource`, used from `AuthViewModel` during sign-in or manual legacy backup export.
-- `WorkoutRepositoryImpl` has been removed.
-- `WorkoutDaoTest` has been removed.
-- Room-specific entities now live under `app/src/main/java/com/example/workoutapp/data/local/room/entity/`.
+- Room adapters, Room entities, DAO/database wiring, and legacy Room migration seams have been removed.
+- `MigrationOrchestrator` now completes empty-payload migration metadata for first-run sign-in and imports legacy JSON backups into Firestore.
+- `LegacySettingsBootstrapper` is intentionally a no-op.
+- `AuthGateScreen` no longer offers local backup export.
+- No active runtime code or tests depend on `LegacyMigrationDataSource`, `RoomLegacyMigrationDataSource`, `WorkoutDao`, or `WorkoutDatabase`.
 
 ## Room removal decision
 
-- Do not remove Room immediately.
-- Remove Room only after a manual import fallback exists.
+- Room removal is complete.
+- Manual backup import is the surviving legacy recovery path.
 
-Why:
+Why this was safe:
 
-- Legacy users may still have local-only data in Room.
-- Failed migration users still rely on the retry path that reads Room.
-- The auth UI explicitly promises local data remains safe on device after migration failure.
+- A non-Room recovery path exists through legacy backup import.
+- Sign-in no longer retries by reading local Room payloads.
+- The legacy fallback promise is now satisfied by importing a backup file rather than reading on-device Room state.
 
 ## Target architecture
 
@@ -126,7 +127,7 @@ Status:
 
 - After manual import fallback is available:
   - remove the remaining Room-backed migration/import fallback boundary
-  - delete `MigrationOrchestrator`
+  - delete `MigrationOrchestrator` Room-loading behavior
   - delete `WorkoutDatabase`
   - delete `WorkoutDao`
   - delete `data/local/room/entity/*`
@@ -139,30 +140,29 @@ Status:
 
 Status:
 
-- Not complete yet.
-- Manual JSON backup export/import fallback exists.
-- Remaining blocker: the fallback still reads from the temporary Room legacy adapter in the same release line, so full Room removal should happen only after that fallback is no longer needed.
+- Complete.
+- Room-specific runtime code, tests, and Gradle dependencies have been removed.
+- `MigrationOrchestrator` now supports only empty migration completion plus legacy backup import.
+- Backup import is the only surviving legacy recovery path.
+- The old Room-backed fallback path is retired.
 
 Final removal preconditions:
 
-- A non-Room import path must exist for users who still have legacy local-only data.
-- The sign-in retry and manual import/export flows must no longer depend on `MigrationOrchestrator` reading Room-backed payloads.
-- The auth UI promise that local data remains safe after migration failure must still be true without Room.
-- No active runtime code may depend on `LegacyMigrationDataSource`, `RoomLegacyMigrationDataSource`, `WorkoutDao`, or `WorkoutDatabase`.
-- Existing legacy users must have a safe upgrade path in the release line where Room is actually removed.
+- Satisfied in this branch.
+- A non-Room import path exists for users who still have legacy local-only data.
+- Sign-in retry and manual backup import no longer depend on `MigrationOrchestrator` reading Room-backed payloads.
+- No active runtime code depends on `LegacyMigrationDataSource`, `RoomLegacyMigrationDataSource`, `WorkoutDao`, or `WorkoutDatabase`.
+- Existing legacy recovery is narrowed to importing a backup file.
 
 Final Room-removal checklist:
 
-- Verify the migration/import fallback boundary no longer reads from Room in app code or tests.
-- Delete `app/src/main/java/com/example/workoutapp/data/local/WorkoutDatabase.kt`.
-- Delete `app/src/main/java/com/example/workoutapp/data/local/dao/WorkoutDao.kt`.
-- Delete `app/src/main/java/com/example/workoutapp/data/local/room/entity/*` including `RoomMappers.kt`.
-- Delete `app/src/main/java/com/example/workoutapp/data/remote/RoomLegacyMigrationDataSource.kt`.
-- Delete `app/src/main/java/com/example/workoutapp/data/remote/LegacyMigrationDataSource.kt` and its `AppModule` binding if that seam is no longer needed.
-- Remove `provideWorkoutDatabase`, `provideWorkoutDao`, and `provideLegacyMigrationDataSource` Room-backed wiring from `app/src/main/java/com/example/workoutapp/di/AppModule.kt`.
-- Delete any remaining Room-specific tests and fixtures.
-- Remove Room dependencies and any now-unused migration classes from Gradle and DI.
-- Run `./gradlew :app:assembleDebug` after the deletion change to confirm the app no longer links Room.
+- Done in this branch:
+- The migration/import path no longer reads from Room in app code or tests.
+- `WorkoutDatabase`, `WorkoutDao`, `data/local/room/entity/*`, `RoomMappers`, `RoomLegacyMigrationDataSource`, and `LegacyMigrationDataSource` are removed.
+- Room-backed DI wiring is removed from `AppModule`.
+- Remaining Room-specific tests and fixtures are removed.
+- Room dependencies are removed from Gradle.
+- `./gradlew :app:assembleDebug` remains the verification that the app still builds without Room.
 
 ### Phase 5: Neutralize shared models
 
