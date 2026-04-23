@@ -3,10 +3,12 @@ package com.example.workoutapp.ui.auth
 import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.auth.GoogleSignInClientFactory
 import com.example.workoutapp.data.remote.MigrationBootstrapResult
+import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import com.google.firebase.auth.FirebaseUser
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,6 +33,7 @@ class AuthViewModelTest {
     private lateinit var authManager: AuthManager
     private lateinit var googleSignInClientFactory: GoogleSignInClientFactory
     private lateinit var authMigrationCoordinator: AuthMigrationCoordinator
+    private lateinit var appLaunchCoordinator: AppLaunchCoordinator
     private lateinit var firebaseUser: FirebaseUser
     private lateinit var authFlow: MutableStateFlow<FirebaseUser?>
     private val testDispatcher = StandardTestDispatcher()
@@ -41,6 +44,7 @@ class AuthViewModelTest {
         authManager = mockk(relaxed = true)
         googleSignInClientFactory = mockk(relaxed = true)
         authMigrationCoordinator = mockk()
+        appLaunchCoordinator = mockk(relaxed = true)
         firebaseUser = mockk()
         authFlow = MutableStateFlow(null)
 
@@ -52,6 +56,7 @@ class AuthViewModelTest {
         coEvery {
             authMigrationCoordinator.importLegacyBackup("user-123", any())
         } returns Result.success(Unit)
+        coEvery { authMigrationCoordinator.continueWithoutBackupImport("user-123") } returns Result.success(Unit)
     }
 
     @After
@@ -146,9 +151,11 @@ class AuthViewModelTest {
         authFlow.value = firebaseUser
         advanceUntilIdle()
         viewModel.continueWithoutImport()
+        advanceUntilIdle()
 
         assertEquals(
             AuthUiState(
+                isLoading = false,
                 isSignedIn = true,
                 isMigrationComplete = true,
                 awaitingBackupImport = false,
@@ -157,6 +164,22 @@ class AuthViewModelTest {
             ),
             viewModel.state.value
         )
+    }
+
+    @Test
+    fun `backup import prompt updates app launch gate signal`() = runTest {
+        coEvery { authMigrationCoordinator.migrateIfNeeded("user-123") } returns Result.success(MigrationBootstrapResult.NEEDS_BACKUP_IMPORT)
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        authFlow.value = firebaseUser
+        advanceUntilIdle()
+
+        verify { appLaunchCoordinator.setBackupImportPending(true) }
+
+        viewModel.continueWithoutImport()
+
+        verify { appLaunchCoordinator.setBackupImportPending(false) }
     }
 
     @Test
@@ -220,6 +243,6 @@ class AuthViewModelTest {
     }
 
     private fun createViewModel(): AuthViewModel {
-        return AuthViewModel(authManager, googleSignInClientFactory, authMigrationCoordinator)
+        return AuthViewModel(authManager, googleSignInClientFactory, authMigrationCoordinator, appLaunchCoordinator)
     }
 }

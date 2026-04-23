@@ -23,4 +23,8 @@ class AuthMigrationCoordinator @Inject constructor(
     suspend fun importLegacyBackup(uid: String, backupJson: String): Result<Unit> {
         return migrationOrchestrator.importLegacyBackup(uid, backupJson)
     }
+
+    suspend fun continueWithoutBackupImport(uid: String): Result<Unit> {
+        return migrationOrchestrator.continueWithoutBackupImport(uid)
+    }
 }

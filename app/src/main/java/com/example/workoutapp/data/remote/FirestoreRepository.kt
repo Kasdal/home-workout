@@ -670,6 +670,7 @@ class FirestoreRepository @Inject constructor(
 
         fun toMigrationMeta() = CloudMigrationMeta(
             migrationComplete = true,
+            backupImportPending = false,
             migratedAt = System.currentTimeMillis(),
             userMetricsCount = userMetrics,
             exercisesCount = exercises,

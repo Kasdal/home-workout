@@ -68,4 +68,17 @@ class AuthMigrationCoordinatorTest {
         assertEquals(expected, actual)
         coVerify(exactly = 1) { migrationOrchestrator.importLegacyBackup("user-123", "backup-json") }
     }
+
+    @Test
+    fun `continueWithoutBackupImport returns orchestrator result for uid`() = runTest {
+        val expected = Result.success(Unit)
+        val coordinator = AuthMigrationCoordinator(migrationOrchestrator)
+
+        coEvery { migrationOrchestrator.continueWithoutBackupImport("user-123") } returns expected
+
+        val actual = coordinator.continueWithoutBackupImport("user-123")
+
+        assertEquals(expected, actual)
+        coVerify(exactly = 1) { migrationOrchestrator.continueWithoutBackupImport("user-123") }
+    }
 }
