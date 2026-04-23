@@ -18,4 +18,6 @@ data class LegacyMigrationPayload(
 
 interface LegacyMigrationDataSource {
     suspend fun loadPayload(): LegacyMigrationPayload
+
+    suspend fun loadSettings(): Settings?
 }

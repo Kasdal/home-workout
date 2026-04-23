@@ -21,7 +21,9 @@ class RoomLegacyMigrationDataSource @Inject constructor(
                 dao.getSessionExercises(session.id).first().map { it.toDomain() }
             },
             restDays = dao.getAllRestDays().first().map { it.toDomain() },
-            settings = dao.getSettings().first()?.toDomain()
+            settings = loadSettings()
         )
     }
+
+    override suspend fun loadSettings() = dao.getSettings().first()?.toDomain()
 }
