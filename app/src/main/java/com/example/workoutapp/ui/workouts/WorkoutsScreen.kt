@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -30,7 +29,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -53,6 +51,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.workout.ExerciseEditDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,6 +61,27 @@ fun WorkoutsScreen(
     viewModel: com.example.workoutapp.ui.workout.WorkoutViewModel = hiltViewModel()
 ) {
     val exercises by viewModel.exercises.collectAsState(initial = emptyList())
+
+    WorkoutsScreenContent(
+        exercises = exercises,
+        onNavigateToRoute = navController::navigate,
+        onAddExercise = viewModel::addExercise,
+        onUpdateExercise = viewModel::updateExercise,
+        onDeleteExercise = viewModel::deleteExercise,
+        onUpdateExercisePhoto = viewModel::updateExercisePhoto
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WorkoutsScreenContent(
+    exercises: List<Exercise>,
+    onNavigateToRoute: (String) -> Unit,
+    onAddExercise: (Exercise) -> Unit,
+    onUpdateExercise: (Exercise) -> Unit,
+    onDeleteExercise: (Int) -> Unit,
+    onUpdateExercisePhoto: (Int, String) -> Unit
+) {
     val context = LocalContext.current
     var selectedExerciseId by remember { mutableStateOf<Int?>(null) }
     var showExerciseWizard by remember { mutableStateOf(false) }
@@ -78,7 +98,7 @@ fun WorkoutsScreen(
                     )
                 } catch (_: Exception) {
                 }
-                viewModel.updateExercisePhoto(exerciseId, uri.toString())
+                onUpdateExercisePhoto(exerciseId, uri.toString())
             }
         }
     }
@@ -87,7 +107,7 @@ fun WorkoutsScreen(
         ExerciseWizardDialog(
             onDismiss = { showExerciseWizard = false },
             onCreate = {
-                viewModel.addExercise(it)
+                onAddExercise(it)
                 showExerciseWizard = false
             }
         )
@@ -97,11 +117,6 @@ fun WorkoutsScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Workout Library") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     Text(
                         text = "${exercises.size} total",
@@ -110,6 +125,12 @@ fun WorkoutsScreen(
                         modifier = Modifier.padding(end = 12.dp)
                     )
                 }
+            )
+        },
+        bottomBar = {
+            BottomNavBar(
+                currentRoute = "workouts",
+                onNavigate = onNavigateToRoute
             )
         },
         floatingActionButton = {
@@ -152,8 +173,8 @@ fun WorkoutsScreen(
                 items(exercises) { exercise ->
                     WorkoutLibraryItem(
                         exercise = exercise,
-                        onUpdate = { viewModel.updateExercise(it) },
-                        onDelete = { viewModel.deleteExercise(exercise.id) },
+                        onUpdate = onUpdateExercise,
+                        onDelete = { onDeleteExercise(exercise.id) },
                         onUploadPhoto = {
                             selectedExerciseId = exercise.id
                             photoPickerLauncher.launch(
