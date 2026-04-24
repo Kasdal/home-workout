@@ -8,6 +8,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.workoutapp.ui.theme.NeonGreen
 
@@ -85,7 +89,13 @@ fun BottomNavItem(
         modifier = Modifier
             .width(70.dp)
     ) {
-        IconButton(onClick = onClick) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.semantics(mergeDescendants = true) {
+                selected = isSelected
+                role = Role.Tab
+            }
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
