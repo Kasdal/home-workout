@@ -28,3 +28,6 @@ app/google-services.json
 
 local.properties
 TODO.md
+docs/superpowers/plans/2026-04-24-documentation-alignment.md
+.gitignore
+docs/superpowers/specs/2026-04-24-documentation-alignment-design.md
