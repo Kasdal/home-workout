@@ -22,13 +22,14 @@
 
 ## Build and test
 
-- Use the wrapper from repo root: `./gradlew`.
+- Local development is Windows-native from this repo checkout. Do not assume WSL paths or Linux-only tooling.
+- Use the Windows Gradle wrapper from repo root: `./gradlew.bat` in PowerShell, or `gradlew.bat` from `cmd.exe`.
 - Main verification commands:
-  - `./gradlew :app:assembleDebug`
-  - `./gradlew :app:testDebugUnitTest`
-  - `./gradlew :app:connectedDebugAndroidTest`
-  - `./gradlew signingReport`
-- Focused unit test example: `./gradlew :app:testDebugUnitTest --tests "com.example.workoutapp.MainViewModelTest"`
+  - `./gradlew.bat :app:assembleDebug`
+  - `./gradlew.bat :app:testDebugUnitTest`
+  - `./gradlew.bat :app:connectedDebugAndroidTest`
+  - `./gradlew.bat signingReport`
+- Focused unit test example: `./gradlew.bat :app:testDebugUnitTest --tests "com.example.workoutapp.MainViewModelTest"`
 - Instrumented tests need a device/emulator. Current coverage is concentrated in Compose workout screen tests and a growing set of focused JVM tests around startup/auth, session/timer, sensor, and migration seams.
 
 ## Firebase and local setup
@@ -36,7 +37,8 @@
 - Do not commit `app/google-services.json`; it is gitignored.
 - CI rebuilds that file from `GOOGLE_SERVICES_JSON_B64` in `.github/workflows/release.yml` before `assembleDebug` and `assembleRelease`.
 - `local.properties` is also gitignored; local Android SDK resolution comes from that file.
-- If Gradle/KSP/Hilt starts failing with missing generated files, duplicate `*_Factory` classes, or unreadable generated outputs after large refactors, clear stale outputs before retrying: remove `app/build/generated/ksp`, `app/build/intermediates`, and `app/build/tmp`, then rerun `./gradlew --no-daemon`.
+- On Windows, `local.properties` should normally point at `C:\\Users\\plesm\\AppData\\Local\\Android\\Sdk`.
+- If Gradle/KSP/Hilt starts failing with missing generated files, duplicate `*_Factory` classes, or unreadable generated outputs after large refactors, clear stale outputs before retrying: remove `app/build/generated/ksp`, `app/build/intermediates`, and `app/build/tmp`, then rerun `./gradlew.bat --no-daemon`.
 
 ## Release/versioning
 
