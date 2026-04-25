@@ -33,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.theme.NeonGreen
 import com.example.workoutapp.ui.theme.SurfaceGrey
 import java.text.SimpleDateFormat
@@ -42,7 +41,6 @@ import java.util.Locale
 
 @Composable
 fun AnalyticsDashboard(
-    sessions: List<WorkoutSession>,
     personalRecords: PersonalRecords,
     weeklyOverview: WeeklyOverview,
     exercisePrs: List<ExercisePr>,

@@ -111,7 +111,6 @@ fun HistoryScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         AnalyticsDashboard(
-            sessions = sessions,
             personalRecords = personalRecords,
             weeklyOverview = weeklyOverview,
             exercisePrs = exercisePrs,

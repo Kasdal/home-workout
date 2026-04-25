@@ -39,7 +39,7 @@ fun TutorialScreen(
         ),
         TutorialPage(
             title = "Bottom Navigation",
-            description = "Use the bottom navigation bar to quickly access Profile, Calendar, Insights, Workouts, and Settings.",
+            description = "Use the bottom navigation bar to quickly access Profile, Calendar, Home, Workouts, and Settings.",
             emoji = "🧭"
         ),
         TutorialPage(
@@ -61,11 +61,6 @@ fun TutorialScreen(
             title = "Calendar & Records",
             description = "View your Personal Records and Progress Report in the Calendar screen. Track your best lifts!",
             emoji = "📅"
-        ),
-        TutorialPage(
-            title = "Insights & Trends",
-            description = "Get motivational insights and visualize your progress with detailed charts showing volume and frequency trends.",
-            emoji = "📊"
         ),
         TutorialPage(
             title = "Settings & Export",

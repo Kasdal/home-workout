@@ -56,8 +56,6 @@ class HistoryViewModel @Inject constructor(
     }
 
     val weeklySummary: Flow<SummaryComparison> = sessions.map { calculateWeeklySummary(it) }
-    val monthlySummary: Flow<SummaryComparison> = sessions.map { calculateMonthlySummary(it) }
-
     val weeklyOverview: Flow<WeeklyOverview> = combine(sessions, weeklySummary) { _, summary ->
         WeeklyOverview(
             workoutsThisWeek = summary.current.totalWorkouts,
@@ -89,10 +87,9 @@ class HistoryViewModel @Inject constructor(
         sessions,
         personalRecords,
         weeklySummary,
-        monthlySummary,
         exercisePrs
-    ) { sessionList, records, weekly, monthly, prs ->
-        generateInsights(sessionList, records, weekly, monthly, prs)
+    ) { sessionList, records, weekly, prs ->
+        generateInsights(sessionList, records, weekly, prs)
     }
 
     private fun computeVolumeTrend(sessions: List<WorkoutSession>): List<WeeklyVolumePoint> {
@@ -217,22 +214,6 @@ class HistoryViewModel @Inject constructor(
         )
     }
 
-    private fun calculateMonthlySummary(sessions: List<WorkoutSession>): SummaryComparison {
-        val now = System.currentTimeMillis()
-        val oneMonthMillis = TimeUnit.DAYS.toMillis(30)
-
-        val thisMonthStart = now - oneMonthMillis
-        val lastMonthStart = thisMonthStart - oneMonthMillis
-
-        val thisMonthSessions = sessions.filter { it.date >= thisMonthStart }
-        val lastMonthSessions = sessions.filter { it.date >= lastMonthStart && it.date < thisMonthStart }
-
-        return createComparison(
-            createPeriodSummary(thisMonthSessions, "This Month"),
-            createPeriodSummary(lastMonthSessions, "Last Month")
-        )
-    }
-
     private fun createPeriodSummary(sessions: List<WorkoutSession>, label: String): PeriodSummary {
         if (sessions.isEmpty()) {
             return PeriodSummary(0, 0f, 0L, 0L, label)
@@ -274,7 +255,6 @@ class HistoryViewModel @Inject constructor(
         sessions: List<WorkoutSession>,
         records: PersonalRecords,
         weekly: SummaryComparison,
-        monthly: SummaryComparison,
         prs: List<ExercisePr>
     ): List<WorkoutInsight> {
         val insightsList = mutableListOf<WorkoutInsight>()
@@ -287,8 +267,7 @@ class HistoryViewModel @Inject constructor(
             100 -> insightsList.add(WorkoutInsight(InsightType.ACHIEVEMENT, "100 Workouts!", "Triple digits. You're a machine. Plain and simple.", "🏆"))
         }
 
-        val topExercises = prs.filter { it.trend == ExerciseTrend.UP }.take(2)
-        topExercises.forEach { pr ->
+        prs.filter { it.trend == ExerciseTrend.UP }.take(2).forEach { pr ->
             insightsList.add(WorkoutInsight(
                 InsightType.PROGRESS,
                 "${pr.name} improving!",
@@ -310,15 +289,15 @@ class HistoryViewModel @Inject constructor(
             insightsList.add(WorkoutInsight(
                 InsightType.ENCOURAGEMENT,
                 "Recovery Week?",
-                "Volume was lower this week. Rest is part of training — trust the process.",
+                "Volume was lower this week. Rest is part of training - trust the process.",
                 "🌿"
             ))
         }
 
         when {
-            records.currentStreak >= 7 -> insightsList.add(WorkoutInsight(InsightType.STREAK, "Week Streak!", "${records.currentStreak} days in a row. You're on fire right now!", "🔥"))
-            records.currentStreak >= 14 -> insightsList.add(WorkoutInsight(InsightType.STREAK, "Two Week Streak!", "${records.currentStreak} days straight. Consistency is your superpower!", "⚡"))
             records.currentStreak >= 30 -> insightsList.add(WorkoutInsight(InsightType.STREAK, "Month Streak!", "${records.currentStreak} days! You've built a real habit.", "🏆"))
+            records.currentStreak >= 14 -> insightsList.add(WorkoutInsight(InsightType.STREAK, "Two Week Streak!", "${records.currentStreak} days straight. Consistency is your superpower!", "⚡"))
+            records.currentStreak >= 7 -> insightsList.add(WorkoutInsight(InsightType.STREAK, "Week Streak!", "${records.currentStreak} days in a row. You're on fire right now!", "🔥"))
         }
 
         if (weekly.frequencyChange > 0) {
@@ -331,12 +310,12 @@ class HistoryViewModel @Inject constructor(
         }
 
         if (records.totalWorkouts >= 20 && prs.size >= 3) {
-            val avgTrend = prs.count { it.trend == ExerciseTrend.UP }
-            if (avgTrend >= prs.size / 2) {
+            val improvingExerciseCount = prs.count { it.trend == ExerciseTrend.UP }
+            if (improvingExerciseCount >= prs.size / 2) {
                 insightsList.add(WorkoutInsight(
                     InsightType.ENCOURAGEMENT,
                     "Strength Building!",
-                    "${avgTrend} of your exercises are on an upward trend. Keep it up!",
+                    "$improvingExerciseCount of your exercises are on an upward trend. Keep it up!",
                     "⭐"
                 ))
             }

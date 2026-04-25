@@ -16,5 +16,6 @@ data class Exercise(
     val usesSensor: Boolean = true,
     val holdDurationSeconds: Int = 30,
     val isDeleted: Boolean = false,
-    val photoUri: String? = null // Exercise photo URI
+    val photoUri: String? = null, // Exercise photo URI
+    val sortOrder: Int = Int.MAX_VALUE
 )

@@ -10,6 +10,4 @@ sealed class Screen(val route: String) {
     object RestDays : Screen("rest_days")
     object About : Screen("about")
     object Workouts : Screen("workouts")
-    object Insights : Screen("insights")
 }
-

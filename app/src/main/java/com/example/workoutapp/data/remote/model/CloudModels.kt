@@ -27,7 +27,8 @@ data class CloudExercise(
     val usesSensor: Boolean = true,
     val holdDurationSeconds: Int = 30,
     val deleted: Boolean = false,
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val sortOrder: Int = Int.MAX_VALUE
 )
 
 data class CloudWorkoutSession(
@@ -118,7 +119,8 @@ fun Exercise.toCloud() = CloudExercise(
     usesSensor = usesSensor,
     holdDurationSeconds = holdDurationSeconds,
     deleted = isDeleted,
-    photoUri = photoUri
+    photoUri = photoUri,
+    sortOrder = sortOrder
 )
 
 fun CloudExercise.toLocal() = Exercise(
@@ -131,7 +133,8 @@ fun CloudExercise.toLocal() = Exercise(
     usesSensor = usesSensor,
     holdDurationSeconds = holdDurationSeconds,
     isDeleted = deleted,
-    photoUri = photoUri
+    photoUri = photoUri,
+    sortOrder = sortOrder
 )
 
 fun WorkoutSession.toCloud() = CloudWorkoutSession(

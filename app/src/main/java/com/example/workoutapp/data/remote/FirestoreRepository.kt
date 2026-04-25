@@ -153,7 +153,7 @@ class FirestoreRepository @Inject constructor(
                         ?.mapNotNull { it.toObject<com.example.workoutapp.data.remote.model.CloudExercise>()?.toLocal() }
                         ?: emptyList()
 
-                    trySend(exercises.filterNot { it.isDeleted })
+                    trySend(exercises.filterNot { it.isDeleted }.sortedWith(compareBy<Exercise> { it.sortOrder }.thenBy { it.id }))
                 }
         } catch (e: Exception) {
             listener?.remove()

@@ -8,8 +8,8 @@ data class WorkoutInsight(
 )
 
 enum class InsightType {
-    ACHIEVEMENT,    // Milestones reached (100th workout, etc.)
-    PROGRESS,       // Improvements detected (volume up, etc.)
-    STREAK,         // Streak-related insights
-    ENCOURAGEMENT   // General motivation
+    ACHIEVEMENT,
+    PROGRESS,
+    STREAK,
+    ENCOURAGEMENT
 }

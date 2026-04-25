@@ -48,11 +48,11 @@ fun BottomNavBar(
             )
             
             BottomNavItem(
-                icon = Icons.Default.Lightbulb,
-                label = "Insights",
-                route = "insights",
+                icon = Icons.Default.Home,
+                label = "Home",
+                route = "workout",
                 currentRoute = currentRoute,
-                onClick = { onNavigate("insights") }
+                onClick = { onNavigate("workout") }
             )
             
             BottomNavItem(

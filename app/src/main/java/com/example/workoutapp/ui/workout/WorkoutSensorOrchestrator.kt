@@ -91,6 +91,20 @@ class WorkoutSensorOrchestrator(
         lastSensorReps = 0
     }
 
+    fun resetCounterNow() {
+        val ipAddress = currentIpAddress ?: return
+        pendingResetJob?.cancel()
+        pendingResetJob = scope.launch {
+            val didReset = resetCounter(ipAddress)
+            if (!didReset || !isActive) {
+                return@launch
+            }
+
+            resetRepTracking()
+            _sensorSnapshot.value = _sensorSnapshot.value.copy(reps = 0)
+        }
+    }
+
     private suspend fun maybeTriggerSetCompletion(currentReps: Int) {
         if (currentReps <= 0 || currentReps <= lastSensorReps) {
             return

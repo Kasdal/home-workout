@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun WorkoutScreen(
@@ -79,6 +81,7 @@ fun WorkoutScreen(
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<WorkoutSession?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     DisposableEffect(sessionStarted) {
@@ -141,6 +144,12 @@ fun WorkoutScreen(
         onStopTimer = { viewModel.stopTimer() },
         onSetRestDuration = { viewModel.setRestTimerDuration(it) },
         onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
+        onResetSensorCounter = {
+            viewModel.resetSensorCounter()
+            snackbarScope.launch {
+                snackbarHostState.showSnackbar("Resetting sensor counter")
+            }
+        },
         sensorReps = sensorReps,
         sensorState = sensorState,
         sensorDistance = sensorDistance,
@@ -176,6 +185,7 @@ fun WorkoutScreenContent(
     onStopTimer: () -> Unit,
     onSetRestDuration: (Int) -> Unit,
     onSetExerciseSwitchDuration: (Int) -> Unit,
+    onResetSensorCounter: () -> Unit,
     sensorReps: Int,
     sensorState: String,
     sensorDistance: Int,
@@ -296,6 +306,7 @@ fun WorkoutScreenContent(
                             activeExerciseId == activeExercise.id &&
                             activeExerciseMode == ExerciseSessionMode.SENSOR_REPS,
                         activeExerciseMode = activeExerciseMode,
+                        onResetSensorCounter = onResetSensorCounter,
                         modifier = Modifier.fillMaxWidth()
                     )
 

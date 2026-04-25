@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
@@ -29,6 +31,7 @@ import javax.inject.Inject
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
+    private val sessionHistoryRepository: SessionHistoryRepository,
     private val profileRepository: ProfileRepository,
     private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
@@ -42,6 +45,10 @@ class WorkoutViewModel @Inject constructor(
 
     // Exercises from DB
     val exercises = exerciseRepository.getExercises()
+
+    fun getExerciseHistory(exerciseName: String): kotlinx.coroutines.flow.Flow<List<SessionExercise>> {
+        return sessionHistoryRepository.getExerciseHistory(exerciseName)
+    }
 
     private val countdownOrchestrator: WorkoutCountdownOrchestrator = countdownOrchestratorFactory.create(
         scope = viewModelScope,
@@ -173,14 +180,15 @@ class WorkoutViewModel @Inject constructor(
                     "Barbell Row", "Pull Up", "Dips", "Bicep Curl",
                     "Tricep Extension", "Lateral Raise", "Calf Raise"
                 )
-                defaults.forEach { name ->
+                defaults.forEachIndexed { index, name ->
                     exerciseRepository.addExercise(
                         Exercise(
                             name = name,
                             weight = 20f,
                             exerciseType = com.example.workoutapp.model.ExerciseType.STANDARD.name,
                             usesSensor = true,
-                            holdDurationSeconds = 30
+                            holdDurationSeconds = 30,
+                            sortOrder = index
                         )
                     )
                 }
@@ -279,6 +287,10 @@ class WorkoutViewModel @Inject constructor(
         countdownOrchestrator.stopTimer()
     }
 
+    fun resetSensorCounter() {
+        sensorOrchestrator.resetCounterNow()
+    }
+
     // --- Set Completion Logic ---
     fun completeNextSet(exerciseId: Int) {
         viewModelScope.launch {
@@ -316,14 +328,49 @@ class WorkoutViewModel @Inject constructor(
 
     fun addExercise() {
         viewModelScope.launch {
-            exerciseRepository.addExercise(Exercise(name = "New Exercise", weight = 0f))
+            val currentExercises = exercises.first()
+            val nextSortOrder = nextSortOrder(currentExercises)
+            exerciseRepository.addExercise(Exercise(name = "New Exercise", weight = 0f, sortOrder = nextSortOrder))
         }
     }
 
     fun addExercise(exercise: Exercise) {
         viewModelScope.launch {
-            exerciseRepository.addExercise(exercise)
+            val currentExercises = exercises.first()
+            val nextSortOrder = nextSortOrder(currentExercises)
+            exerciseRepository.addExercise(exercise.copy(sortOrder = nextSortOrder))
         }
+    }
+
+    fun moveExercise(exerciseId: Int, direction: Int) {
+        viewModelScope.launch {
+            val orderedExercises = exercises.first()
+            val fromIndex = orderedExercises.indexOfFirst { it.id == exerciseId }
+            val toIndex = fromIndex + direction
+
+            if (fromIndex !in orderedExercises.indices || toIndex !in orderedExercises.indices) return@launch
+
+            val reordered = orderedExercises.toMutableList().apply {
+                add(toIndex, removeAt(fromIndex))
+            }
+
+            reordered.forEachIndexed { index, exercise ->
+                exerciseRepository.updateExercise(exercise.copy(sortOrder = index))
+            }
+        }
+    }
+
+    fun updateExerciseOrder(orderedExercises: List<Exercise>) {
+        viewModelScope.launch {
+            orderedExercises.forEachIndexed { index, exercise ->
+                exerciseRepository.updateExercise(exercise.copy(sortOrder = index))
+            }
+        }
+    }
+
+    private fun nextSortOrder(currentExercises: List<Exercise>): Int {
+        val finiteSortOrders = currentExercises.mapNotNull { it.sortOrder.takeIf { order -> order != Int.MAX_VALUE } }
+        return if (finiteSortOrders.isEmpty()) Int.MAX_VALUE else (finiteSortOrders.maxOrNull() ?: -1) + 1
     }
 
     fun deleteExercise(exerciseId: Int) {

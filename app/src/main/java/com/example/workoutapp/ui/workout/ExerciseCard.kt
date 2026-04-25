@@ -57,6 +57,7 @@ fun ExerciseCard(
     sensorDistance: Int = 0,
     sensorConnected: Boolean = false,
     onPhotoUpload: (() -> Unit)? = null,
+    onResetSensorCounter: (() -> Unit)? = null,
     activeExerciseMode: ExerciseSessionMode? = null,
     modifier: Modifier = Modifier
 ) {
@@ -462,7 +463,12 @@ fun ExerciseCard(
                                 MaterialTheme.colorScheme.surface
                             }
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = {},
+                                onLongClick = { onResetSensorCounter?.invoke() }
+                            )
                     ) {
                         Column(
                             modifier = Modifier
@@ -502,6 +508,11 @@ fun ExerciseCard(
                                 text = "Distance: ${sensorDistance}mm",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color.Gray
+                            )
+                            Text(
+                                text = "Hold to reset counter",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray.copy(alpha = 0.7f)
                             )
                         }
                     }
