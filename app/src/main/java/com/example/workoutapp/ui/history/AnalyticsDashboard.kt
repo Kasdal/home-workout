@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.workoutapp.ui.theme.NeonGreen
-import com.example.workoutapp.ui.theme.SurfaceGrey
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -89,7 +88,7 @@ private fun WeeklyOverviewCard(overview: WeeklyOverview) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -186,7 +185,7 @@ private fun VolumeTrendChart(trend: List<WeeklyVolumePoint>) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -306,7 +305,7 @@ private fun FrequencyHeatmap(frequency: List<Int>, personalRecords: PersonalReco
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -399,7 +398,7 @@ private fun ExercisePrTable(prs: List<ExercisePr>) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -486,7 +485,7 @@ private fun AllTimeStats(records: PersonalRecords) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -563,7 +562,7 @@ private fun InsightsSection(insights: List<WorkoutInsight>) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceGrey),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         shape = RoundedCornerShape(20.dp)
     ) {
         Column(modifier = Modifier.padding(20.dp)) {

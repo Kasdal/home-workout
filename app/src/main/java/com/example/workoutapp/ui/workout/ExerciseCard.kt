@@ -172,12 +172,12 @@ fun ExerciseCard(
                         Text(
                             text = exercise.name,
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = exerciseSummary(exercise),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -191,7 +191,7 @@ fun ExerciseCard(
         }
     } else {
         val cardHeightModifier = when (cardMode) {
-            ExerciseCardMode.SESSION -> Modifier.fillMaxHeight()
+            ExerciseCardMode.SESSION -> Modifier
             ExerciseCardMode.LIST_COMPACT -> Modifier.heightIn(min = 220.dp, max = 250.dp)
             ExerciseCardMode.LIST_EXPANDED -> Modifier.fillMaxHeight(0.7f)
         }
@@ -214,14 +214,27 @@ fun ExerciseCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Exercise name
-                    Text(
-                        text = exercise.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                    Row(
                         modifier = Modifier.weight(1f),
-                        maxLines = 1
-                    )
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = exercise.name,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1
+                        )
+                        if (cardMode != ExerciseCardMode.SESSION) {
+                            IconButton(onClick = { showEditDialog = true }, modifier = Modifier.size(32.dp)) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit exercise",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
                     
                     // Weight controls
                     Row(
@@ -235,7 +248,7 @@ fun ExerciseCard(
                             Icon(
                                 imageVector = Icons.Default.Remove,
                                 contentDescription = "-5kg",
-                                tint = Color.Red,
+                                tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -275,7 +288,7 @@ fun ExerciseCard(
                                     .clip(CircleShape)
                                     .background(
                                         if (i < completedSetCount) NeonGreen
-                                        else Color.Gray.copy(alpha = 0.3f)
+                                        else MaterialTheme.colorScheme.outlineVariant
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -352,7 +365,7 @@ fun ExerciseCard(
 
                 // Photo area (shown in SESSION and LIST_EXPANDED modes)
                 val photoSpaceHeight = when (cardMode) {
-                    ExerciseCardMode.SESSION -> 200.dp
+                    ExerciseCardMode.SESSION -> if (exercise.photoUri != null) 140.dp else 0.dp
                     ExerciseCardMode.LIST_COMPACT -> 0.dp
                     ExerciseCardMode.LIST_EXPANDED -> 300.dp
                 }
@@ -375,7 +388,6 @@ fun ExerciseCard(
                         contentAlignment = Alignment.Center
                     ) {
                         if (exercise.photoUri != null) {
-                            // Display photo with long-press menu
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -393,6 +405,16 @@ fun ExerciseCard(
                                     modifier = Modifier.fillMaxSize(),
                                     contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                 )
+                                IconButton(
+                                    onClick = { showPhotoMenu = true },
+                                    modifier = Modifier.align(Alignment.TopEnd)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Photo options",
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
                             }
                             
                             // Photo menu dropdown
@@ -489,7 +511,7 @@ fun ExerciseCard(
                                 Text(
                                     text = sensorState,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = if (sensorState == "LIFTING") NeonGreen else Color.Gray
+                                    color = if (sensorState == "LIFTING") NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             Spacer(modifier = Modifier.height(8.dp))
@@ -502,18 +524,21 @@ fun ExerciseCard(
                             Text(
                                 text = "reps",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "Distance: ${sensorDistance}mm",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "Hold to reset counter",
+                                text = "Use the button below to reset, or hold this card as a shortcut.",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color.Gray.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            TextButton(onClick = { onResetSensorCounter?.invoke() }) {
+                                Text("Reset Counter")
+                            }
                         }
                     }
                 }
@@ -568,7 +593,7 @@ fun ExerciseCard(
                         .fillMaxWidth()
                         .height(50.dp)
                         .clip(MaterialTheme.shapes.medium)
-                        .background(if (completedSetCount >= exercise.sets) Color.Gray else NeonGreen) // Green when available
+                        .background(if (completedSetCount >= exercise.sets) MaterialTheme.colorScheme.outline else NeonGreen)
                         .pointerInput(completedSetCount) {
                             detectTapGestures(
                                 onPress = {
@@ -602,7 +627,7 @@ fun ExerciseCard(
                     
                     Text(
                         text = if (completedSetCount >= exercise.sets) "COMPLETED" else {
-                            if (exercise.exerciseType == ExerciseType.HOLD.name) "NEXT HOLD" else "NEXT SET"
+                            if (exercise.exerciseType == ExerciseType.HOLD.name) "HOLD TO COMPLETE" else "HOLD TO COMPLETE SET"
                         },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,

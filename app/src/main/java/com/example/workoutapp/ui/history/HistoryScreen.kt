@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -203,7 +204,7 @@ fun HistoryScreen(
             if (dateSessions.isEmpty()) {
                 Text(
                     "No workouts recorded.",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                 )
             } else {
@@ -221,7 +222,7 @@ fun HistoryScreen(
         } else {
             Text(
                 "Select a date to view details.",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 20.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
@@ -286,7 +287,7 @@ private fun CalendarGrid(
                                         when {
                                             isSelected -> NeonGreen
                                             hasWorkout -> NeonGreen.copy(alpha = 0.5f)
-                                            isToday -> Color.Gray.copy(alpha = 0.3f)
+                                            isToday -> MaterialTheme.colorScheme.outlineVariant
                                             else -> Color.Transparent
                                         }
                                     )
@@ -323,7 +324,7 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
                         onDelete()
                         showDeleteDialog = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Delete")
                 }
@@ -349,10 +350,20 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Time: ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(session.date))}")
-                Text("${session.durationSeconds / 60} mins")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${session.durationSeconds / 60} mins")
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete session",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(

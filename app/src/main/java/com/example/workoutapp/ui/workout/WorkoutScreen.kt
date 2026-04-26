@@ -138,7 +138,8 @@ fun WorkoutScreen(
         },
         onCompleteNextSet = { viewModel.completeNextSet(it) },
         onUndoSet = { viewModel.undoSet(it) },
-        onStartTimer = { viewModel.startTimer(it) },
+        onStartRestTimer = { viewModel.startRestTimer() },
+        onStartExerciseSwitchTimer = { viewModel.startExerciseSwitchTimer() },
         onPauseTimer = { viewModel.pauseTimer() },
         onResumeTimer = { viewModel.resumeTimer() },
         onStopTimer = { viewModel.stopTimer() },
@@ -179,7 +180,8 @@ fun WorkoutScreenContent(
     onCompleteSession: () -> Unit,
     onCompleteNextSet: (Int) -> Unit,
     onUndoSet: (Int) -> Unit,
-    onStartTimer: (Int) -> Unit,
+    onStartRestTimer: () -> Unit,
+    onStartExerciseSwitchTimer: () -> Unit,
     onPauseTimer: () -> Unit,
     onResumeTimer: () -> Unit,
     onStopTimer: () -> Unit,
@@ -226,8 +228,8 @@ fun WorkoutScreenContent(
                         isPaused = isTimerPaused,
                         restTimerDuration = restTimerDuration,
                         exerciseSwitchDuration = exerciseSwitchDuration,
-                        onStartRest = { onStartTimer(restTimerDuration) },
-                        onStartExerciseSwitch = { onStartTimer(exerciseSwitchDuration) },
+                        onStartRest = onStartRestTimer,
+                        onStartExerciseSwitch = onStartExerciseSwitchTimer,
                         onPause = onPauseTimer,
                         onResume = onResumeTimer,
                         onStop = onStopTimer,
@@ -318,8 +320,8 @@ fun WorkoutScreenContent(
                             .fillMaxWidth()
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Red,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
                         )
                     ) {
                         Text(
@@ -350,8 +352,8 @@ fun WorkoutScreenContent(
                             .fillMaxWidth()
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Red,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
                         )
                     ) {
                         Text(

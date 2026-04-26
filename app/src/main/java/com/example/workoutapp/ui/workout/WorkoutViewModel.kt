@@ -52,8 +52,13 @@ class WorkoutViewModel @Inject constructor(
 
     private val countdownOrchestrator: WorkoutCountdownOrchestrator = countdownOrchestratorFactory.create(
         scope = viewModelScope,
-        onTimerSound = {
-            soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
+        onCountdownWarning = {
+            if (finalCountdownEnabled) {
+                playTimerCue(timerSoundType)
+            }
+        },
+        onTimerComplete = {
+            playTimerCue(activeTimerCompleteSoundType)
         }
     )
 
@@ -99,7 +104,13 @@ class WorkoutViewModel @Inject constructor(
     private var soundsEnabled = true
     private var soundVolume = 1.0f
     private var timerSoundType = "beep"
+    private var restCompleteSoundType = "chime"
+    private var exerciseSwitchSoundType = "loud"
     private var celebrationSoundType = "cheer"
+    private var vibrationEnabled = true
+    private var finalCountdownEnabled = true
+    private var silentModeBehavior = "respect"
+    private var activeTimerCompleteSoundType = "chime"
 
     // Sensor settings cache
     private var sensorEnabled = false
@@ -163,7 +174,12 @@ class WorkoutViewModel @Inject constructor(
                 soundsEnabled = settings.soundsEnabled
                 soundVolume = settings.soundVolume
                 timerSoundType = settings.timerSoundType
+                restCompleteSoundType = settings.restCompleteSoundType
+                exerciseSwitchSoundType = settings.exerciseSwitchSoundType
                 celebrationSoundType = settings.celebrationSoundType
+                vibrationEnabled = settings.vibrationEnabled
+                finalCountdownEnabled = settings.finalCountdownEnabled
+                silentModeBehavior = settings.silentModeBehavior
                 sensorEnabled = settings.sensorEnabled
                 sensorIpAddress = settings.sensorIpAddress
                 if (_sessionStarted.value && sensorEnabled && !sensorOrchestrator.isPolling) {
@@ -242,7 +258,13 @@ class WorkoutViewModel @Inject constructor(
 
             stopSensorPolling()
 
-            soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
+            soundManager.playCelebrationSound(
+                celebrationSoundType,
+                soundVolume,
+                soundsEnabled,
+                vibrationEnabled,
+                silentModeBehavior
+            )
 
             onComplete(result.completedSession)
         }
@@ -276,7 +298,18 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startTimer(seconds: Int) {
+        activeTimerCompleteSoundType = restCompleteSoundType
         countdownOrchestrator.startTimer(seconds)
+    }
+
+    fun startRestTimer() {
+        activeTimerCompleteSoundType = restCompleteSoundType
+        countdownOrchestrator.startTimer(_restTimerDuration.value)
+    }
+
+    fun startExerciseSwitchTimer() {
+        activeTimerCompleteSoundType = exerciseSwitchSoundType
+        countdownOrchestrator.startTimer(_exerciseSwitchDuration.value)
     }
 
     fun pauseTimer() {
@@ -427,7 +460,14 @@ class WorkoutViewModel @Inject constructor(
 
         applySessionStateUpdate(result.stateUpdate)
         when (val timerRequest = result.timerRequest) {
-            is PostSetTimerRequest.Start -> startTimer(timerRequest.seconds)
+            is PostSetTimerRequest.Start -> {
+                activeTimerCompleteSoundType = if (timerRequest.seconds == _exerciseSwitchDuration.value) {
+                    exerciseSwitchSoundType
+                } else {
+                    restCompleteSoundType
+                }
+                countdownOrchestrator.startTimer(timerRequest.seconds)
+            }
             PostSetTimerRequest.None -> Unit
         }
         return true
@@ -450,5 +490,15 @@ class WorkoutViewModel @Inject constructor(
         if (update == null) return
         _completedSets.value = update.completedSets
         applyActiveExerciseSelection(update.activeExerciseSelection)
+    }
+
+    private fun playTimerCue(soundType: String) {
+        soundManager.playTimerSound(
+            soundType,
+            soundVolume,
+            soundsEnabled,
+            vibrationEnabled,
+            silentModeBehavior
+        )
     }
 }

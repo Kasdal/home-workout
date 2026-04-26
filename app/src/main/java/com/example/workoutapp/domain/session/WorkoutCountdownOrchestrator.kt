@@ -10,7 +10,8 @@ import kotlinx.coroutines.launch
 
 class WorkoutCountdownOrchestrator(
     private val scope: CoroutineScope,
-    private val onTimerSound: () -> Unit
+    private val onCountdownWarning: () -> Unit,
+    private val onTimerComplete: () -> Unit
 ) {
 
     private val _timerSeconds = MutableStateFlow(0)
@@ -57,13 +58,13 @@ class WorkoutCountdownOrchestrator(
             while (_timerSeconds.value > 0) {
                 val remaining = _timerSeconds.value
                 if (remaining <= 3) {
-                    onTimerSound()
+                    onCountdownWarning()
                 }
                 delay(1000L)
                 _timerSeconds.value--
             }
 
-            onTimerSound()
+            onTimerComplete()
             _isTimerRunning.value = false
             _isTimerPaused.value = false
         }

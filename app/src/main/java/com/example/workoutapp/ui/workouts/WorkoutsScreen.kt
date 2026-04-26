@@ -4,15 +4,15 @@ import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,14 +34,18 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -57,10 +61,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -74,7 +76,6 @@ import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.workout.ExerciseEditDialog
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -169,6 +170,11 @@ fun WorkoutsScreenContent(
             TopAppBar(
                 title = { Text("Workout Library") },
                 actions = {
+                    if (exercises.isNotEmpty() && !reorderMode) {
+                        TextButton(onClick = ::enterReorderMode) {
+                            Text("Reorder")
+                        }
+                    }
                     Text(
                         text = "${exercises.size} total",
                         style = MaterialTheme.typography.bodyMedium,
@@ -263,6 +269,7 @@ fun WorkoutsScreenContent(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun WorkoutLibraryItem(
     exercise: Exercise,
@@ -280,9 +287,13 @@ private fun WorkoutLibraryItem(
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
     var dragDistance by remember { mutableStateOf(0f) }
     var cardHeightPx by remember { mutableStateOf(0f) }
-    val touchSlop = LocalViewConfiguration.current.touchSlop
+    val history by exerciseHistory.collectAsState(initial = emptyList())
+    val recentHistory = history.sortedByDescending { it.sessionId }
+    val lastEntry = recentHistory.firstOrNull()
+    val bestVolume = history.maxOfOrNull { it.volume } ?: 0f
 
     LaunchedEffect(reorderMode) {
         dragDistance = 0f
@@ -324,7 +335,6 @@ private fun WorkoutLibraryItem(
     }
 
     if (showDetailsDialog) {
-        val history by exerciseHistory.collectAsState(initial = emptyList())
         ExerciseDetailsDialog(
             exercise = exercise,
             history = history,
@@ -355,29 +365,7 @@ private fun WorkoutLibraryItem(
             onDragStopped = { dragDistance = 0f }
         )
     } else {
-        Modifier.pointerInput(exercise.id) {
-            awaitEachGesture {
-                val down = awaitFirstDown(requireUnconsumed = false)
-                var movedLikeScroll = false
-                val upOrMoveBeforeHold = withTimeoutOrNull(3000) {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull null
-                        if (!change.pressed) return@withTimeoutOrNull change
-                        if ((change.position - down.position).getDistance() > touchSlop) {
-                            movedLikeScroll = true
-                            return@withTimeoutOrNull change
-                        }
-                    }
-                }
-                if (upOrMoveBeforeHold == null && !movedLikeScroll) {
-                    onEnterReorderMode()
-                    waitForUpOrCancellation()
-                } else if (!movedLikeScroll) {
-                    showDetailsDialog = true
-                }
-            }
-        }
+        Modifier
     }
 
     Card(
@@ -400,100 +388,186 @@ private fun WorkoutLibraryItem(
             }
         )
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, top = 14.dp, end = 6.dp, bottom = 14.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .combinedClickable(
+                        onClick = { showDetailsDialog = true },
+                        onLongClick = onEnterReorderMode
+                    ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = exercise.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = when (exercise.exerciseType) {
-                            ExerciseType.HOLD.name -> "${exercise.sets} sets × ${exercise.holdDurationSeconds}s hold"
-                            ExerciseType.BODYWEIGHT.name -> "${exercise.sets} sets × ${exercise.reps} reps (bodyweight)"
-                            else -> "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = when (exercise.exerciseType) {
-                                ExerciseType.HOLD.name -> "Hold"
-                                ExerciseType.BODYWEIGHT.name -> "Bodyweight"
-                                else -> "Standard"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            text = exercise.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
-                        if (exercise.usesSensor) {
+                        Text(
+                            text = exerciseSummary(exercise),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (reorderMode) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Sensor",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
+                                text = "Drag",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
 
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    LibraryBadge(
+                        text = when (exercise.exerciseType) {
+                            ExerciseType.HOLD.name -> "Hold"
+                            ExerciseType.BODYWEIGHT.name -> "Bodyweight"
+                            else -> "Standard"
+                        }
+                    )
+                    if (exercise.usesSensor) {
+                        LibraryBadge("Sensor")
+                    }
+                    if (exercise.photoUri != null) {
+                        LibraryBadge("Photo")
+                    }
+                }
+
                 if (reorderMode) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Drag this card up or down to move it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (history.isNotEmpty()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "Drag",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "Last: ${lastEntry?.sets ?: 0} x ${lastEntry?.reps ?: 0} @ ${formatKg(lastEntry?.weight ?: 0f)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "Best: ${formatKg(bestVolume)}",
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold
                         )
                     }
-                } else if (exercise.photoUri != null) {
+                } else {
                     Text(
-                        text = "Photo",
+                        text = "Tap for setup and history",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF2E7D32),
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
-            if (reorderMode) {
-                Text(
-                    text = "Drag this card up or down to move it.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button(onClick = { showDetailsDialog = true }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Info, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Details")
+            if (!reorderMode) {
+                Box {
+                    IconButton(onClick = { showOverflowMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Exercise actions")
                     }
-                    Button(onClick = onUploadPhoto, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Image, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Photo")
-                    }
-                    Button(onClick = { showEditDialog = true }, modifier = Modifier.weight(1f)) {
-                        Icon(Icons.Default.Edit, contentDescription = null)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Edit")
-                    }
-                }
-
-                TextButton(
-                    onClick = { showDeleteDialog = true },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Delete Exercise")
+                    ExerciseActionsMenu(
+                        expanded = showOverflowMenu,
+                        onDismiss = { showOverflowMenu = false },
+                        onDetails = { showDetailsDialog = true },
+                        onPhoto = onUploadPhoto,
+                        onEdit = { showEditDialog = true },
+                        onDelete = { showDeleteDialog = true },
+                        onReorder = onEnterReorderMode
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LibraryBadge(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier
+            .background(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(50)
+            )
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+    )
+}
+
+@Composable
+private fun ExerciseActionsMenu(
+    expanded: Boolean,
+    onDismiss: () -> Unit,
+    onDetails: () -> Unit,
+    onPhoto: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onReorder: () -> Unit
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        DropdownMenuItem(
+            text = { Text("Details") },
+            onClick = {
+                onDismiss()
+                onDetails()
+            },
+            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
+        )
+        DropdownMenuItem(
+            text = { Text("Photo") },
+            onClick = {
+                onDismiss()
+                onPhoto()
+            },
+            leadingIcon = { Icon(Icons.Default.Image, contentDescription = null) }
+        )
+        DropdownMenuItem(
+            text = { Text("Edit") },
+            onClick = {
+                onDismiss()
+                onEdit()
+            },
+            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+        )
+        DropdownMenuItem(
+            text = { Text("Reorder") },
+            onClick = {
+                onDismiss()
+                onReorder()
+            },
+            leadingIcon = { Icon(Icons.Default.Menu, contentDescription = null) }
+        )
+        DropdownMenuItem(
+            text = { Text("Delete") },
+            onClick = {
+                onDismiss()
+                onDelete()
+            },
+            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) }
+        )
     }
 }
 

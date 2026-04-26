@@ -5,6 +5,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -96,13 +98,16 @@ fun TimerHeader(
                 if (isRunning) {
                     Button(
                         onClick = onPause,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Yellow, contentColor = Color.Black)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
                     ) {
                         Text("PAUSE")
                     }
                     Button(
                         onClick = onStop,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text("STOP")
                     }
@@ -115,12 +120,15 @@ fun TimerHeader(
                     }
                     Button(
                         onClick = onStop,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
                         Text("STOP")
                     }
                 } else {
-                    // Rest timer button
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
                     Box(
                         modifier = Modifier
                             .combinedClickable(
@@ -142,10 +150,21 @@ fun TimerHeader(
                             )
                         }
                     }
+                        IconButton(onClick = { showRestDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit rest timer",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                     
                     Spacer(modifier = Modifier.width(4.dp))
                     
-                    // Exercise switch timer button
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
                     Box(
                         modifier = Modifier
                             .combinedClickable(
@@ -164,6 +183,14 @@ fun TimerHeader(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                                 style = MaterialTheme.typography.labelLarge,
                                 maxLines = 1
+                            )
+                        }
+                    }
+                        IconButton(onClick = { showExerciseDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit switch timer",
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
