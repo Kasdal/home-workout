@@ -72,4 +72,17 @@ class SyncedWorkoutSettingsRepositoryTest {
             syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(currentSettings.copy(undoLastSetEnabled = false))
         }
     }
+
+    @Test
+    fun `setCalorieIntensity saves updated synced workout settings`() = runTest {
+        val currentSettings = WorkoutSessionSettings()
+        every { syncedWorkoutSettingsStore.observeSyncedWorkoutSettings() } returns flowOf(currentSettings)
+        coEvery { syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(any()) } returns Unit
+
+        syncedWorkoutSettingsRepository.setCalorieIntensity("hard")
+
+        coVerify {
+            syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(currentSettings.copy(calorieIntensity = "hard"))
+        }
+    }
 }

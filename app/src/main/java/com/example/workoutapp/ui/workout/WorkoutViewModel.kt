@@ -78,6 +78,8 @@ class WorkoutViewModel @Inject constructor(
     private val _undoLastSetEnabled = MutableStateFlow(true)
     val undoLastSetEnabled: StateFlow<Boolean> = _undoLastSetEnabled.asStateFlow()
 
+    private val _calorieIntensity = MutableStateFlow("normal")
+
     // Session State
     private val _sessionStarted = MutableStateFlow(false)
     val sessionStarted: StateFlow<Boolean> = _sessionStarted.asStateFlow()
@@ -146,6 +148,7 @@ class WorkoutViewModel @Inject constructor(
                 _restTimerDuration.value = settings.restTimerDuration
                 _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
                 _undoLastSetEnabled.value = settings.undoLastSetEnabled
+                _calorieIntensity.value = settings.calorieIntensity
             }
         }
 
@@ -228,7 +231,8 @@ class WorkoutViewModel @Inject constructor(
                 endTime = System.currentTimeMillis(),
                 userMetrics = profileRepository.getUserMetrics().first(),
                 restTimerDuration = _restTimerDuration.value,
-                exerciseSwitchDuration = _exerciseSwitchDuration.value
+                exerciseSwitchDuration = _exerciseSwitchDuration.value,
+                calorieIntensity = _calorieIntensity.value
             )
 
             applySessionStateUpdate(result.stateUpdate)

@@ -121,7 +121,8 @@ class WorkoutSessionCoordinatorTest {
             endTime = 1_234_567L,
             userMetrics = UserMetrics(weightKg = 80f),
             restTimerDuration = 30,
-            exerciseSwitchDuration = 90
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal"
         )
 
         assertEquals(101, result.completedSession.id)

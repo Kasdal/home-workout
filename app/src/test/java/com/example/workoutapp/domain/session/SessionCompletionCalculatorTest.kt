@@ -25,7 +25,8 @@ class SessionCompletionCalculatorTest {
             endTime = 123456789L,
             userMetrics = UserMetrics(weightKg = 80f),
             restTimerDuration = 30,
-            exerciseSwitchDuration = 90
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal"
         )
 
         assertEquals(2, result.sessionExercises.size)
@@ -47,7 +48,8 @@ class SessionCompletionCalculatorTest {
             endTime = 1L,
             userMetrics = null,
             restTimerDuration = 30,
-            exerciseSwitchDuration = 90
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal"
         )
 
         assertEquals(30, result.sessionExercises.single().reps)
@@ -67,7 +69,8 @@ class SessionCompletionCalculatorTest {
             endTime = 1L,
             userMetrics = UserMetrics(weightKg = 75f),
             restTimerDuration = 30,
-            exerciseSwitchDuration = 90
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal"
         )
 
         assertTrue(result.session.caloriesBurned > 0f)

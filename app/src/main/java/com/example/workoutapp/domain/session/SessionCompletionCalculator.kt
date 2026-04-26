@@ -22,7 +22,8 @@ class SessionCompletionCalculator @Inject constructor() {
         endTime: Long,
         userMetrics: UserMetrics?,
         restTimerDuration: Int,
-        exerciseSwitchDuration: Int
+        exerciseSwitchDuration: Int,
+        calorieIntensity: String
     ): SessionCompletionResult {
         val userWeight = userMetrics?.weightKg ?: 70f
         var totalWeight = 0f
@@ -44,7 +45,9 @@ class SessionCompletionCalculator @Inject constructor() {
                 exercises = exercises,
                 userMetrics = userMetrics,
                 restSecondsBetweenSets = restTimerDuration,
-                restSecondsBetweenExercises = exerciseSwitchDuration
+                restSecondsBetweenExercises = exerciseSwitchDuration,
+                elapsedSeconds = elapsedSeconds,
+                intensity = calorieIntensity
             ),
             totalVolume = totalVolume
         )

@@ -320,7 +320,8 @@ class FirestoreRepository @Inject constructor(
                 mapOf(
                     "restTimerDuration" to settings.restTimerDuration,
                     "exerciseSwitchDuration" to settings.exerciseSwitchDuration,
-                    "undoLastSetEnabled" to settings.undoLastSetEnabled
+                    "undoLastSetEnabled" to settings.undoLastSetEnabled,
+                    "calorieIntensity" to settings.calorieIntensity
                 ),
                 SetOptions.merge()
             )
@@ -709,6 +710,7 @@ internal fun syncedWorkoutSettingsEvent(
     return WorkoutSessionSettings(
         restTimerDuration = snapshot.getLong("restTimerDuration")?.toInt() ?: 30,
         exerciseSwitchDuration = snapshot.getLong("exerciseSwitchDuration")?.toInt() ?: 90,
-        undoLastSetEnabled = snapshot.getBoolean("undoLastSetEnabled") ?: true
+        undoLastSetEnabled = snapshot.getBoolean("undoLastSetEnabled") ?: true,
+        calorieIntensity = snapshot.getString("calorieIntensity") ?: "normal"
     )
 }

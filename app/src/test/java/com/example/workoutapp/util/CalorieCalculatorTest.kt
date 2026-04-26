@@ -15,13 +15,17 @@ class CalorieCalculatorTest {
         userMetrics: UserMetrics? = null,
         restSecondsBetweenSets: Int = 30,
         restSecondsBetweenExercises: Int = 60,
+        elapsedSeconds: Long = 1800,
+        intensity: String = "normal"
     ): Float {
         return CalorieCalculator.calculateCalories(
             completedSets = completedSets,
             exercises = exercises,
             userMetrics = userMetrics,
             restSecondsBetweenSets = restSecondsBetweenSets,
-            restSecondsBetweenExercises = restSecondsBetweenExercises
+            restSecondsBetweenExercises = restSecondsBetweenExercises,
+            elapsedSeconds = elapsedSeconds,
+            intensity = intensity
         )
     }
 
@@ -93,6 +97,45 @@ class CalorieCalculatorTest {
         val holdCalories = calories(mapOf(1 to 4), hold, UserMetrics(weightKg = 70f, age = 30))
 
         assertTrue(bodyweightCalories > holdCalories)
+    }
+
+    @Test
+    fun `longer actual duration increases calories`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 80f, reps = 8, sets = 4, exerciseType = ExerciseType.STANDARD.name)
+        )
+
+        val shortSession = calories(mapOf(1 to 4), exercises, UserMetrics(weightKg = 80f), elapsedSeconds = 900)
+        val longSession = calories(mapOf(1 to 4), exercises, UserMetrics(weightKg = 80f), elapsedSeconds = 3600)
+
+        assertTrue(longSession > shortSession)
+    }
+
+    @Test
+    fun `hard intensity increases calories`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Squat", weight = 100f, reps = 8, sets = 4, exerciseType = ExerciseType.STANDARD.name)
+        )
+
+        val easy = calories(mapOf(1 to 4), exercises, UserMetrics(weightKg = 80f), intensity = "easy")
+        val hard = calories(mapOf(1 to 4), exercises, UserMetrics(weightKg = 80f), intensity = "hard")
+
+        assertTrue(hard > easy)
+    }
+
+    @Test
+    fun `heavier standard load increases calories`() {
+        val light = listOf(
+            Exercise(id = 1, name = "Curl", weight = 10f, reps = 10, sets = 4, exerciseType = ExerciseType.STANDARD.name)
+        )
+        val heavy = listOf(
+            Exercise(id = 1, name = "Deadlift", weight = 120f, reps = 10, sets = 4, exerciseType = ExerciseType.STANDARD.name)
+        )
+
+        val lightCalories = calories(mapOf(1 to 4), light, UserMetrics(weightKg = 80f))
+        val heavyCalories = calories(mapOf(1 to 4), heavy, UserMetrics(weightKg = 80f))
+
+        assertTrue(heavyCalories > lightCalories)
     }
 
     @Test

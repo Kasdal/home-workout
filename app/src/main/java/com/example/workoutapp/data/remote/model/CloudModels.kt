@@ -57,7 +57,8 @@ data class CloudSettings(
     val exerciseSwitchDuration: Int = 90,
     val undoLastSetEnabled: Boolean = true,
     val sensorEnabled: Boolean = false,
-    val sensorIpAddress: String = "192.168.0.125"
+    val sensorIpAddress: String = "192.168.0.125",
+    val calorieIntensity: String = "normal"
 )
 
 data class CloudRestDay(
@@ -176,7 +177,8 @@ fun Settings.toCloud() = CloudSettings(
     exerciseSwitchDuration = exerciseSwitchDuration,
     undoLastSetEnabled = undoLastSetEnabled,
     sensorEnabled = sensorEnabled,
-    sensorIpAddress = sensorIpAddress
+    sensorIpAddress = sensorIpAddress,
+    calorieIntensity = calorieIntensity
 )
 
 fun CloudSettings.toLocal() = Settings(
@@ -192,7 +194,8 @@ fun CloudSettings.toLocal() = Settings(
     exerciseSwitchDuration = exerciseSwitchDuration,
     undoLastSetEnabled = undoLastSetEnabled,
     sensorEnabled = sensorEnabled,
-    sensorIpAddress = sensorIpAddress
+    sensorIpAddress = sensorIpAddress,
+    calorieIntensity = calorieIntensity
 )
 
 fun RestDay.toCloud() = CloudRestDay(

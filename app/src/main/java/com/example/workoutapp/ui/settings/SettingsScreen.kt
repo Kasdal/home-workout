@@ -187,6 +187,27 @@ fun SettingsScreen(
                         description = "Used after the last set of an exercise.",
                         onClick = { showSwitchTimerDialog = true }
                     )
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Calorie intensity")
+                        Text(
+                            text = "Adjusts calorie estimates when your workouts are usually easier or harder than average.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("easy" to "Easy", "normal" to "Normal", "hard" to "Hard").forEach { (value, label) ->
+                                FilterChip(
+                                    selected = settings.calorieIntensity == value,
+                                    onClick = { viewModel.setCalorieIntensity(value) },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

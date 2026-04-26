@@ -8,7 +8,8 @@ import javax.inject.Singleton
 data class WorkoutSessionSettings(
     val restTimerDuration: Int = 30,
     val exerciseSwitchDuration: Int = 90,
-    val undoLastSetEnabled: Boolean = true
+    val undoLastSetEnabled: Boolean = true,
+    val calorieIntensity: String = "normal"
 )
 
 @Singleton
@@ -30,5 +31,10 @@ class SyncedWorkoutSettingsRepository @Inject constructor(
     suspend fun setUndoLastSetEnabled(enabled: Boolean) {
         val current = syncedWorkoutSettingsStore.observeSyncedWorkoutSettings().first()
         syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(current.copy(undoLastSetEnabled = enabled))
+    }
+
+    suspend fun setCalorieIntensity(intensity: String) {
+        val current = syncedWorkoutSettingsStore.observeSyncedWorkoutSettings().first()
+        syncedWorkoutSettingsStore.saveSyncedWorkoutSettings(current.copy(calorieIntensity = intensity))
     }
 }

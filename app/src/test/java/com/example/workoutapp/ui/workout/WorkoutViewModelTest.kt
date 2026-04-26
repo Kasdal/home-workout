@@ -130,6 +130,7 @@ class WorkoutViewModelTest {
     private fun createViewModel(): WorkoutViewModel {
         return WorkoutViewModel(
             exerciseRepository,
+            sessionHistoryRepository,
             profileRepository,
             legacySettingsBootstrapper,
             localAppPreferencesRepository,

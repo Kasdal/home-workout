@@ -45,7 +45,8 @@ class SettingsViewModel @Inject constructor(
                     it.copy(
                         restTimerDuration = sessionSettings.restTimerDuration,
                         exerciseSwitchDuration = sessionSettings.exerciseSwitchDuration,
-                        undoLastSetEnabled = sessionSettings.undoLastSetEnabled
+                        undoLastSetEnabled = sessionSettings.undoLastSetEnabled,
+                        calorieIntensity = sessionSettings.calorieIntensity
                     )
                 }
             }
@@ -119,6 +120,12 @@ class SettingsViewModel @Inject constructor(
     fun toggleUndoLastSet(enabled: Boolean) {
         viewModelScope.launch {
             syncedWorkoutSettingsRepository.setUndoLastSetEnabled(enabled)
+        }
+    }
+
+    fun setCalorieIntensity(intensity: String) {
+        viewModelScope.launch {
+            syncedWorkoutSettingsRepository.setCalorieIntensity(intensity)
         }
     }
     
