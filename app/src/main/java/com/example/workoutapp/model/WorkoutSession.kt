@@ -10,5 +10,12 @@ data class WorkoutSession(
     val isPaused: Boolean = false,
     val pausedAt: Long? = null,
     val timeOfDay: Int = 0, // Hour 0-23 when workout started
-    val totalVolume: Float = 0f // sets × reps × weight
+    val totalVolume: Float = 0f, // sets × reps × weight
+    val calorieFormulaVersion: Int = 1,
+    val calorieEstimateMode: String = "STANDARD_MET",
+    val calorieIntensity: String = "normal",
+    val calorieUserWeightKg: Float = 70f,
+    val calorieMetCorrectionFactor: Float = 1f,
+    val calorieActiveSeconds: Float = 0f,
+    val calorieRestSeconds: Int = 0
 )

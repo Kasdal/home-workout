@@ -36,20 +36,29 @@ class SessionCompletionCalculator @Inject constructor() {
             totalVolume += volume
         }
 
+        val calorieEstimate = CalorieCalculator.calculateEstimate(
+            completedSets = completedSets,
+            exercises = exercises,
+            userMetrics = userMetrics,
+            restSecondsBetweenSets = restTimerDuration,
+            restSecondsBetweenExercises = exerciseSwitchDuration,
+            elapsedSeconds = elapsedSeconds,
+            intensity = calorieIntensity
+        )
+
         val session = WorkoutSession(
             date = endTime,
             durationSeconds = elapsedSeconds,
             totalWeightLifted = totalWeight,
-            caloriesBurned = CalorieCalculator.calculateCalories(
-                completedSets = completedSets,
-                exercises = exercises,
-                userMetrics = userMetrics,
-                restSecondsBetweenSets = restTimerDuration,
-                restSecondsBetweenExercises = exerciseSwitchDuration,
-                elapsedSeconds = elapsedSeconds,
-                intensity = calorieIntensity
-            ),
-            totalVolume = totalVolume
+            caloriesBurned = calorieEstimate.calories,
+            totalVolume = totalVolume,
+            calorieFormulaVersion = calorieEstimate.formulaVersion,
+            calorieEstimateMode = calorieEstimate.mode.name,
+            calorieIntensity = calorieEstimate.intensity,
+            calorieUserWeightKg = calorieEstimate.userWeightKg,
+            calorieMetCorrectionFactor = calorieEstimate.metCorrectionFactor,
+            calorieActiveSeconds = calorieEstimate.activeSeconds,
+            calorieRestSeconds = calorieEstimate.restSeconds
         )
 
         val sessionExercises = exercises.mapIndexedNotNull { index, exercise ->

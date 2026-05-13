@@ -28,6 +28,7 @@ data class CloudExercise(
     val holdDurationSeconds: Int = 30,
     val deleted: Boolean = false,
     val photoUri: String? = null,
+    val calorieCategory: String? = null,
     val sortOrder: Int = Int.MAX_VALUE
 )
 
@@ -41,7 +42,14 @@ data class CloudWorkoutSession(
     val isPaused: Boolean = false,
     val pausedAt: Long? = null,
     val timeOfDay: Int = 0,
-    val totalVolume: Float = 0f
+    val totalVolume: Float = 0f,
+    val calorieFormulaVersion: Int = 1,
+    val calorieEstimateMode: String = "STANDARD_MET",
+    val calorieIntensity: String = "normal",
+    val calorieUserWeightKg: Float = 70f,
+    val calorieMetCorrectionFactor: Float = 1f,
+    val calorieActiveSeconds: Float = 0f,
+    val calorieRestSeconds: Int = 0
 )
 
 data class CloudSettings(
@@ -126,6 +134,7 @@ fun Exercise.toCloud() = CloudExercise(
     holdDurationSeconds = holdDurationSeconds,
     deleted = isDeleted,
     photoUri = photoUri,
+    calorieCategory = calorieCategory,
     sortOrder = sortOrder
 )
 
@@ -140,6 +149,7 @@ fun CloudExercise.toLocal() = Exercise(
     holdDurationSeconds = holdDurationSeconds,
     isDeleted = deleted,
     photoUri = photoUri,
+    calorieCategory = calorieCategory,
     sortOrder = sortOrder
 )
 
@@ -153,7 +163,14 @@ fun WorkoutSession.toCloud() = CloudWorkoutSession(
     isPaused = isPaused,
     pausedAt = pausedAt,
     timeOfDay = timeOfDay,
-    totalVolume = totalVolume
+    totalVolume = totalVolume,
+    calorieFormulaVersion = calorieFormulaVersion,
+    calorieEstimateMode = calorieEstimateMode,
+    calorieIntensity = calorieIntensity,
+    calorieUserWeightKg = calorieUserWeightKg,
+    calorieMetCorrectionFactor = calorieMetCorrectionFactor,
+    calorieActiveSeconds = calorieActiveSeconds,
+    calorieRestSeconds = calorieRestSeconds
 )
 
 fun CloudWorkoutSession.toLocal() = WorkoutSession(
@@ -166,7 +183,14 @@ fun CloudWorkoutSession.toLocal() = WorkoutSession(
     isPaused = isPaused,
     pausedAt = pausedAt,
     timeOfDay = timeOfDay,
-    totalVolume = totalVolume
+    totalVolume = totalVolume,
+    calorieFormulaVersion = calorieFormulaVersion,
+    calorieEstimateMode = calorieEstimateMode,
+    calorieIntensity = calorieIntensity,
+    calorieUserWeightKg = calorieUserWeightKg,
+    calorieMetCorrectionFactor = calorieMetCorrectionFactor,
+    calorieActiveSeconds = calorieActiveSeconds,
+    calorieRestSeconds = calorieRestSeconds
 )
 
 fun Settings.toCloud() = CloudSettings(

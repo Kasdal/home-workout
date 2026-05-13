@@ -199,9 +199,9 @@ class SettingsViewModel @Inject constructor(
                 appendLine("Workout Export")
                 appendLine()
                 appendLine("Sessions:")
-                appendLine("Date,Duration (min),Weight Lifted (kg),Calories,Notes")
+                appendLine("Date,Duration (min),Weight Lifted (kg),Calories,Calorie Formula Version,Calorie Estimate Mode,Calorie Intensity,Calorie User Weight (kg),Calorie MET Correction Factor,Calorie Active Seconds,Calorie Rest Seconds,Notes")
                 sessions.forEach { session ->
-                    appendLine("${session.date},${session.durationSeconds/60},${session.totalWeightLifted},${session.caloriesBurned},${session.notes ?: ""}")
+                    appendLine("${session.date},${session.durationSeconds/60},${session.totalWeightLifted},${session.caloriesBurned},${session.calorieFormulaVersion},${session.calorieEstimateMode},${session.calorieIntensity},${session.calorieUserWeightKg},${session.calorieMetCorrectionFactor},${session.calorieActiveSeconds},${session.calorieRestSeconds},${session.notes ?: ""}")
                 }
                 appendLine()
                 appendLine("Exercises:")

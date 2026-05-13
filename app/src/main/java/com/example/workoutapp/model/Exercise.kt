@@ -6,6 +6,15 @@ enum class ExerciseType {
     HOLD
 }
 
+enum class CalorieCategory {
+    LIGHT_RESISTANCE,
+    MODERATE_RESISTANCE,
+    HEAVY_COMPOUND,
+    LIGHT_BODYWEIGHT,
+    VIGOROUS_BODYWEIGHT,
+    ISOMETRIC_HOLD
+}
+
 data class Exercise(
     val id: Int = 0,
     val name: String,
@@ -17,5 +26,6 @@ data class Exercise(
     val holdDurationSeconds: Int = 30,
     val isDeleted: Boolean = false,
     val photoUri: String? = null, // Exercise photo URI
+    val calorieCategory: String? = null,
     val sortOrder: Int = Int.MAX_VALUE
 )

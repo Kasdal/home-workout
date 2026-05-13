@@ -99,10 +99,11 @@ class WorkoutViewModelTest {
         every { profileRepository.getUserMetrics() } returns flowOf(UserMetrics(weightKg = 80f))
         every { localAppPreferencesRepository.settings } returns localSettingsFlow
         every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns sessionSettingsFlow
-        every { countdownOrchestratorFactory.create(any(), any()) } answers {
+        every { countdownOrchestratorFactory.create(any(), any(), any()) } answers {
             com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator(
                 scope = firstArg(),
-                onTimerSound = secondArg()
+                onCountdownWarning = secondArg(),
+                onTimerComplete = thirdArg()
             )
         }
         every { sessionClockFactory.create(any()) } answers {
@@ -165,7 +166,7 @@ class WorkoutViewModelTest {
     fun `init creates runtime seams through factories`() = runTest {
         advanceUntilIdle()
 
-        verify(exactly = 1) { countdownOrchestratorFactory.create(any(), any()) }
+        verify(exactly = 1) { countdownOrchestratorFactory.create(any(), any(), any()) }
         verify(exactly = 1) { sessionClockFactory.create(any()) }
         verify(exactly = 1) { sensorOrchestratorFactory.create(any(), any(), any()) }
     }
