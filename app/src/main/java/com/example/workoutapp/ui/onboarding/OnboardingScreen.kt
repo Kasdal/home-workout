@@ -6,6 +6,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,78 +33,102 @@ fun OnboardingScreen(
     var height by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var gender by remember { mutableStateOf("Male") }
+    val parsedWeight = weight.toFloatOrNull()
+    val parsedHeight = height.toFloatOrNull()
+    val parsedAge = age.toIntOrNull()
+    val weightError = weight.isNotBlank() && (parsedWeight == null || parsedWeight !in 20f..350f)
+    val heightError = height.isNotBlank() && (parsedHeight == null || parsedHeight !in 80f..250f)
+    val ageError = age.isNotBlank() && (parsedAge == null || parsedAge !in 10..100)
+    val formValid = parsedWeight != null && parsedWeight in 20f..350f &&
+        parsedHeight != null && parsedHeight in 80f..250f &&
+        parsedAge != null && parsedAge in 10..100
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(20.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "Welcome! Let's get set up.",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(bottom = 32.dp)
-        )
-
-        OutlinedTextField(
-            value = weight,
-            onValueChange = { weight = it },
-            label = { Text("Weight (kg)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = height,
-            onValueChange = { height = it },
-            label = { Text("Height (cm)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        OutlinedTextField(
-            value = age,
-            onValueChange = { age = it },
-            label = { Text("Age") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Simple Gender Selection (could be improved with RadioButtons or Dropdown)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Text("Gender: ")
-            RadioButton(selected = gender == "Male", onClick = { gender = "Male" })
-            Text("Male")
-            Spacer(modifier = Modifier.width(16.dp))
-            RadioButton(selected = gender == "Female", onClick = { gender = "Female" })
-            Text("Female")
-        }
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Welcome to Home Workout",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "These basics help estimate workout calories and personalize progress stats.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-        Spacer(modifier = Modifier.height(32.dp))
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { weight = it },
+                    label = { Text("Weight (kg)") },
+                    placeholder = { Text("Example: 75") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = weightError,
+                    supportingText = { if (weightError) Text("Enter a weight from 20 to 350 kg.") },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-        Button(
-            onClick = {
-                val w = weight.toFloatOrNull()
-                val h = height.toFloatOrNull()
-                val a = age.toIntOrNull()
-                if (w != null && h != null && a != null) {
-                    viewModel.saveMetrics(w, h, a, gender) {
+                OutlinedTextField(
+                    value = height,
+                    onValueChange = { height = it },
+                    label = { Text("Height (cm)") },
+                    placeholder = { Text("Example: 178") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = heightError,
+                    supportingText = { if (heightError) Text("Enter a height from 80 to 250 cm.") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = age,
+                    onValueChange = { age = it },
+                    label = { Text("Age") },
+                    placeholder = { Text("Example: 32") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError = ageError,
+                    supportingText = { if (ageError) Text("Enter an age from 10 to 100.") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Gender", modifier = Modifier.weight(1f))
+                    RadioButton(selected = gender == "Male", onClick = { gender = "Male" })
+                    Text("Male")
+                    Spacer(modifier = Modifier.width(16.dp))
+                    RadioButton(selected = gender == "Female", onClick = { gender = "Female" })
+                    Text("Female")
+                }
+
+                Button(
+                    onClick = {
+                        viewModel.saveMetrics(parsedWeight!!, parsedHeight!!, parsedAge!!, gender) {
                         navController.navigate(Screen.Workout.route) {
                             popUpTo(Screen.Onboarding.route) { inclusive = true }
                         }
                     }
+                    },
+                    enabled = formValid,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Start Workout")
                 }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Start Workout")
+            }
         }
     }
 }

@@ -45,7 +45,8 @@ class SettingsViewModel @Inject constructor(
                     it.copy(
                         restTimerDuration = sessionSettings.restTimerDuration,
                         exerciseSwitchDuration = sessionSettings.exerciseSwitchDuration,
-                        undoLastSetEnabled = sessionSettings.undoLastSetEnabled
+                        undoLastSetEnabled = sessionSettings.undoLastSetEnabled,
+                        calorieIntensity = sessionSettings.calorieIntensity
                     )
                 }
             }
@@ -63,7 +64,12 @@ class SettingsViewModel @Inject constructor(
                         soundsEnabled = localSettings.soundsEnabled,
                         soundVolume = localSettings.soundVolume,
                         timerSoundType = localSettings.timerSoundType,
+                        restCompleteSoundType = localSettings.restCompleteSoundType,
+                        exerciseSwitchSoundType = localSettings.exerciseSwitchSoundType,
                         celebrationSoundType = localSettings.celebrationSoundType,
+                        vibrationEnabled = localSettings.vibrationEnabled,
+                        finalCountdownEnabled = localSettings.finalCountdownEnabled,
+                        silentModeBehavior = localSettings.silentModeBehavior,
                         tutorialCompleted = localSettings.tutorialCompleted,
                         tutorialVersion = localSettings.tutorialVersion,
                         sensorEnabled = localSettings.sensorEnabled,
@@ -92,9 +98,39 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun setRestCompleteSound(soundType: String) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSoundSettings(restCompleteSoundType = soundType)
+        }
+    }
+
+    fun setExerciseSwitchSound(soundType: String) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSoundSettings(exerciseSwitchSoundType = soundType)
+        }
+    }
+
     fun setCelebrationSound(soundType: String) {
         viewModelScope.launch {
             localAppPreferencesRepository.updateSoundSettings(celebrationSoundType = soundType)
+        }
+    }
+
+    fun setVibrationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSoundSettings(vibrationEnabled = enabled)
+        }
+    }
+
+    fun setFinalCountdownEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSoundSettings(finalCountdownEnabled = enabled)
+        }
+    }
+
+    fun setSilentModeBehavior(behavior: String) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSoundSettings(silentModeBehavior = behavior)
         }
     }
 
@@ -121,12 +157,20 @@ class SettingsViewModel @Inject constructor(
             syncedWorkoutSettingsRepository.setUndoLastSetEnabled(enabled)
         }
     }
+
+    fun setCalorieIntensity(intensity: String) {
+        viewModelScope.launch {
+            syncedWorkoutSettingsRepository.setCalorieIntensity(intensity)
+        }
+    }
     
     fun previewTimerSound(soundType: String) {
         soundManager.playTimerSound(
             soundType = soundType,
             volume = _settings.value.soundVolume,
-            enabled = _settings.value.soundsEnabled
+            enabled = _settings.value.soundsEnabled,
+            vibrationEnabled = _settings.value.vibrationEnabled,
+            silentModeBehavior = _settings.value.silentModeBehavior
         )
     }
     
@@ -134,8 +178,14 @@ class SettingsViewModel @Inject constructor(
         soundManager.playCelebrationSound(
             soundType = soundType,
             volume = _settings.value.soundVolume,
-            enabled = _settings.value.soundsEnabled
+            enabled = _settings.value.soundsEnabled,
+            vibrationEnabled = _settings.value.vibrationEnabled,
+            silentModeBehavior = _settings.value.silentModeBehavior
         )
+    }
+
+    fun previewVibration() {
+        soundManager.vibrateCue(_settings.value.vibrationEnabled)
     }
 
     fun exportData(onComplete: (String) -> Unit) {
@@ -149,9 +199,9 @@ class SettingsViewModel @Inject constructor(
                 appendLine("Workout Export")
                 appendLine()
                 appendLine("Sessions:")
-                appendLine("Date,Duration (min),Weight Lifted (kg),Calories,Notes")
+                appendLine("Date,Duration (min),Weight Lifted (kg),Calories,Calorie Formula Version,Calorie Estimate Mode,Calorie Intensity,Calorie User Weight (kg),Calorie MET Correction Factor,Calorie Active Seconds,Calorie Rest Seconds,Notes")
                 sessions.forEach { session ->
-                    appendLine("${session.date},${session.durationSeconds/60},${session.totalWeightLifted},${session.caloriesBurned},${session.notes ?: ""}")
+                    appendLine("${session.date},${session.durationSeconds/60},${session.totalWeightLifted},${session.caloriesBurned},${session.calorieFormulaVersion},${session.calorieEstimateMode},${session.calorieIntensity},${session.calorieUserWeightKg},${session.calorieMetCorrectionFactor},${session.calorieActiveSeconds},${session.calorieRestSeconds},${session.notes ?: ""}")
                 }
                 appendLine()
                 appendLine("Exercises:")
@@ -185,6 +235,22 @@ class SettingsViewModel @Inject constructor(
             val ipAddress = _settings.value.sensorIpAddress
             val isConnected = sensorRepository.testConnection(ipAddress)
             _sensorConnectionState.value = if (isConnected) "Connected ✓" else "Failed to connect"
+        }
+    }
+
+    fun discoverSensor() {
+        viewModelScope.launch {
+            _sensorConnectionState.value = "Searching local network..."
+            val discoveredIp = sensorRepository.discoverSensor()
+            if (discoveredIp == null) {
+                _sensorConnectionState.value = "No ESP sensor found"
+            } else {
+                localAppPreferencesRepository.updateSensorSettings(
+                    enabled = true,
+                    ipAddress = discoveredIp
+                )
+                _sensorConnectionState.value = "Found ESP at $discoveredIp"
+            }
         }
     }
     

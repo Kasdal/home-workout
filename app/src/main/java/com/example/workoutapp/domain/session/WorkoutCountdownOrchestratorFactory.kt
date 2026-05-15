@@ -6,11 +6,13 @@ import javax.inject.Inject
 class WorkoutCountdownOrchestratorFactory @Inject constructor() {
     fun create(
         scope: CoroutineScope,
-        onTimerSound: () -> Unit
+        onCountdownWarning: () -> Unit,
+        onTimerComplete: () -> Unit
     ): WorkoutCountdownOrchestrator {
         return WorkoutCountdownOrchestrator(
             scope = scope,
-            onTimerSound = onTimerSound
+            onCountdownWarning = onCountdownWarning,
+            onTimerComplete = onTimerComplete
         )
     }
 }

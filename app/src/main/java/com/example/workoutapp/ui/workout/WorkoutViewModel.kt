@@ -5,9 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.ExerciseType
+import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
+import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
@@ -29,6 +31,7 @@ import javax.inject.Inject
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
+    private val sessionHistoryRepository: SessionHistoryRepository,
     private val profileRepository: ProfileRepository,
     private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
@@ -43,10 +46,19 @@ class WorkoutViewModel @Inject constructor(
     // Exercises from DB
     val exercises = exerciseRepository.getExercises()
 
+    fun getExerciseHistory(exerciseName: String): kotlinx.coroutines.flow.Flow<List<SessionExercise>> {
+        return sessionHistoryRepository.getExerciseHistory(exerciseName)
+    }
+
     private val countdownOrchestrator: WorkoutCountdownOrchestrator = countdownOrchestratorFactory.create(
         scope = viewModelScope,
-        onTimerSound = {
-            soundManager.playTimerSound(timerSoundType, soundVolume, soundsEnabled)
+        onCountdownWarning = {
+            if (finalCountdownEnabled) {
+                playTimerCue(timerSoundType)
+            }
+        },
+        onTimerComplete = {
+            playTimerCue(activeTimerCompleteSoundType)
         }
     )
 
@@ -71,6 +83,8 @@ class WorkoutViewModel @Inject constructor(
     private val _undoLastSetEnabled = MutableStateFlow(true)
     val undoLastSetEnabled: StateFlow<Boolean> = _undoLastSetEnabled.asStateFlow()
 
+    private val _calorieIntensity = MutableStateFlow("normal")
+
     // Session State
     private val _sessionStarted = MutableStateFlow(false)
     val sessionStarted: StateFlow<Boolean> = _sessionStarted.asStateFlow()
@@ -90,7 +104,13 @@ class WorkoutViewModel @Inject constructor(
     private var soundsEnabled = true
     private var soundVolume = 1.0f
     private var timerSoundType = "beep"
+    private var restCompleteSoundType = "chime"
+    private var exerciseSwitchSoundType = "loud"
     private var celebrationSoundType = "cheer"
+    private var vibrationEnabled = true
+    private var finalCountdownEnabled = true
+    private var silentModeBehavior = "respect"
+    private var activeTimerCompleteSoundType = "chime"
 
     // Sensor settings cache
     private var sensorEnabled = false
@@ -139,6 +159,7 @@ class WorkoutViewModel @Inject constructor(
                 _restTimerDuration.value = settings.restTimerDuration
                 _exerciseSwitchDuration.value = settings.exerciseSwitchDuration
                 _undoLastSetEnabled.value = settings.undoLastSetEnabled
+                _calorieIntensity.value = settings.calorieIntensity
             }
         }
 
@@ -153,7 +174,12 @@ class WorkoutViewModel @Inject constructor(
                 soundsEnabled = settings.soundsEnabled
                 soundVolume = settings.soundVolume
                 timerSoundType = settings.timerSoundType
+                restCompleteSoundType = settings.restCompleteSoundType
+                exerciseSwitchSoundType = settings.exerciseSwitchSoundType
                 celebrationSoundType = settings.celebrationSoundType
+                vibrationEnabled = settings.vibrationEnabled
+                finalCountdownEnabled = settings.finalCountdownEnabled
+                silentModeBehavior = settings.silentModeBehavior
                 sensorEnabled = settings.sensorEnabled
                 sensorIpAddress = settings.sensorIpAddress
                 if (_sessionStarted.value && sensorEnabled && !sensorOrchestrator.isPolling) {
@@ -173,14 +199,15 @@ class WorkoutViewModel @Inject constructor(
                     "Barbell Row", "Pull Up", "Dips", "Bicep Curl",
                     "Tricep Extension", "Lateral Raise", "Calf Raise"
                 )
-                defaults.forEach { name ->
+                defaults.forEachIndexed { index, name ->
                     exerciseRepository.addExercise(
                         Exercise(
                             name = name,
                             weight = 20f,
                             exerciseType = com.example.workoutapp.model.ExerciseType.STANDARD.name,
                             usesSensor = true,
-                            holdDurationSeconds = 30
+                            holdDurationSeconds = 30,
+                            sortOrder = index
                         )
                     )
                 }
@@ -220,7 +247,8 @@ class WorkoutViewModel @Inject constructor(
                 endTime = System.currentTimeMillis(),
                 userMetrics = profileRepository.getUserMetrics().first(),
                 restTimerDuration = _restTimerDuration.value,
-                exerciseSwitchDuration = _exerciseSwitchDuration.value
+                exerciseSwitchDuration = _exerciseSwitchDuration.value,
+                calorieIntensity = _calorieIntensity.value
             )
 
             applySessionStateUpdate(result.stateUpdate)
@@ -230,7 +258,13 @@ class WorkoutViewModel @Inject constructor(
 
             stopSensorPolling()
 
-            soundManager.playCelebrationSound(celebrationSoundType, soundVolume, soundsEnabled)
+            soundManager.playCelebrationSound(
+                celebrationSoundType,
+                soundVolume,
+                soundsEnabled,
+                vibrationEnabled,
+                silentModeBehavior
+            )
 
             onComplete(result.completedSession)
         }
@@ -264,7 +298,18 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun startTimer(seconds: Int) {
+        activeTimerCompleteSoundType = restCompleteSoundType
         countdownOrchestrator.startTimer(seconds)
+    }
+
+    fun startRestTimer() {
+        activeTimerCompleteSoundType = restCompleteSoundType
+        countdownOrchestrator.startTimer(_restTimerDuration.value)
+    }
+
+    fun startExerciseSwitchTimer() {
+        activeTimerCompleteSoundType = exerciseSwitchSoundType
+        countdownOrchestrator.startTimer(_exerciseSwitchDuration.value)
     }
 
     fun pauseTimer() {
@@ -277,6 +322,10 @@ class WorkoutViewModel @Inject constructor(
 
     fun stopTimer() {
         countdownOrchestrator.stopTimer()
+    }
+
+    fun resetSensorCounter() {
+        sensorOrchestrator.resetCounterNow()
     }
 
     // --- Set Completion Logic ---
@@ -316,14 +365,49 @@ class WorkoutViewModel @Inject constructor(
 
     fun addExercise() {
         viewModelScope.launch {
-            exerciseRepository.addExercise(Exercise(name = "New Exercise", weight = 0f))
+            val currentExercises = exercises.first()
+            val nextSortOrder = nextSortOrder(currentExercises)
+            exerciseRepository.addExercise(Exercise(name = "New Exercise", weight = 0f, sortOrder = nextSortOrder))
         }
     }
 
     fun addExercise(exercise: Exercise) {
         viewModelScope.launch {
-            exerciseRepository.addExercise(exercise)
+            val currentExercises = exercises.first()
+            val nextSortOrder = nextSortOrder(currentExercises)
+            exerciseRepository.addExercise(exercise.copy(sortOrder = nextSortOrder))
         }
+    }
+
+    fun moveExercise(exerciseId: Int, direction: Int) {
+        viewModelScope.launch {
+            val orderedExercises = exercises.first()
+            val fromIndex = orderedExercises.indexOfFirst { it.id == exerciseId }
+            val toIndex = fromIndex + direction
+
+            if (fromIndex !in orderedExercises.indices || toIndex !in orderedExercises.indices) return@launch
+
+            val reordered = orderedExercises.toMutableList().apply {
+                add(toIndex, removeAt(fromIndex))
+            }
+
+            reordered.forEachIndexed { index, exercise ->
+                exerciseRepository.updateExercise(exercise.copy(sortOrder = index))
+            }
+        }
+    }
+
+    fun updateExerciseOrder(orderedExercises: List<Exercise>) {
+        viewModelScope.launch {
+            orderedExercises.forEachIndexed { index, exercise ->
+                exerciseRepository.updateExercise(exercise.copy(sortOrder = index))
+            }
+        }
+    }
+
+    private fun nextSortOrder(currentExercises: List<Exercise>): Int {
+        val finiteSortOrders = currentExercises.mapNotNull { it.sortOrder.takeIf { order -> order != Int.MAX_VALUE } }
+        return if (finiteSortOrders.isEmpty()) Int.MAX_VALUE else (finiteSortOrders.maxOrNull() ?: -1) + 1
     }
 
     fun deleteExercise(exerciseId: Int) {
@@ -376,7 +460,14 @@ class WorkoutViewModel @Inject constructor(
 
         applySessionStateUpdate(result.stateUpdate)
         when (val timerRequest = result.timerRequest) {
-            is PostSetTimerRequest.Start -> startTimer(timerRequest.seconds)
+            is PostSetTimerRequest.Start -> {
+                activeTimerCompleteSoundType = if (timerRequest.seconds == _exerciseSwitchDuration.value) {
+                    exerciseSwitchSoundType
+                } else {
+                    restCompleteSoundType
+                }
+                countdownOrchestrator.startTimer(timerRequest.seconds)
+            }
             PostSetTimerRequest.None -> Unit
         }
         return true
@@ -399,5 +490,15 @@ class WorkoutViewModel @Inject constructor(
         if (update == null) return
         _completedSets.value = update.completedSets
         applyActiveExerciseSelection(update.activeExerciseSelection)
+    }
+
+    private fun playTimerCue(soundType: String) {
+        soundManager.playTimerSound(
+            soundType,
+            soundVolume,
+            soundsEnabled,
+            vibrationEnabled,
+            silentModeBehavior
+        )
     }
 }

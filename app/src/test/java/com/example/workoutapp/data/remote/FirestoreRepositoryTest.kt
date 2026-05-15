@@ -24,8 +24,8 @@ class FirestoreRepositoryTest {
     @Test
     fun `syncedWorkoutSettingsEvent maps snapshot values`() {
         assertEquals(
-            WorkoutSessionSettings(restTimerDuration = 45, exerciseSwitchDuration = 120, undoLastSetEnabled = false),
-            syncedWorkoutSettingsEvent(settingsSnapshot(45, 120, false), null)
+            WorkoutSessionSettings(restTimerDuration = 45, exerciseSwitchDuration = 120, undoLastSetEnabled = false, calorieIntensity = "hard"),
+            syncedWorkoutSettingsEvent(settingsSnapshot(45, 120, false, "hard"), null)
         )
     }
 
@@ -35,12 +35,18 @@ class FirestoreRepositoryTest {
         return snapshot
     }
 
-    private fun settingsSnapshot(restTimerDuration: Int, exerciseSwitchDuration: Int, undoLastSetEnabled: Boolean): DocumentSnapshot {
+    private fun settingsSnapshot(
+        restTimerDuration: Int,
+        exerciseSwitchDuration: Int,
+        undoLastSetEnabled: Boolean,
+        calorieIntensity: String = "normal"
+    ): DocumentSnapshot {
         val snapshot = mockk<DocumentSnapshot>(relaxed = true)
         every { snapshot.exists() } returns true
         every { snapshot.getLong("restTimerDuration") } returns restTimerDuration.toLong()
         every { snapshot.getLong("exerciseSwitchDuration") } returns exerciseSwitchDuration.toLong()
         every { snapshot.getBoolean("undoLastSetEnabled") } returns undoLastSetEnabled
+        every { snapshot.getString("calorieIntensity") } returns calorieIntensity
         return snapshot
     }
 }

@@ -115,7 +115,8 @@ class WorkoutSessionCoordinator @Inject constructor(
         endTime: Long,
         userMetrics: UserMetrics?,
         restTimerDuration: Int,
-        exerciseSwitchDuration: Int
+        exerciseSwitchDuration: Int,
+        calorieIntensity: String
     ): WorkoutSessionPersistenceResult {
         val completion = sessionCompletionCalculator.calculate(
             exercises = exercises,
@@ -124,7 +125,8 @@ class WorkoutSessionCoordinator @Inject constructor(
             endTime = endTime,
             userMetrics = userMetrics,
             restTimerDuration = restTimerDuration,
-            exerciseSwitchDuration = exerciseSwitchDuration
+            exerciseSwitchDuration = exerciseSwitchDuration,
+            calorieIntensity = calorieIntensity
         )
 
         val sessionId = sessionHistoryRepository.saveSession(completion.session).toInt()

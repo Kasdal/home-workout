@@ -16,9 +16,11 @@ class WorkoutCountdownOrchestratorTest {
     @Test
     fun `startTimer counts down, beeps near the end, and stops when finished`() = runTest {
         val beeps = mutableListOf<Unit>()
+        val completions = mutableListOf<Unit>()
         val orchestrator = WorkoutCountdownOrchestrator(
             scope = backgroundScope,
-            onTimerSound = { beeps += Unit }
+            onCountdownWarning = { beeps += Unit },
+            onTimerComplete = { completions += Unit }
         )
 
         orchestrator.startTimer(5)
@@ -39,14 +41,16 @@ class WorkoutCountdownOrchestratorTest {
         assertEquals(0, orchestrator.timerSeconds.value)
         assertFalse(orchestrator.isTimerRunning.value)
         assertFalse(orchestrator.isTimerPaused.value)
-        assertEquals(4, beeps.size)
+        assertEquals(3, beeps.size)
+        assertEquals(listOf(Unit), completions)
     }
 
     @Test
     fun `pauseTimer halts countdown until resumeTimer restarts it`() = runTest {
         val orchestrator = WorkoutCountdownOrchestrator(
             scope = backgroundScope,
-            onTimerSound = {}
+            onCountdownWarning = {},
+            onTimerComplete = {}
         )
 
         orchestrator.startTimer(5)
@@ -75,7 +79,8 @@ class WorkoutCountdownOrchestratorTest {
     fun `stopTimer cancels countdown without resetting remaining seconds`() = runTest {
         val orchestrator = WorkoutCountdownOrchestrator(
             scope = backgroundScope,
-            onTimerSound = {}
+            onCountdownWarning = {},
+            onTimerComplete = {}
         )
 
         orchestrator.startTimer(5)

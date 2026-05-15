@@ -21,6 +21,7 @@
 
 - JDK: local Windows JDK 17 installation, commonly managed by Android Studio or `JAVA_HOME`
 - adb: `C:\Users\plesm\AppData\Local\Android\Sdk\platform-tools\adb.exe`
+- To run adb without the full path, add `C:\Users\plesm\AppData\Local\Android\Sdk\platform-tools` to `PATH`
 - sdkmanager: `C:\Users\plesm\AppData\Local\Android\Sdk\cmdline-tools\latest\bin\sdkmanager.bat`
 - Debug keystore:
   - `C:\Users\plesm\.android\debug.keystore`

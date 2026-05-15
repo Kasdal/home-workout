@@ -27,7 +27,12 @@ class LocalAppPreferencesRepository @Inject constructor(
     private val soundsEnabledKey = booleanPreferencesKey("sounds_enabled")
     private val soundVolumeKey = floatPreferencesKey("sound_volume")
     private val timerSoundTypeKey = stringPreferencesKey("timer_sound_type")
+    private val restCompleteSoundTypeKey = stringPreferencesKey("rest_complete_sound_type")
+    private val exerciseSwitchSoundTypeKey = stringPreferencesKey("exercise_switch_sound_type")
     private val celebrationSoundTypeKey = stringPreferencesKey("celebration_sound_type")
+    private val vibrationEnabledKey = booleanPreferencesKey("vibration_enabled")
+    private val finalCountdownEnabledKey = booleanPreferencesKey("final_countdown_enabled")
+    private val silentModeBehaviorKey = stringPreferencesKey("silent_mode_behavior")
     private val tutorialCompletedKey = booleanPreferencesKey("tutorial_completed")
     private val tutorialVersionKey = intPreferencesKey("tutorial_version")
     private val sensorEnabledKey = booleanPreferencesKey("sensor_enabled")
@@ -47,7 +52,12 @@ class LocalAppPreferencesRepository @Inject constructor(
                 soundsEnabled = preferences[soundsEnabledKey] ?: true,
                 soundVolume = preferences[soundVolumeKey] ?: 1.0f,
                 timerSoundType = preferences[timerSoundTypeKey] ?: "beep",
+                restCompleteSoundType = preferences[restCompleteSoundTypeKey] ?: "chime",
+                exerciseSwitchSoundType = preferences[exerciseSwitchSoundTypeKey] ?: "loud",
                 celebrationSoundType = preferences[celebrationSoundTypeKey] ?: "cheer",
+                vibrationEnabled = preferences[vibrationEnabledKey] ?: true,
+                finalCountdownEnabled = preferences[finalCountdownEnabledKey] ?: true,
+                silentModeBehavior = preferences[silentModeBehaviorKey] ?: "respect",
                 tutorialCompleted = preferences[tutorialCompletedKey] ?: false,
                 tutorialVersion = preferences[tutorialVersionKey] ?: 1,
                 sensorEnabled = preferences[sensorEnabledKey] ?: false,
@@ -65,13 +75,23 @@ class LocalAppPreferencesRepository @Inject constructor(
         enabled: Boolean? = null,
         volume: Float? = null,
         timerSoundType: String? = null,
-        celebrationSoundType: String? = null
+        restCompleteSoundType: String? = null,
+        exerciseSwitchSoundType: String? = null,
+        celebrationSoundType: String? = null,
+        vibrationEnabled: Boolean? = null,
+        finalCountdownEnabled: Boolean? = null,
+        silentModeBehavior: String? = null
     ) {
         context.localAppPreferencesDataStore.edit { preferences ->
             enabled?.let { preferences[soundsEnabledKey] = it }
             volume?.let { preferences[soundVolumeKey] = it }
             timerSoundType?.let { preferences[timerSoundTypeKey] = it }
+            restCompleteSoundType?.let { preferences[restCompleteSoundTypeKey] = it }
+            exerciseSwitchSoundType?.let { preferences[exerciseSwitchSoundTypeKey] = it }
             celebrationSoundType?.let { preferences[celebrationSoundTypeKey] = it }
+            vibrationEnabled?.let { preferences[vibrationEnabledKey] = it }
+            finalCountdownEnabled?.let { preferences[finalCountdownEnabledKey] = it }
+            silentModeBehavior?.let { preferences[silentModeBehaviorKey] = it }
         }
     }
 
@@ -103,8 +123,23 @@ class LocalAppPreferencesRepository @Inject constructor(
             if (preferences[timerSoundTypeKey] == null) {
                 preferences[timerSoundTypeKey] = settings.timerSoundType
             }
+            if (preferences[restCompleteSoundTypeKey] == null) {
+                preferences[restCompleteSoundTypeKey] = settings.restCompleteSoundType
+            }
+            if (preferences[exerciseSwitchSoundTypeKey] == null) {
+                preferences[exerciseSwitchSoundTypeKey] = settings.exerciseSwitchSoundType
+            }
             if (preferences[celebrationSoundTypeKey] == null) {
                 preferences[celebrationSoundTypeKey] = settings.celebrationSoundType
+            }
+            if (preferences[vibrationEnabledKey] == null) {
+                preferences[vibrationEnabledKey] = settings.vibrationEnabled
+            }
+            if (preferences[finalCountdownEnabledKey] == null) {
+                preferences[finalCountdownEnabledKey] = settings.finalCountdownEnabled
+            }
+            if (preferences[silentModeBehaviorKey] == null) {
+                preferences[silentModeBehaviorKey] = settings.silentModeBehavior
             }
             if (preferences[tutorialCompletedKey] == null) {
                 preferences[tutorialCompletedKey] = settings.tutorialCompleted

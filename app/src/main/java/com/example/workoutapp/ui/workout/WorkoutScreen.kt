@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen
+import kotlinx.coroutines.launch
 
 @Composable
 fun WorkoutScreen(
@@ -79,6 +81,7 @@ fun WorkoutScreen(
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<WorkoutSession?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     DisposableEffect(sessionStarted) {
@@ -135,12 +138,19 @@ fun WorkoutScreen(
         },
         onCompleteNextSet = { viewModel.completeNextSet(it) },
         onUndoSet = { viewModel.undoSet(it) },
-        onStartTimer = { viewModel.startTimer(it) },
+        onStartRestTimer = { viewModel.startRestTimer() },
+        onStartExerciseSwitchTimer = { viewModel.startExerciseSwitchTimer() },
         onPauseTimer = { viewModel.pauseTimer() },
         onResumeTimer = { viewModel.resumeTimer() },
         onStopTimer = { viewModel.stopTimer() },
         onSetRestDuration = { viewModel.setRestTimerDuration(it) },
         onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
+        onResetSensorCounter = {
+            viewModel.resetSensorCounter()
+            snackbarScope.launch {
+                snackbarHostState.showSnackbar("Resetting sensor counter")
+            }
+        },
         sensorReps = sensorReps,
         sensorState = sensorState,
         sensorDistance = sensorDistance,
@@ -170,12 +180,14 @@ fun WorkoutScreenContent(
     onCompleteSession: () -> Unit,
     onCompleteNextSet: (Int) -> Unit,
     onUndoSet: (Int) -> Unit,
-    onStartTimer: (Int) -> Unit,
+    onStartRestTimer: () -> Unit,
+    onStartExerciseSwitchTimer: () -> Unit,
     onPauseTimer: () -> Unit,
     onResumeTimer: () -> Unit,
     onStopTimer: () -> Unit,
     onSetRestDuration: (Int) -> Unit,
     onSetExerciseSwitchDuration: (Int) -> Unit,
+    onResetSensorCounter: () -> Unit,
     sensorReps: Int,
     sensorState: String,
     sensorDistance: Int,
@@ -216,8 +228,8 @@ fun WorkoutScreenContent(
                         isPaused = isTimerPaused,
                         restTimerDuration = restTimerDuration,
                         exerciseSwitchDuration = exerciseSwitchDuration,
-                        onStartRest = { onStartTimer(restTimerDuration) },
-                        onStartExerciseSwitch = { onStartTimer(exerciseSwitchDuration) },
+                        onStartRest = onStartRestTimer,
+                        onStartExerciseSwitch = onStartExerciseSwitchTimer,
                         onPause = onPauseTimer,
                         onResume = onResumeTimer,
                         onStop = onStopTimer,
@@ -296,6 +308,7 @@ fun WorkoutScreenContent(
                             activeExerciseId == activeExercise.id &&
                             activeExerciseMode == ExerciseSessionMode.SENSOR_REPS,
                         activeExerciseMode = activeExerciseMode,
+                        onResetSensorCounter = onResetSensorCounter,
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -307,8 +320,8 @@ fun WorkoutScreenContent(
                             .fillMaxWidth()
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Red,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
                         )
                     ) {
                         Text(
@@ -339,8 +352,8 @@ fun WorkoutScreenContent(
                             .fillMaxWidth()
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.Red,
-                            contentColor = Color.White
+                            containerColor = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.onError
                         )
                     ) {
                         Text(
