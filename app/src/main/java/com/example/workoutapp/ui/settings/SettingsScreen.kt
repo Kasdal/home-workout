@@ -17,6 +17,7 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.workoutapp.ui.components.BottomNavBar
+import com.example.workoutapp.ui.navigation.Screen
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -393,15 +394,24 @@ fun SettingsScreen(
             }
             
             // About Section
-            Card(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { navController.navigate(Screen.About.route) }
+            ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "About",
                         style = MaterialTheme.typography.titleLarge
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Workout Tracker v${com.example.workoutapp.BuildConfig.VERSION_NAME}")
+                    Text("Workout Tracker v${com.example.workoutapp.BuildConfig.VERSION_NAME} (build ${com.example.workoutapp.BuildConfig.VERSION_CODE})")
                     Text("Developed by Milan Ples @2025")
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Tap for more info",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
