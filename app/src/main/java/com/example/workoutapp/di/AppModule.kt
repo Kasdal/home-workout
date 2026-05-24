@@ -10,7 +10,12 @@ import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.RestDayRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.repository.SettingsRepository
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import dagger.Module
@@ -97,4 +102,12 @@ object AppModule {
     fun provideSyncedWorkoutSettingsStore(
         cloudWorkoutRepository: CloudWorkoutRepository
     ): SyncedWorkoutSettingsStore = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideUpdateCheckDataStore(
+        @ApplicationContext context: Context
+    ): DataStore<Preferences> = context.updateCheckDataStore
 }
+
+private val Context.updateCheckDataStore by preferencesDataStore(name = "update_check_preferences")
