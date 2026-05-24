@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.workoutapp.ui.theme.NeonGreen
+import com.example.workoutapp.ui.navigation.Screen
 import kotlinx.coroutines.launch
 import androidx.compose.animation.core.*
 import androidx.compose.ui.graphics.graphicsLayer
@@ -29,7 +30,8 @@ import androidx.compose.runtime.getValue
 @Composable
 fun TutorialScreen(
     navController: NavController,
-    onComplete: () -> Unit = {}
+    onComplete: () -> Unit = {},
+    fromOnboarding: Boolean = false
 ) {
     val pages = listOf(
         TutorialPage(
@@ -155,7 +157,13 @@ fun TutorialScreen(
                             }
                         } else {
                             onComplete()
-                            navController.navigateUp()
+                            if (fromOnboarding) {
+                                navController.navigate(Screen.Workout.route) {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            } else {
+                                navController.navigateUp()
+                            }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = NeonGreen)

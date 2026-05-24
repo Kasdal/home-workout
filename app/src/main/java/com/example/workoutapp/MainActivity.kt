@@ -17,9 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.ui.components.UpdateAvailableBottomSheet
 import com.example.workoutapp.ui.components.WhatsNewDialog
@@ -89,8 +91,18 @@ class MainActivity : ComponentActivity() {
                                     composable(Screen.Settings.route) {
                                         com.example.workoutapp.ui.settings.SettingsScreen(navController = navController)
                                     }
-                                    composable(Screen.Tutorial.route) {
-                                        com.example.workoutapp.ui.tutorial.TutorialScreen(navController = navController)
+                                    composable(
+                                        route = Screen.Tutorial.route,
+                                        arguments = listOf(navArgument("fromOnboarding") {
+                                            type = NavType.BoolType
+                                            defaultValue = false
+                                        })
+                                    ) { backStackEntry ->
+                                        val fromOnboarding = backStackEntry.arguments?.getBoolean("fromOnboarding") ?: false
+                                        com.example.workoutapp.ui.tutorial.TutorialScreen(
+                                            navController = navController,
+                                            fromOnboarding = fromOnboarding
+                                        )
                                     }
                                     composable(Screen.RestDays.route) {
                                         com.example.workoutapp.ui.restdays.RestDaysScreen(navController = navController)
