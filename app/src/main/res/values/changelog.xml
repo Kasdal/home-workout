@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="changelog_fallback">Thank you for updating! Here\'s what changed in this release.\n\nCheck the GitHub Releases page for full details.</string>
+</resources>
