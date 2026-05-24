@@ -2,28 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [1.1.4] - 2026-05-24
 
 ### Added
-- Firebase integration foundation for cloud sync (`Auth`, `Firestore`, `Google Services` plugin and dependencies).
-- Google sign-in gate before app usage to ensure user-scoped cloud data.
-- Firestore-backed repository implementation (`CloudWorkoutRepository`) with user path isolation under `users/{uid}/...`.
-- One-time migration flow from local Room DB to Firestore with migration metadata tracking (`users/{uid}/meta/migration`).
-- Migration verification step that checks uploaded document counts before marking migration complete.
-- New auth UI layer for sign-in and migration state handling.
-- `WorkoutStats` model and repository/DAO method alignment for cloud and local parity.
+- **Auto-update system:** App polls GitHub Releases API on startup (24h cooldown) and shows an update bottom sheet when a newer version is available.
+- **What's New dialog:** Shown once per version after update, displaying release notes from GitHub (cached) with offline fallback.
+- **Revamped About screen:** Clickable from Settings, shows full version string (`vX.Y.Z (build N)`), send feedback via email, view licenses.
 
 ### Changed
-- Startup flow now runs as: splash -> auth gate -> app navigation.
-- Start destination logic now reacts to live profile state and no longer relies on one-time snapshot checks.
-- Onboarding now redirects to profiles when existing profiles are already present.
+- **Onboarding flow:** New users are automatically taken through the tutorial after metrics entry instead of landing on an empty workout screen.
+- **Tutorial:** Replaced emoji illustrations with screenshot images for each page.
+- **Version display:** Full format `v{VERSION_NAME} (build {VERSION_CODE})` shown in Settings and About.
 
-### Fixed
-- Resolved repeated onboarding/profile-creation loop when profile data existed but active profile state was not correctly resolved.
-- Added fallback profile resolution when no profile is marked `isActive`.
-- Ensured initial migration assigns an active profile if missing.
-- Corrected cloud mapping for deleted exercise flag to match local model behavior.
+### CI
+- Release workflow extracts relevant section from `CHANGELOG.md` for GitHub Release body instead of generic text.
 
-### Notes
-- Local Room data remains preserved as safety fallback after migration.
-- Firebase Storage upload/sync
+## [Unreleased]
