@@ -1,9 +1,11 @@
 package com.example.workoutapp
 
-import com.example.workoutapp.model.UserMetrics
+import android.content.Context
+import com.example.workoutapp.data.remote.UpdateChecker
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
+import com.example.workoutapp.data.settings.UpdateCheckPreferences
 import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import io.mockk.every
@@ -29,6 +31,9 @@ class MainViewModelTest {
     private lateinit var legacySettingsBootstrapper: LegacySettingsBootstrapper
     private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
     private lateinit var appLaunchCoordinator: AppLaunchCoordinator
+    private lateinit var updateCheckPreferences: UpdateCheckPreferences
+    private lateinit var updateChecker: UpdateChecker
+    private lateinit var appContext: Context
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -37,6 +42,9 @@ class MainViewModelTest {
         legacySettingsBootstrapper = mockk(relaxed = true)
         localAppPreferencesRepository = mockk(relaxed = true)
         appLaunchCoordinator = mockk(relaxed = true)
+        updateCheckPreferences = mockk(relaxed = true)
+        updateChecker = mockk(relaxed = true)
+        appContext = mockk(relaxed = true)
 
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
         every { appLaunchCoordinator.appEntryState() } returns flowOf(AppEntryState.Ready("workout"))
@@ -47,12 +55,21 @@ class MainViewModelTest {
         Dispatchers.resetMain()
     }
 
+    private fun createViewModel() = MainViewModel(
+        legacySettingsBootstrapper = legacySettingsBootstrapper,
+        localAppPreferencesRepository = localAppPreferencesRepository,
+        updateCheckPreferences = updateCheckPreferences,
+        updateChecker = updateChecker,
+        appLaunchCoordinator = appLaunchCoordinator,
+        appContext = appContext
+    )
+
     @Test
     fun `appEntryState starts as null before coordinator emits`() = runTest {
         val upstream = MutableSharedFlow<AppEntryState>()
         every { appLaunchCoordinator.appEntryState() } returns upstream
 
-        viewModel = MainViewModel(legacySettingsBootstrapper, localAppPreferencesRepository, appLaunchCoordinator)
+        viewModel = createViewModel()
 
         assertEquals(null, viewModel.appEntryState.value)
     }
@@ -62,7 +79,7 @@ class MainViewModelTest {
         val upstream = MutableSharedFlow<AppEntryState>()
         every { appLaunchCoordinator.appEntryState() } returns upstream
 
-        viewModel = MainViewModel(legacySettingsBootstrapper, localAppPreferencesRepository, appLaunchCoordinator)
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         assertEquals(null, viewModel.appEntryState.value)
@@ -77,7 +94,7 @@ class MainViewModelTest {
     fun `appEntryState forwards migration in progress from coordinator`() = runTest {
         every { appLaunchCoordinator.appEntryState() } returns flowOf(AppEntryState.MigrationInProgress)
 
-        viewModel = MainViewModel(legacySettingsBootstrapper, localAppPreferencesRepository, appLaunchCoordinator)
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         assertEquals(AppEntryState.MigrationInProgress, viewModel.appEntryState.value)

@@ -118,7 +118,7 @@ fun OnboardingScreen(
                 Button(
                     onClick = {
                         viewModel.saveMetrics(parsedWeight!!, parsedHeight!!, parsedAge!!, gender) {
-                        navController.navigate(Screen.Workout.route) {
+                        navController.navigate("tutorial?fromOnboarding=true") {
                             popUpTo(Screen.Onboarding.route) { inclusive = true }
                         }
                     }

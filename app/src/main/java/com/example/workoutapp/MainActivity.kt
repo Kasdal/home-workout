@@ -1,5 +1,7 @@
 package com.example.workoutapp
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -7,6 +9,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,10 +17,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.workoutapp.domain.startup.AppEntryState
+import com.example.workoutapp.ui.components.UpdateAvailableBottomSheet
+import com.example.workoutapp.ui.components.WhatsNewDialog
 import com.example.workoutapp.ui.history.HistoryScreen
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.onboarding.OnboardingScreen
@@ -62,6 +69,9 @@ class MainActivity : ComponentActivity() {
                                 color = MaterialTheme.colorScheme.background
                             ) {
                                 val navController = rememberNavController()
+                                LaunchedEffect(Unit) {
+                                    mainViewModel.onAppReady()
+                                }
                                 NavHost(
                                     navController = navController,
                                     startDestination = entryState.startDestination
@@ -81,8 +91,18 @@ class MainActivity : ComponentActivity() {
                                     composable(Screen.Settings.route) {
                                         com.example.workoutapp.ui.settings.SettingsScreen(navController = navController)
                                     }
-                                    composable(Screen.Tutorial.route) {
-                                        com.example.workoutapp.ui.tutorial.TutorialScreen(navController = navController)
+                                    composable(
+                                        route = Screen.Tutorial.route,
+                                        arguments = listOf(navArgument("fromOnboarding") {
+                                            type = NavType.BoolType
+                                            defaultValue = false
+                                        })
+                                    ) { backStackEntry ->
+                                        val fromOnboarding = backStackEntry.arguments?.getBoolean("fromOnboarding") ?: false
+                                        com.example.workoutapp.ui.tutorial.TutorialScreen(
+                                            navController = navController,
+                                            fromOnboarding = fromOnboarding
+                                        )
                                     }
                                     composable(Screen.RestDays.route) {
                                         com.example.workoutapp.ui.restdays.RestDaysScreen(navController = navController)
@@ -94,6 +114,32 @@ class MainActivity : ComponentActivity() {
                                         com.example.workoutapp.ui.workouts.WorkoutsScreen(navController = navController)
                                     }
                                 }
+                            }
+
+                            val updateInfo by mainViewModel.updateInfo.collectAsState()
+                            val showWhatsNew by mainViewModel.showWhatsNew.collectAsState()
+                            val whatsNewChangelog by mainViewModel.whatsNewChangelog.collectAsState()
+
+                            updateInfo?.let { info ->
+                                UpdateAvailableBottomSheet(
+                                    updateInfo = info,
+                                    onDownload = {
+                                        mainViewModel.dismissUpdateSheet()
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl))
+                                        startActivity(intent)
+                                    },
+                                    onRemindLater = { mainViewModel.dismissUpdateSheet() },
+                                    onSkip = { mainViewModel.skipVersion(info.version) },
+                                    onDismiss = { mainViewModel.dismissUpdateSheet() }
+                                )
+                            }
+
+                            if (showWhatsNew) {
+                                WhatsNewDialog(
+                                    version = BuildConfig.VERSION_NAME,
+                                    changelog = whatsNewChangelog,
+                                    onDismiss = { mainViewModel.dismissWhatsNew() }
+                                )
                             }
                         }
                     }

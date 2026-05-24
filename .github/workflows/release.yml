@@ -88,20 +88,47 @@ jobs:
         id: version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
       
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          CHANGELOG=$(awk -v ver="## [${VERSION}]" '
+            $0 ~ ver { found=1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md || true)
+
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG=$(awk -v ver="## [Unreleased]" '
+              $0 ~ ver { found=1; next }
+              found && /^## \[/ { exit }
+              found { print }
+            ' CHANGELOG.md || true)
+          fi
+
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="See the commit history for details."
+          fi
+
+          {
+            echo 'CHANGELOG<<EOF'
+            echo "$CHANGELOG"
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           name: Release ${{ steps.version.outputs.VERSION }}
           body: |
             ## Workout Tracker v${{ steps.version.outputs.VERSION }}
-            
-            ### What's New
-            See the commit history for details.
-            
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
             ### Downloads
             - **app-debug.apk**: Debug build for testing
             - **app-release-unsigned.apk**: Release build (unsigned)
-            
+
             ### Installation
             Download the APK and install on your Android device.
             You may need to enable "Install from Unknown Sources" in your device settings.

@@ -27,6 +27,9 @@ android {
         versionCode = getGitCommitCount()
         versionName = rootProject.version.toString()
 
+        buildConfigField("String", "GITHUB_REPO_OWNER", "\"Kasdal\"")
+        buildConfigField("String", "GITHUB_REPO_NAME", "\"home-workout\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
