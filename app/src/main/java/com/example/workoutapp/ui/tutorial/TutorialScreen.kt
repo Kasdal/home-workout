@@ -35,44 +35,49 @@ fun TutorialScreen(
 ) {
     val pages = listOf(
         TutorialPage(
-            title = "Welcome! 💪",
-            description = "Track your workouts with ease and watch your progress grow!",
-            emoji = "🏋️"
+            title = "Workout Library",
+            description = "Create exercises and manage your workout library with custom sets, reps, and weights.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_1
         ),
         TutorialPage(
-            title = "Bottom Navigation",
-            description = "Use the bottom navigation bar to quickly access Profile, Calendar, Home, Workouts, and Settings.",
-            emoji = "🧭"
+            title = "Exercise Wizard",
+            description = "Add exercises with sets, reps, weights, hold timers, or ESP sensor support.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_2
         ),
         TutorialPage(
-            title = "Flexible Tracking",
-            description = "Customize reps and sets for each exercise. Use +5/-5kg buttons for quick weight adjustments.",
-            emoji = "⚡"
+            title = "Active Session",
+            description = "Start a session and work through your exercises one by one.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_3
         ),
         TutorialPage(
-            title = "Session Management",
-            description = "Start your workout session to enter Focus Mode. Complete sets and track your progress in real-time.",
-            emoji = "🎯"
+            title = "Hold to Complete",
+            description = "Hold the exercise card to mark a set as complete during your session.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_4
         ),
         TutorialPage(
-            title = "Tap to Undo",
-            description = "Made a mistake? Enable Undo Last Set in Settings to show an undo button during your session.",
-            emoji = "↩️"
+            title = "Rest Timer",
+            description = "Auto-countdown between sets with configurable rest periods.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_5
         ),
         TutorialPage(
-            title = "Calendar & Records",
-            description = "View your Personal Records and Progress Report in the Calendar screen. Track your best lifts!",
-            emoji = "📅"
+            title = "Weight Adjustment",
+            description = "Adjust weight in 5kg increments during your session for quick changes.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_6
         ),
         TutorialPage(
-            title = "Settings & Export",
-            description = "Customize sounds, timers, undo behavior, and export your data anytime via the Settings screen.",
-            emoji = "⚙️"
+            title = "History Dashboard",
+            description = "Track your progress with volume charts, personal records, and workout streaks.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_7
         ),
         TutorialPage(
-            title = "You're Ready!",
-            description = "Start your fitness journey now. Push your limits!",
-            emoji = "🚀"
+            title = "Rest Day Calendar",
+            description = "Mark rest days and see your weekly and monthly consistency stats.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_8
+        ),
+        TutorialPage(
+            title = "Settings & Customization",
+            description = "Customize sounds, timers, theme mode, and ESP sensor support.",
+            imageRes = com.example.workoutapp.R.drawable.tutorial_page_9
         )
     )
 
@@ -195,17 +200,27 @@ private fun TutorialPageContent(page: TutorialPage) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Animated illustration based on page
-        AnimatedIllustration(page.emoji)
+        if (page.imageRes != null) {
+            androidx.compose.foundation.Image(
+                painter = androidx.compose.ui.res.painterResource(id = page.imageRes),
+                contentDescription = page.title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp),
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit
+            )
+        } else {
+            AnimatedIllustration(page.emoji)
+        }
         
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = page.title,
-            style = MaterialTheme.typography.headlineLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = page.description,
             style = MaterialTheme.typography.bodyLarge,
@@ -251,5 +266,6 @@ private fun AnimatedIllustration(emoji: String) {
 data class TutorialPage(
     val title: String,
     val description: String,
-    val emoji: String
+    val emoji: String = "",
+    val imageRes: Int? = null
 )
