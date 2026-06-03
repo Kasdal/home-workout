@@ -44,12 +44,15 @@ class WorkoutScreenTest {
                 onCompleteSession = {},
                 onCompleteNextSet = {},
                 onUndoSet = {},
-                onStartTimer = {},
+                onStartRestTimer = {},
+                onStartExerciseSwitchTimer = {},
                 onPauseTimer = {},
                 onResumeTimer = {},
                 onStopTimer = {},
                 onSetRestDuration = {},
                 onSetExerciseSwitchDuration = {},
+                onUpdateExercise = {},
+                onResetSensorCounter = {},
                 sensorReps = 0,
                 sensorState = "REST",
                 sensorDistance = 0,
@@ -89,12 +92,15 @@ class WorkoutScreenTest {
                 onCompleteSession = {},
                 onCompleteNextSet = {},
                 onUndoSet = {},
-                onStartTimer = {},
+                onStartRestTimer = {},
+                onStartExerciseSwitchTimer = {},
                 onPauseTimer = {},
                 onResumeTimer = {},
                 onStopTimer = {},
                 onSetRestDuration = {},
                 onSetExerciseSwitchDuration = {},
+                onUpdateExercise = {},
+                onResetSensorCounter = {},
                 sensorReps = 0,
                 sensorState = "REST",
                 sensorDistance = 0,
@@ -105,6 +111,6 @@ class WorkoutScreenTest {
         }
 
         composeTestRule.onNodeWithText("Session Time: 02:00").assertIsDisplayed()
-        composeTestRule.onNodeWithText("COMPLETE SESSION").assertIsDisplayed()
+        composeTestRule.onNodeWithText("COMPLETE SESSION").assertDoesNotExist()
     }
 }

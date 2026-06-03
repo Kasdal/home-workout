@@ -145,6 +145,7 @@ fun WorkoutScreen(
         onStopTimer = { viewModel.stopTimer() },
         onSetRestDuration = { viewModel.setRestTimerDuration(it) },
         onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
+        onUpdateExercise = { viewModel.updateExercise(it) },
         onResetSensorCounter = {
             viewModel.resetSensorCounter()
             snackbarScope.launch {
@@ -187,6 +188,7 @@ fun WorkoutScreenContent(
     onStopTimer: () -> Unit,
     onSetRestDuration: (Int) -> Unit,
     onSetExerciseSwitchDuration: (Int) -> Unit,
+    onUpdateExercise: (Exercise) -> Unit,
     onResetSensorCounter: () -> Unit,
     sensorReps: Int,
     sensorState: String,
@@ -297,7 +299,7 @@ fun WorkoutScreenContent(
                         isCompleted = isCompleted,
                         onCompleteSet = { onCompleteNextSet(activeExercise.id) },
                         onUndoSet = { onUndoSet(activeExercise.id) },
-                        onUpdate = {},
+                        onUpdate = onUpdateExercise,
                         onDelete = {},
                         undoEnabled = undoLastSetEnabled,
                         cardMode = ExerciseCardMode.SESSION,
@@ -313,23 +315,6 @@ fun WorkoutScreenContent(
                     )
 
                     Spacer(modifier = Modifier.weight(1f))
-
-                    Button(
-                        onClick = onCompleteSession,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            contentColor = MaterialTheme.colorScheme.onError
-                        )
-                    ) {
-                        Text(
-                            text = "COMPLETE SESSION",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
             } else {
                 Column(

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.workoutapp.model.Exercise
+import kotlinx.coroutines.flow.flowOf
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -32,7 +33,9 @@ class WorkoutsScreenTest {
                 onAddExercise = { _: Exercise -> },
                 onUpdateExercise = { _: Exercise -> },
                 onDeleteExercise = { _: Int -> },
-                onUpdateExercisePhoto = { _: Int, _: String -> }
+                onUpdateExercisePhoto = { _: Int, _: String -> },
+                getExerciseHistory = { _: String -> flowOf(emptyList()) },
+                onReorderExercises = { _: List<Exercise> -> }
             )
         }
 
