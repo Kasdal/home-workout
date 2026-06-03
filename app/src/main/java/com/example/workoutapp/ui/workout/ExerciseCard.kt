@@ -303,6 +303,38 @@ fun ExerciseCard(
                             }
                         }
                     }
+
+                    if (cardMode == ExerciseCardMode.SESSION && activeExerciseMode != null) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Top)
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surface)
+                                .border(
+                                    width = 1.dp,
+                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = when (activeExerciseMode) {
+                                    ExerciseSessionMode.SENSOR_REPS -> Icons.Default.Sensors
+                                    ExerciseSessionMode.HOLD_TIMER -> Icons.Default.HourglassBottom
+                                    ExerciseSessionMode.MANUAL_REPS -> Icons.Default.Repeat
+                                },
+                                contentDescription = when (activeExerciseMode) {
+                                    ExerciseSessionMode.SENSOR_REPS -> "Sensor Tracked"
+                                    ExerciseSessionMode.HOLD_TIMER -> "Hold Timer"
+                                    ExerciseSessionMode.MANUAL_REPS -> "Manual Reps"
+                                },
+                                tint = NeonGreen,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
                 }
 
                 if (cardMode != ExerciseCardMode.SESSION) {
@@ -336,31 +368,6 @@ fun ExerciseCard(
                             )
                         }
                     }
-                } else if (activeExerciseMode != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AssistChip(
-                        onClick = {},
-                        label = {
-                            Text(
-                                when (activeExerciseMode) {
-                                    ExerciseSessionMode.SENSOR_REPS -> "Sensor Tracked"
-                                    ExerciseSessionMode.HOLD_TIMER -> "Hold Timer"
-                                    ExerciseSessionMode.MANUAL_REPS -> "Manual Reps"
-                                }
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = when (activeExerciseMode) {
-                                    ExerciseSessionMode.SENSOR_REPS -> Icons.Default.Sensors
-                                    ExerciseSessionMode.HOLD_TIMER -> Icons.Default.HourglassBottom
-                                    ExerciseSessionMode.MANUAL_REPS -> Icons.Default.Repeat
-                                },
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    )
                 }
 
                 // Photo area (shown in SESSION and LIST_EXPANDED modes)
@@ -495,7 +502,7 @@ fun ExerciseCard(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Row(
@@ -514,16 +521,16 @@ fun ExerciseCard(
                                     color = if (sensorState == "LIFTING") NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "$sensorReps",
-                                style = MaterialTheme.typography.displayLarge,
+                                style = MaterialTheme.typography.displayMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = NeonGreen
                             )
                             Text(
                                 text = "reps",
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
@@ -531,12 +538,10 @@ fun ExerciseCard(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Text(
-                                text = "Use the button below to reset, or hold this card as a shortcut.",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            TextButton(onClick = { onResetSensorCounter?.invoke() }) {
+                            TextButton(
+                                onClick = { onResetSensorCounter?.invoke() },
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                            ) {
                                 Text("Reset Counter")
                             }
                         }
