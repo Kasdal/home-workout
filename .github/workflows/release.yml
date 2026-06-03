@@ -93,14 +93,14 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           CHANGELOG=$(awk -v ver="## [${VERSION}]" '
-            $0 ~ ver { found=1; next }
+            index($0, ver) { found=1; next }
             found && /^## \[/ { exit }
             found { print }
           ' CHANGELOG.md || true)
 
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG=$(awk -v ver="## [Unreleased]" '
-              $0 ~ ver { found=1; next }
+              index($0, ver) { found=1; next }
               found && /^## \[/ { exit }
               found { print }
             ' CHANGELOG.md || true)
