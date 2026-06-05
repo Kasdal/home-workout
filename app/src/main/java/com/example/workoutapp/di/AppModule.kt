@@ -4,6 +4,7 @@ import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import com.example.workoutapp.data.repository.CloudWorkoutRepository
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
@@ -38,6 +39,12 @@ object AppModule {
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore {
         return FirebaseFirestore.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage {
+        return FirebaseStorage.getInstance()
     }
 
     @Provides
