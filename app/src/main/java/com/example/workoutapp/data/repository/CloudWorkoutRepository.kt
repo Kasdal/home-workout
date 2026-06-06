@@ -14,7 +14,6 @@ import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import com.example.workoutapp.data.storage.PhotoUploader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -68,10 +67,7 @@ class CloudWorkoutRepository @Inject constructor(
     }
 
     override suspend fun deleteExercise(exerciseId: Int) {
-        val photoUri = getExercises().first().firstOrNull { it.id == exerciseId }?.photoUri
-        if (photoUri != null && photoUri.startsWith("https://")) {
-            runCatching { photoUploader.deleteExercisePhoto(exerciseId) }
-        }
+        runCatching { photoUploader.deleteExercisePhoto(exerciseId) }
         firestoreRepository.markExerciseDeleted(requireUid(), exerciseId)
     }
 

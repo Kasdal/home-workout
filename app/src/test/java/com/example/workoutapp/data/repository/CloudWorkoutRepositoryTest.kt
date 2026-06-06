@@ -84,18 +84,19 @@ class CloudWorkoutRepositoryTest {
     }
 
     @Test
-    fun `deleteExercise skips photo delete when exercise has no photoUri`() = runTest {
+    fun `deleteExercise attempts photo delete for any exercise`() = runTest {
         val exercise = Exercise(id = 42, name = "Bench Press", weight = 50f, photoUri = null)
         every { authManager.currentUserId() } returns "user-123"
         every { authManager.currentUser } returns flowOf(mockk {
             every { uid } returns "user-123"
         })
         every { firestoreRepository.observeExercises("user-123") } returns flowOf(listOf(exercise))
+        coEvery { photoUploader.deleteExercisePhoto(42) } returns Unit
         coEvery { firestoreRepository.markExerciseDeleted("user-123", 42) } returns Unit
 
         repository.deleteExercise(42)
 
-        coVerify(exactly = 0) { photoUploader.deleteExercisePhoto(any()) }
+        coVerify { photoUploader.deleteExercisePhoto(42) }
         coVerify { firestoreRepository.markExerciseDeleted("user-123", 42) }
     }
 

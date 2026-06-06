@@ -25,6 +25,7 @@ import com.example.workoutapp.domain.session.WorkoutSessionClock
 import com.example.workoutapp.domain.session.WorkoutSessionClockFactory
 import com.example.workoutapp.domain.session.WorkoutSessionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -369,27 +370,26 @@ class WorkoutViewModel @Inject constructor(
     
     fun updateExercisePhoto(exerciseId: Int, source: Uri) {
         viewModelScope.launch {
-            val result = runCatching {
+            val photoUri: String = try {
                 val bytes = photoProcessor.compressToJpeg(source)
                 photoUploader.uploadExercisePhoto(exerciseId, bytes)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SourceUnreadableException) {
+                Timber.w(e, "Photo upload failed for exercise %d", exerciseId)
+                _photoUploadEvents.emit(PhotoUploadResult.SourceUnreadable)
+                return@launch
+            } catch (e: Throwable) {
+                Timber.w(e, "Photo upload failed for exercise %d", exerciseId)
+                _photoUploadEvents.emit(PhotoUploadResult.UploadFailed(e))
+                return@launch
             }
-            result.fold(
-                onSuccess = { photoUri ->
-                    val existing = exercises.first().firstOrNull { it.id == exerciseId }
-                    if (existing != null) {
-                        exerciseRepository.updateExercise(existing.copy(photoUri = photoUri))
-                    }
-                    _photoUploadEvents.emit(PhotoUploadResult.Success(photoUri))
-                },
-                onFailure = { e ->
-                    Timber.w(e, "Photo upload failed for exercise %d", exerciseId)
-                    val outcome: PhotoUploadResult = when (e) {
-                        is SourceUnreadableException -> PhotoUploadResult.SourceUnreadable
-                        else -> PhotoUploadResult.UploadFailed(e)
-                    }
-                    _photoUploadEvents.emit(outcome)
-                }
-            )
+
+            val existing = exercises.first().firstOrNull { it.id == exerciseId }
+            if (existing != null) {
+                exerciseRepository.updateExercise(existing.copy(photoUri = photoUri))
+            }
+            _photoUploadEvents.emit(PhotoUploadResult.Success(photoUri))
         }
     }
 

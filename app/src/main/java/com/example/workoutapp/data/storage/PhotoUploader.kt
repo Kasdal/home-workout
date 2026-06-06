@@ -3,6 +3,7 @@ package com.example.workoutapp.data.storage
 import com.example.workoutapp.auth.AuthManager
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageMetadata
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -34,6 +35,8 @@ class PhotoUploader @Inject constructor(
         val ref = photoRef(uid, exerciseId)
         try {
             ref.delete().await()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.w(e, "Failed to delete photo for exercise %d", exerciseId)
         }

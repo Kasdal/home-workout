@@ -8,6 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.lang.SecurityException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.max
@@ -26,6 +27,8 @@ class PhotoProcessor @Inject constructor(
                 ?: throw SourceUnreadableException("ContentResolver returned null for $source")
         } catch (e: SourceUnreadableException) {
             throw e
+        } catch (e: SecurityException) {
+            throw SourceUnreadableException("No permission to read $source: ${e.message}").initCauseCompat(e)
         } catch (e: IOException) {
             throw SourceUnreadableException("Could not open $source: ${e.message}").initCauseCompat(e)
         }
@@ -43,12 +46,11 @@ class PhotoProcessor @Inject constructor(
                 inPreferredConfig = Bitmap.Config.ARGB_8888
             }
 
-            val decoded = BitmapFactory.decodeStream(
-                context.contentResolver.openInputStream(source)
-                    ?: throw SourceUnreadableException("ContentResolver returned null on re-open of $source"),
-                null,
-                decodeOpts
-            ) ?: throw SourceUnreadableException("BitmapFactory returned null for $source")
+            val decoded = context.contentResolver.openInputStream(source)
+                ?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, decodeOpts)
+                } ?: throw SourceUnreadableException("ContentResolver returned null on re-open of $source")
+            decoded ?: throw SourceUnreadableException("BitmapFactory returned null for $source")
 
             val scaled = scaleDownIfNeeded(decoded, maxEdgePx)
             val out = java.io.ByteArrayOutputStream()
