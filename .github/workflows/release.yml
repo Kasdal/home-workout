@@ -140,7 +140,7 @@ jobs:
             exit 1
           fi
           echo "Deploying storage rules to Firebase project: $PROJECT_ID"
-          npx firebase-tools@latest deploy --only storage --project "$PROJECT_ID" --non-interactive
+          npx firebase-tools@latest deploy --only storage --project "$PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
