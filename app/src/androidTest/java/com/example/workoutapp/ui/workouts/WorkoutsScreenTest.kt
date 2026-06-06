@@ -1,5 +1,8 @@
 package com.example.workoutapp.ui.workouts
 
+import android.net.Uri
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -29,11 +32,12 @@ class WorkoutsScreenTest {
         composeTestRule.setContent {
             WorkoutsScreenContent(
                 exercises = exercises,
+                snackbarHostState = remember { SnackbarHostState() },
                 onNavigateToRoute = { _: String -> },
                 onAddExercise = { _: Exercise -> },
                 onUpdateExercise = { _: Exercise -> },
                 onDeleteExercise = { _: Int -> },
-                onUpdateExercisePhoto = { _: Int, _: String -> },
+                onUpdateExercisePhoto = { _: Int, _: Uri -> },
                 getExerciseHistory = { _: String -> flowOf(emptyList()) },
                 onReorderExercises = { _: List<Exercise> -> }
             )
