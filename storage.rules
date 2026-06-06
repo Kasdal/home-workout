@@ -1,11 +1,15 @@
 rules_version = '2';
 
-// Photos are stored at users/{userId}/exercises/{exerciseId}/photo.jpg
-// A user can read/write only their own folder, capped at 2MB and image/* content type.
+// Photos are stored at users/{userId}/exercises/{exerciseId}/photo.jpg.
+// Reads/deletes use only request.auth (no request.resource, which is null outside writes).
+// Writes additionally enforce a 2MB cap and image/* content type.
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null
+    match /users/{userId}/exercises/{exerciseId}/photo.jpg {
+      allow read: if request.auth != null
+        && request.auth.uid == userId;
+
+      allow write: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
