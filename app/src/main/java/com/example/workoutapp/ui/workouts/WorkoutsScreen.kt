@@ -1,6 +1,7 @@
 package com.example.workoutapp.ui.workouts
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -107,7 +108,7 @@ fun WorkoutsScreenContent(
     onAddExercise: (Exercise) -> Unit,
     onUpdateExercise: (Exercise) -> Unit,
     onDeleteExercise: (Int) -> Unit,
-    onUpdateExercisePhoto: (Int, String) -> Unit,
+    onUpdateExercisePhoto: (Int, Uri) -> Unit,
     getExerciseHistory: (String) -> Flow<List<SessionExercise>>,
     onReorderExercises: (List<Exercise>) -> Unit
 ) {
@@ -135,7 +136,7 @@ fun WorkoutsScreenContent(
                     )
                 } catch (_: Exception) {
                 }
-                onUpdateExercisePhoto(exerciseId, uri.toString())
+                onUpdateExercisePhoto(exerciseId, uri)
             }
         }
     }

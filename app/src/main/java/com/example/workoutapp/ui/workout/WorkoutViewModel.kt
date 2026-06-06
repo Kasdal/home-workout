@@ -1,5 +1,6 @@
 package com.example.workoutapp.ui.workout
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.model.Exercise
@@ -13,6 +14,10 @@ import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
+import com.example.workoutapp.data.storage.PhotoProcessor
+import com.example.workoutapp.data.storage.PhotoUploadResult
+import com.example.workoutapp.data.storage.PhotoUploader
+import com.example.workoutapp.data.storage.SourceUnreadableException
 import com.example.workoutapp.domain.session.PostSetTimerRequest
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestratorFactory
@@ -20,12 +25,16 @@ import com.example.workoutapp.domain.session.WorkoutSessionClock
 import com.example.workoutapp.domain.session.WorkoutSessionClockFactory
 import com.example.workoutapp.domain.session.WorkoutSessionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -40,7 +49,9 @@ class WorkoutViewModel @Inject constructor(
     private val sessionCoordinator: WorkoutSessionCoordinator,
     private val countdownOrchestratorFactory: WorkoutCountdownOrchestratorFactory,
     private val sessionClockFactory: WorkoutSessionClockFactory,
-    private val sensorOrchestratorFactory: WorkoutSensorOrchestratorFactory
+    private val sensorOrchestratorFactory: WorkoutSensorOrchestratorFactory,
+    private val photoProcessor: PhotoProcessor,
+    private val photoUploader: PhotoUploader
 ) : ViewModel() {
 
     // Exercises from DB
@@ -97,6 +108,9 @@ class WorkoutViewModel @Inject constructor(
     // Map of ExerciseId -> Number of Completed Sets (0-4)
     private val _completedSets = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val completedSets: StateFlow<Map<Int, Int>> = _completedSets.asStateFlow()
+
+    private val _photoUploadEvents = MutableSharedFlow<PhotoUploadResult>(extraBufferCapacity = 4)
+    val photoUploadEvents: SharedFlow<PhotoUploadResult> = _photoUploadEvents.asSharedFlow()
 
     private var sessionStartTime = 0L
     
@@ -353,13 +367,39 @@ class WorkoutViewModel @Inject constructor(
         }
     }
     
-    fun updateExercisePhoto(exerciseId: Int, photoUri: String) {
+    fun updateExercisePhoto(exerciseId: Int, source: Uri) {
         viewModelScope.launch {
-            val exerciseList = exercises.first()
-            val exercise = exerciseList.find { it.id == exerciseId }
-            exercise?.let {
-                exerciseRepository.updateExercise(it.copy(photoUri = photoUri))
+            val result = runCatching {
+                val bytes = photoProcessor.compressToJpeg(source)
+                photoUploader.uploadExercisePhoto(exerciseId, bytes)
             }
+            result.fold(
+                onSuccess = { photoUri ->
+                    val existing = exercises.first().firstOrNull { it.id == exerciseId }
+                    if (existing != null) {
+                        exerciseRepository.updateExercise(existing.copy(photoUri = photoUri))
+                    }
+                    _photoUploadEvents.emit(PhotoUploadResult.Success(photoUri))
+                },
+                onFailure = { e ->
+                    Timber.w(e, "Photo upload failed for exercise %d", exerciseId)
+                    val outcome: PhotoUploadResult = when (e) {
+                        is SourceUnreadableException -> PhotoUploadResult.SourceUnreadable
+                        else -> PhotoUploadResult.UploadFailed(e)
+                    }
+                    _photoUploadEvents.emit(outcome)
+                }
+            )
+        }
+    }
+
+    fun removeExercisePhoto(exerciseId: Int) {
+        viewModelScope.launch {
+            val existing = exercises.first().firstOrNull { it.id == exerciseId }
+                ?: return@launch
+            runCatching { photoUploader.deleteExercisePhoto(exerciseId) }
+                .onFailure { Timber.w(it, "Failed to delete remote photo for exercise %d", exerciseId) }
+            exerciseRepository.updateExercise(existing.copy(photoUri = null))
         }
     }
 
