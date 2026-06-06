@@ -1,5 +1,6 @@
 package com.example.workoutapp.ui.workout
 
+import android.net.Uri
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.UserMetrics
@@ -13,6 +14,10 @@ import com.example.workoutapp.data.settings.LocalAppSettings
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import com.example.workoutapp.data.remote.EspSensorData
+import com.example.workoutapp.data.storage.PhotoProcessor
+import com.example.workoutapp.data.storage.PhotoUploadResult
+import com.example.workoutapp.data.storage.PhotoUploader
+import com.example.workoutapp.data.storage.SourceUnreadableException
 import com.example.workoutapp.domain.session.SessionCompletionCalculator
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestratorFactory
 import com.example.workoutapp.domain.session.WorkoutSessionClockFactory
@@ -23,9 +28,11 @@ import com.example.workoutapp.util.SoundManager
 import io.mockk.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -40,8 +47,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class WorkoutViewModelTest {
 
     private lateinit var viewModel: WorkoutViewModel
@@ -57,6 +67,8 @@ class WorkoutViewModelTest {
     private lateinit var countdownOrchestratorFactory: WorkoutCountdownOrchestratorFactory
     private lateinit var sessionClockFactory: WorkoutSessionClockFactory
     private lateinit var sensorOrchestratorFactory: WorkoutSensorOrchestratorFactory
+    private lateinit var photoProcessor: PhotoProcessor
+    private lateinit var photoUploader: PhotoUploader
     private lateinit var exercisesFlow: MutableStateFlow<List<Exercise>>
     private lateinit var localSettingsFlow: MutableStateFlow<LocalAppSettings>
     private lateinit var sessionSettingsFlow: MutableStateFlow<WorkoutSessionSettings>
@@ -83,6 +95,8 @@ class WorkoutViewModelTest {
         countdownOrchestratorFactory = mockk()
         sessionClockFactory = mockk()
         sensorOrchestratorFactory = mockk()
+        photoProcessor = mockk(relaxed = true)
+        photoUploader = mockk(relaxed = true)
         exercisesFlow = MutableStateFlow(
             listOf(
                 Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4),
@@ -140,7 +154,9 @@ class WorkoutViewModelTest {
             sessionCoordinator,
             countdownOrchestratorFactory,
             sessionClockFactory,
-            sensorOrchestratorFactory
+            sensorOrchestratorFactory,
+            photoProcessor,
+            photoUploader
         )
     }
 
@@ -374,5 +390,103 @@ class WorkoutViewModelTest {
         localSettingsFlow.value = localSettingsFlow.value.copy(sensorEnabled = false)
         runCurrent()
         viewModel.pauseSession()
+    }
+
+    @Test
+    fun `updateExercisePhoto compresses and uploads and updates repo and emits success`() = runTest {
+        val source = Uri.parse("content://media/external/images/42")
+        val bytes = byteArrayOf(1, 2, 3)
+        val uploadedUrl = "https://example.com/photo.jpg"
+        val existing = Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4)
+        coEvery { photoProcessor.compressToJpeg(source) } returns bytes
+        coEvery { photoUploader.uploadExercisePhoto(1, bytes) } returns uploadedUrl
+
+        val resultDeferred = async { viewModel.photoUploadEvents.first() }
+        viewModel.updateExercisePhoto(1, source)
+        advanceUntilIdle()
+        val result = resultDeferred.await()
+
+        assertEquals(PhotoUploadResult.Success(uploadedUrl), result)
+        coVerify { photoProcessor.compressToJpeg(source) }
+        coVerify { photoUploader.uploadExercisePhoto(1, bytes) }
+        coVerify { exerciseRepository.updateExercise(existing.copy(photoUri = uploadedUrl)) }
+    }
+
+    @Test
+    fun `updateExercisePhoto emits SourceUnreadable when photoProcessor throws SourceUnreadableException`() = runTest {
+        val source = Uri.parse("content://media/external/images/missing")
+        coEvery { photoProcessor.compressToJpeg(source) } throws SourceUnreadableException("nope")
+
+        val resultDeferred = async { viewModel.photoUploadEvents.first() }
+        viewModel.updateExercisePhoto(1, source)
+        advanceUntilIdle()
+        val result = resultDeferred.await()
+
+        assertEquals(PhotoUploadResult.SourceUnreadable, result)
+        coVerify(exactly = 0) { photoUploader.uploadExercisePhoto(any(), any()) }
+        coVerify(exactly = 0) { exerciseRepository.updateExercise(any()) }
+    }
+
+    @Test
+    fun `updateExercisePhoto emits UploadFailed when photoUploader throws`() = runTest {
+        val source = Uri.parse("content://media/external/images/42")
+        val bytes = byteArrayOf(4, 5, 6)
+        val failure = RuntimeException("network down")
+        coEvery { photoProcessor.compressToJpeg(source) } returns bytes
+        coEvery { photoUploader.uploadExercisePhoto(1, bytes) } throws failure
+
+        val resultDeferred = async { viewModel.photoUploadEvents.first() }
+        viewModel.updateExercisePhoto(1, source)
+        advanceUntilIdle()
+        val result = resultDeferred.await()
+
+        assertTrue(result is PhotoUploadResult.UploadFailed)
+        assertEquals(failure, (result as PhotoUploadResult.UploadFailed).cause)
+        coVerify(exactly = 0) { exerciseRepository.updateExercise(any()) }
+    }
+
+    @Test
+    fun `removeExercisePhoto deletes from storage and clears photoUri`() = runTest {
+        val existing = Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4, photoUri = "https://old.example.com/p.jpg")
+        exercisesFlow.value = listOf(existing)
+        coEvery { photoUploader.deleteExercisePhoto(1) } returns Unit
+
+        viewModel.removeExercisePhoto(1)
+        advanceUntilIdle()
+
+        coVerify { photoUploader.deleteExercisePhoto(1) }
+        coVerify { exerciseRepository.updateExercise(existing.copy(photoUri = null)) }
+    }
+
+    @Test
+    fun `removeExercisePhoto persists null even if storage delete throws`() = runTest {
+        val existing = Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4, photoUri = "https://old.example.com/p.jpg")
+        exercisesFlow.value = listOf(existing)
+        coEvery { photoUploader.deleteExercisePhoto(1) } throws RuntimeException("storage unavailable")
+
+        viewModel.removeExercisePhoto(1)
+        advanceUntilIdle()
+
+        coVerify { photoUploader.deleteExercisePhoto(1) }
+        coVerify { exerciseRepository.updateExercise(existing.copy(photoUri = null)) }
+    }
+
+    @Test
+    fun `updateExercisePhoto does not update repo when exerciseId is unknown but still emits success`() = runTest {
+        val source = Uri.parse("content://media/external/images/42")
+        val bytes = byteArrayOf(7, 8, 9)
+        val uploadedUrl = "https://example.com/orphan.jpg"
+        coEvery { photoProcessor.compressToJpeg(source) } returns bytes
+        coEvery { photoUploader.uploadExercisePhoto(99, bytes) } returns uploadedUrl
+
+        val resultDeferred = async { viewModel.photoUploadEvents.first() }
+        viewModel.updateExercisePhoto(99, source)
+        advanceUntilIdle()
+        val result = resultDeferred.await()
+
+        assertEquals(PhotoUploadResult.Success(uploadedUrl), result)
+        coVerify { photoProcessor.compressToJpeg(source) }
+        coVerify { photoUploader.uploadExercisePhoto(99, bytes) }
+        coVerify(exactly = 0) { exerciseRepository.updateExercise(any()) }
     }
 }
