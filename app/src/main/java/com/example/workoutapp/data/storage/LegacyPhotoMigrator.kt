@@ -20,6 +20,8 @@ class LegacyPhotoMigrator @Inject constructor(
 ) {
 
     fun start(scope: CoroutineScope) {
+        if (started) return
+        started = true
         scope.launch {
             exerciseRepository.getExercises()
                 .map { exercises -> exercises.mapNotNull { it.photoUri?.takeIf(::isLegacy) } }
@@ -56,4 +58,5 @@ class LegacyPhotoMigrator @Inject constructor(
     }
 
     private val attempted = mutableSetOf<String>()
+    private var started: Boolean = false
 }

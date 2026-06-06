@@ -11,6 +11,7 @@ import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -76,6 +77,7 @@ class MainViewModelTest {
         viewModel = createViewModel()
 
         assertEquals(null, viewModel.appEntryState.value)
+        verify { legacyPhotoMigrator.start(any()) }
     }
 
     @Test
@@ -92,6 +94,7 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         assertEquals(AppEntryState.Ready("onboarding"), viewModel.appEntryState.value)
+        verify { legacyPhotoMigrator.start(any()) }
     }
 
     @Test
@@ -102,5 +105,6 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         assertEquals(AppEntryState.MigrationInProgress, viewModel.appEntryState.value)
+        verify { legacyPhotoMigrator.start(any()) }
     }
 }
