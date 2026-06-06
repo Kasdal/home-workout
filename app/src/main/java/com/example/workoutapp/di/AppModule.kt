@@ -4,12 +4,14 @@ import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.storage.FirebaseStorage
 import com.example.workoutapp.data.repository.CloudWorkoutRepository
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.RestDayRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.repository.SettingsRepository
+import com.example.workoutapp.data.storage.PhotoUploader
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -42,6 +44,12 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideFirebaseStorage(): FirebaseStorage {
+        return FirebaseStorage.getInstance()
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BASIC
@@ -59,11 +67,13 @@ object AppModule {
     @Singleton
     fun provideCloudWorkoutRepository(
         authManager: AuthManager,
-        firestoreRepository: FirestoreRepository
+        firestoreRepository: FirestoreRepository,
+        photoUploader: PhotoUploader
     ): CloudWorkoutRepository {
         return CloudWorkoutRepository(
             authManager = authManager,
-            firestoreRepository = firestoreRepository
+            firestoreRepository = firestoreRepository,
+            photoUploader = photoUploader
         )
     }
 

@@ -6,10 +6,12 @@ import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.LocalAppSettings
 import com.example.workoutapp.data.settings.UpdateCheckPreferences
+import com.example.workoutapp.data.storage.LegacyPhotoMigrator
 import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -34,6 +36,7 @@ class MainViewModelTest {
     private lateinit var updateCheckPreferences: UpdateCheckPreferences
     private lateinit var updateChecker: UpdateChecker
     private lateinit var appContext: Context
+    private lateinit var legacyPhotoMigrator: LegacyPhotoMigrator
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -45,6 +48,7 @@ class MainViewModelTest {
         updateCheckPreferences = mockk(relaxed = true)
         updateChecker = mockk(relaxed = true)
         appContext = mockk(relaxed = true)
+        legacyPhotoMigrator = mockk(relaxed = true)
 
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
         every { appLaunchCoordinator.appEntryState() } returns flowOf(AppEntryState.Ready("workout"))
@@ -61,7 +65,8 @@ class MainViewModelTest {
         updateCheckPreferences = updateCheckPreferences,
         updateChecker = updateChecker,
         appLaunchCoordinator = appLaunchCoordinator,
-        appContext = appContext
+        appContext = appContext,
+        legacyPhotoMigrator = legacyPhotoMigrator
     )
 
     @Test
@@ -72,6 +77,7 @@ class MainViewModelTest {
         viewModel = createViewModel()
 
         assertEquals(null, viewModel.appEntryState.value)
+        verify { legacyPhotoMigrator.start(any()) }
     }
 
     @Test
@@ -88,6 +94,7 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         assertEquals(AppEntryState.Ready("onboarding"), viewModel.appEntryState.value)
+        verify { legacyPhotoMigrator.start(any()) }
     }
 
     @Test
@@ -98,5 +105,6 @@ class MainViewModelTest {
         advanceUntilIdle()
 
         assertEquals(AppEntryState.MigrationInProgress, viewModel.appEntryState.value)
+        verify { legacyPhotoMigrator.start(any()) }
     }
 }

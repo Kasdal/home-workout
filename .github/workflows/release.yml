@@ -116,6 +116,32 @@ jobs:
             echo EOF
           } >> $GITHUB_OUTPUT
 
+      # Deploy Firebase Storage rules on tagged releases. The project_id is
+      # pulled from the regenerated google-services.json so the value isn't
+      # hardcoded in YAML; auth uses a Firebase CI token.
+      - name: Deploy Firebase Storage rules
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON_B64 secret" >&2
+            exit 1
+          fi
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "Missing FIREBASE_TOKEN secret" >&2
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
+          PROJECT_ID=$(grep -oE '"project_id"[[:space:]]*:[[:space:]]*"[^"]+"' app/google-services.json | head -n1 | sed -E 's/.*"project_id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          if [ -z "$PROJECT_ID" ]; then
+            echo "Could not extract project_id from google-services.json" >&2
+            exit 1
+          fi
+          echo "Deploying storage rules to Firebase project: $PROJECT_ID"
+          npx firebase-tools@latest deploy --only storage --project "$PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

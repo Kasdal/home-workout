@@ -1,6 +1,7 @@
 package com.example.workoutapp.ui.workouts
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -48,6 +49,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -57,12 +60,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -70,12 +75,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.workoutapp.R
+import com.example.workoutapp.data.storage.PhotoUploadResult
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.workout.ExerciseEditDialog
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -86,9 +94,28 @@ fun WorkoutsScreen(
     viewModel: com.example.workoutapp.ui.workout.WorkoutViewModel = hiltViewModel()
 ) {
     val exercises by viewModel.exercises.collectAsState(initial = emptyList())
+    val snackbarHostState = remember { SnackbarHostState() }
+    val snackbarScope = rememberCoroutineScope()
+    val successMessage = stringResource(R.string.photo_upload_success)
+    val sourceUnreadableMessage = stringResource(R.string.photo_upload_source_unreadable)
+    val uploadFailedMessage = stringResource(R.string.photo_upload_failed)
+
+    LaunchedEffect(viewModel) {
+        viewModel.photoUploadEvents.collect { result ->
+            val message = when (result) {
+                is PhotoUploadResult.Success -> successMessage
+                PhotoUploadResult.SourceUnreadable -> sourceUnreadableMessage
+                is PhotoUploadResult.UploadFailed -> uploadFailedMessage
+            }
+            snackbarScope.launch {
+                snackbarHostState.showSnackbar(message)
+            }
+        }
+    }
 
     WorkoutsScreenContent(
         exercises = exercises,
+        snackbarHostState = snackbarHostState,
         onNavigateToRoute = navController::navigate,
         onAddExercise = viewModel::addExercise,
         onUpdateExercise = viewModel::updateExercise,
@@ -103,11 +130,12 @@ fun WorkoutsScreen(
 @Composable
 fun WorkoutsScreenContent(
     exercises: List<Exercise>,
+    snackbarHostState: SnackbarHostState,
     onNavigateToRoute: (String) -> Unit,
     onAddExercise: (Exercise) -> Unit,
     onUpdateExercise: (Exercise) -> Unit,
     onDeleteExercise: (Int) -> Unit,
-    onUpdateExercisePhoto: (Int, String) -> Unit,
+    onUpdateExercisePhoto: (Int, Uri) -> Unit,
     getExerciseHistory: (String) -> Flow<List<SessionExercise>>,
     onReorderExercises: (List<Exercise>) -> Unit
 ) {
@@ -135,7 +163,7 @@ fun WorkoutsScreenContent(
                     )
                 } catch (_: Exception) {
                 }
-                onUpdateExercisePhoto(exerciseId, uri.toString())
+                onUpdateExercisePhoto(exerciseId, uri)
             }
         }
     }
@@ -166,6 +194,7 @@ fun WorkoutsScreenContent(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Workout Library") },

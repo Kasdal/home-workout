@@ -8,6 +8,7 @@ import com.example.workoutapp.data.remote.UpdateInfo
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.UpdateCheckPreferences
+import com.example.workoutapp.data.storage.LegacyPhotoMigrator
 import com.example.workoutapp.domain.startup.AppEntryState
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -27,6 +28,7 @@ class MainViewModel @Inject constructor(
     private val updateCheckPreferences: UpdateCheckPreferences,
     private val updateChecker: UpdateChecker,
     @ApplicationContext private val appContext: Context,
+    private val legacyPhotoMigrator: LegacyPhotoMigrator,
     appLaunchCoordinator: AppLaunchCoordinator
 ) : ViewModel() {
 
@@ -46,6 +48,7 @@ class MainViewModel @Inject constructor(
 
     init {
         migrateLegacyThemeIfNeeded()
+        legacyPhotoMigrator.start(viewModelScope)
     }
 
     private fun migrateLegacyThemeIfNeeded() {

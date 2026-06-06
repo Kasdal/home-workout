@@ -146,6 +146,7 @@ fun WorkoutScreen(
         onSetRestDuration = { viewModel.setRestTimerDuration(it) },
         onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
         onUpdateExercise = { viewModel.updateExercise(it) },
+        onRemoveExercisePhoto = { viewModel.removeExercisePhoto(it) },
         onResetSensorCounter = {
             viewModel.resetSensorCounter()
             snackbarScope.launch {
@@ -189,6 +190,7 @@ fun WorkoutScreenContent(
     onSetRestDuration: (Int) -> Unit,
     onSetExerciseSwitchDuration: (Int) -> Unit,
     onUpdateExercise: (Exercise) -> Unit,
+    onRemoveExercisePhoto: (Int) -> Unit,
     onResetSensorCounter: () -> Unit,
     sensorReps: Int,
     sensorState: String,
@@ -311,6 +313,7 @@ fun WorkoutScreenContent(
                             activeExerciseMode == ExerciseSessionMode.SENSOR_REPS,
                         activeExerciseMode = activeExerciseMode,
                         onResetSensorCounter = onResetSensorCounter,
+                        onRemovePhoto = { onRemoveExercisePhoto(activeExercise.id) },
                         modifier = Modifier.fillMaxWidth()
                     )
 

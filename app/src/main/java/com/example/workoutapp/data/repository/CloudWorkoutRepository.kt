@@ -11,6 +11,7 @@ import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
+import com.example.workoutapp.data.storage.PhotoUploader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -21,7 +22,8 @@ import javax.inject.Inject
 @OptIn(ExperimentalCoroutinesApi::class)
 class CloudWorkoutRepository @Inject constructor(
     private val authManager: AuthManager,
-    private val firestoreRepository: FirestoreRepository
+    private val firestoreRepository: FirestoreRepository,
+    private val photoUploader: PhotoUploader
 ) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore {
 
     override fun getUserMetrics(): Flow<UserMetrics?> = authManager.currentUser.flatMapLatest { user ->
@@ -65,6 +67,7 @@ class CloudWorkoutRepository @Inject constructor(
     }
 
     override suspend fun deleteExercise(exerciseId: Int) {
+        runCatching { photoUploader.deleteExercisePhoto(exerciseId) }
         firestoreRepository.markExerciseDeleted(requireUid(), exerciseId)
     }
 

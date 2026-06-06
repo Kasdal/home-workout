@@ -31,9 +31,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.workoutapp.R
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.ExerciseType
@@ -57,6 +59,7 @@ fun ExerciseCard(
     sensorDistance: Int = 0,
     sensorConnected: Boolean = false,
     onPhotoUpload: (() -> Unit)? = null,
+    onRemovePhoto: (() -> Unit)? = null,
     onResetSensorCounter: (() -> Unit)? = null,
     activeExerciseMode: ExerciseSessionMode? = null,
     modifier: Modifier = Modifier
@@ -439,16 +442,18 @@ fun ExerciseCard(
                                         Icon(Icons.Default.Image, contentDescription = null)
                                     }
                                 )
-                                DropdownMenuItem(
-                                    text = { Text("Remove Photo") },
-                                    onClick = {
-                                        showPhotoMenu = false
-                                        onUpdate(exercise.copy(photoUri = null))
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Delete, contentDescription = null)
-                                    }
-                                )
+                                if (onRemovePhoto != null && exercise.photoUri?.startsWith("https://") == true) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.exercise_remove_photo)) },
+                                        onClick = {
+                                            showPhotoMenu = false
+                                            onRemovePhoto()
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.Delete, contentDescription = null)
+                                        }
+                                    )
+                                }
                             }
                         } else {
                             // Placeholder
