@@ -27,5 +27,7 @@ data class Exercise(
     val isDeleted: Boolean = false,
     val photoUri: String? = null, // Exercise photo URI
     val calorieCategory: String? = null,
-    val sortOrder: Int = Int.MAX_VALUE
+    val sortOrder: Int = Int.MAX_VALUE,
+    val activeInSession: Boolean = true,
+    val categoryId: String? = null
 )
