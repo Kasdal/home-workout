@@ -248,20 +248,26 @@ class WorkoutViewModel @Inject constructor(
     // --- Session Management ---
     fun startSession() {
         _isCompletingSession.value = false
-        _sessionStarted.value = true
-        sessionStartTime = System.currentTimeMillis()
-        sessionClock.start()
         viewModelScope.launch {
+            val activeExercises = exercises.first().filter { !it.isDeleted && it.activeInSession }
+            if (activeExercises.isEmpty()) {
+                _sessionExercises.value = emptyList()
+                _sessionStartErrors.send(SessionStartError.NoActiveExercises)
+                return@launch
+            }
+            _sessionExercises.value = activeExercises
+            _sessionStarted.value = true
+            sessionStartTime = System.currentTimeMillis()
+            sessionClock.start()
             applySessionStateUpdate(
                 sessionCoordinator.startSession(
-                    exercises = exercises.first(),
+                    exercises = activeExercises,
                     completedSets = _completedSets.value
                 )
             )
-        }
-
-        if (sensorEnabled) {
-            startSensorPolling()
+            if (sensorEnabled) {
+                startSensorPolling()
+            }
         }
     }
 

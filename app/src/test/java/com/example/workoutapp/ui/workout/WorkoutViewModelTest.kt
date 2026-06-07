@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -41,6 +42,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -488,5 +490,32 @@ class WorkoutViewModelTest {
         coVerify { photoProcessor.compressToJpeg(source) }
         coVerify { photoUploader.uploadExercisePhoto(99, bytes) }
         coVerify(exactly = 0) { exerciseRepository.updateExercise(any()) }
+    }
+
+    @Test
+    fun `startSession populates sessionExercises only with active exercises`() = runTest {
+        val active = Exercise(id = 1, name = "Squat", weight = 80f, activeInSession = true)
+        val hidden = Exercise(id = 2, name = "Lunges", weight = 20f, activeInSession = false)
+        exercisesFlow.value = listOf(active, hidden)
+
+        viewModel.startSession()
+        advanceUntilIdle()
+
+        assertEquals(listOf(active), viewModel.sessionExercises.value)
+    }
+
+    @Test
+    fun `startSession emits NoActiveExercises when all exercises are inactive`() = runTest {
+        exercisesFlow.value = listOf(
+            Exercise(id = 1, name = "Plank", weight = 0f, activeInSession = false),
+            Exercise(id = 2, name = "Lunge", weight = 0f, activeInSession = false)
+        )
+
+        viewModel.startSession()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.sessionExercises.value.isEmpty())
+        val event = withTimeoutOrNull(1000) { viewModel.sessionStartErrors.firstOrNull() }
+        assertEquals(SessionStartError.NoActiveExercises, event)
     }
 }
