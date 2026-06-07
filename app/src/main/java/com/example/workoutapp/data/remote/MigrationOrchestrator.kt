@@ -1,6 +1,8 @@
 package com.example.workoutapp.data.remote
 
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
+import com.example.workoutapp.data.repository.CategoryRepository
+import com.example.workoutapp.model.Category
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -12,7 +14,8 @@ enum class MigrationBootstrapResult {
 @Singleton
 class MigrationOrchestrator @Inject constructor(
     private val firestoreRepository: FirestoreRepository,
-    private val legacyMigrationBackupCodec: LegacyMigrationBackupCodec
+    private val legacyMigrationBackupCodec: LegacyMigrationBackupCodec,
+    private val categoryRepository: CategoryRepository
 ) {
 
     suspend fun migrateIfNeeded(uid: String): Result<MigrationBootstrapResult> {
@@ -45,7 +48,7 @@ class MigrationOrchestrator @Inject constructor(
                     updatedMeta.restDaysCount > 0
                 )
 
-            if (hasRemoteData) {
+            val result = if (hasRemoteData) {
                 MigrationBootstrapResult.READY
             } else {
                 firestoreRepository.setMigrationMeta(
@@ -64,6 +67,15 @@ class MigrationOrchestrator @Inject constructor(
                 )
                 MigrationBootstrapResult.NEEDS_BACKUP_IMPORT
             }
+
+            val finalMeta = firestoreRepository.getMigrationMeta(uid)
+            if (finalMeta != null && finalMeta.schemaVersion < 2) {
+                SEED_CATEGORIES.forEach { categoryRepository.upsertCategory(it) }
+                categoryRepository.backfillLegacyAssignments(legacyCategoryId = Category.LEGACY_ID)
+                firestoreRepository.setMigrationMeta(uid, finalMeta.copy(schemaVersion = 2))
+            }
+
+            result
         }
     }
 
@@ -101,5 +113,20 @@ class MigrationOrchestrator @Inject constructor(
                 )
             )
         }
+    }
+
+    companion object {
+        val SEED_CATEGORIES: List<Category> = listOf(
+            Category(id = "push", name = "Push", iconName = "FitnessCenter", sortOrder = 0),
+            Category(id = "pull", name = "Pull", iconName = "BackHand", sortOrder = 1),
+            Category(id = "legs", name = "Legs", iconName = "DirectionsRun", sortOrder = 2),
+            Category(id = "core", name = "Core", iconName = "SelfImprovement", sortOrder = 3),
+            Category(id = "cardio", name = "Cardio", iconName = "LocalFireDepartment", sortOrder = 4),
+            Category(id = "mobility", name = "Mobility", iconName = "Accessibility", sortOrder = 5),
+            Category(
+                id = "legacy", name = "Legacy", iconName = "History",
+                sortOrder = 999, isLegacy = true
+            )
+        )
     }
 }
