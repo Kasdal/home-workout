@@ -102,7 +102,7 @@ data class CloudMigrationMeta(
     val sessionsCount: Int = 0,
     val sessionExercisesCount: Int = 0,
     val restDaysCount: Int = 0,
-    val schemaVersion: Int = 1
+    val schemaVersion: Int = 2
 )
 
 fun UserMetrics.toCloud() = CloudUserMetrics(
