@@ -7,6 +7,7 @@ import com.example.workoutapp.model.Settings
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.model.WorkoutStats
+import com.example.workoutapp.data.remote.model.CloudCategory
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.remote.model.CloudSettings
 import com.example.workoutapp.data.remote.model.toCloud
@@ -184,6 +185,59 @@ class FirestoreRepository @Inject constructor(
                 SetOptions.merge()
             )
             .await()
+    }
+
+    fun observeActiveCategories(uid: String): Flow<List<CloudCategory>> = callbackFlow {
+        val subscription = userRoot(uid).collection("categories")
+            .whereEqualTo("isDeleted", false)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val categories = snapshot?.documents.orEmpty().mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    CloudCategory(
+                        id = doc.id,
+                        name = data["name"] as? String ?: "",
+                        iconName = data["iconName"] as? String ?: "Category",
+                        sortOrder = (data["sortOrder"] as? Long)?.toInt() ?: Int.MAX_VALUE,
+                        isLegacy = data["isLegacy"] as? Boolean ?: false,
+                        isDeleted = data["isDeleted"] as? Boolean ?: false
+                    )
+                }
+                trySend(categories)
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    suspend fun upsertCategory(uid: String, category: CloudCategory) {
+        val doc = userRoot(uid).collection("categories").document(category.id)
+        val data = mapOf(
+            "id" to category.id,
+            "name" to category.name,
+            "iconName" to category.iconName,
+            "sortOrder" to category.sortOrder,
+            "isLegacy" to category.isLegacy,
+            "isDeleted" to category.isDeleted
+        )
+        doc.set(data, SetOptions.merge()).await()
+    }
+
+    suspend fun markCategoryDeleted(uid: String, categoryId: String) {
+        val doc = userRoot(uid).collection("categories").document(categoryId)
+        doc.set(mapOf("isDeleted" to true), SetOptions.merge()).await()
+    }
+
+    suspend fun markExercisesWithCategory(uid: String, oldCategoryId: String, newCategoryId: String) {
+        val exercises = userRoot(uid).collection("exercises")
+        val matching = exercises.whereEqualTo("categoryId", oldCategoryId).get().await()
+        if (matching.isEmpty) return
+        val batch = firestore.batch()
+        matching.documents.forEach { doc ->
+            batch.set(doc.reference, mapOf("categoryId" to newCategoryId), SetOptions.merge())
+        }
+        batch.commit().await()
     }
 
     fun observeSessions(uid: String): Flow<List<WorkoutSession>> = callbackFlow {
