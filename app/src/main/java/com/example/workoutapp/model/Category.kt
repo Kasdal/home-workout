@@ -7,4 +7,8 @@ data class Category(
     val sortOrder: Int = Int.MAX_VALUE,
     val isLegacy: Boolean = false,
     val isDeleted: Boolean = false
-)
+) {
+    companion object {
+        const val LEGACY_ID = "legacy"
+    }
+}

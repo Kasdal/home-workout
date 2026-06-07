@@ -1,6 +1,7 @@
 package com.example.workoutapp.data.repository
 
 import com.example.workoutapp.auth.AuthManager
+import com.example.workoutapp.model.Category
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.RestDay
 import com.example.workoutapp.model.SessionExercise
@@ -9,11 +10,15 @@ import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.data.remote.FirestoreRepository
+import com.example.workoutapp.data.remote.model.CloudCategory
+import com.example.workoutapp.data.remote.model.toCloud
+import com.example.workoutapp.data.remote.model.toLocal
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import com.example.workoutapp.data.storage.PhotoUploader
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -24,7 +29,7 @@ class CloudWorkoutRepository @Inject constructor(
     private val authManager: AuthManager,
     private val firestoreRepository: FirestoreRepository,
     private val photoUploader: PhotoUploader
-) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore {
+) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore, CategoryRepository {
 
     override fun getUserMetrics(): Flow<UserMetrics?> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(null) else firestoreRepository.observeUserMetrics(user.uid)
@@ -140,6 +145,30 @@ class CloudWorkoutRepository @Inject constructor(
 
     override fun getAllSessionExercises(): Flow<List<SessionExercise>> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeAllSessionExercises(user.uid)
+    }
+
+    override fun observeActiveCategories(): Flow<List<Category>> = authManager.currentUser.flatMapLatest { user ->
+        if (user == null) flowOf(emptyList())
+        else firestoreRepository.observeActiveCategories(user.uid).map { clouds -> clouds.map { it.toLocal() } }
+    }
+
+    override suspend fun getActiveCategories(): List<Category> =
+        firestoreRepository.observeActiveCategories(requireUid()).first().map { it.toLocal() }
+
+    override suspend fun upsertCategory(category: Category) {
+        firestoreRepository.upsertCategory(requireUid(), category.toCloud())
+    }
+
+    override suspend fun deleteAndReassign(categoryId: String, reassignToCategoryId: String) {
+        if (categoryId == Category.LEGACY_ID) {
+            throw IllegalStateException("Cannot delete the protected legacy category")
+        }
+        firestoreRepository.markExercisesWithCategory(requireUid(), oldCategoryId = categoryId, newCategoryId = reassignToCategoryId)
+        firestoreRepository.markCategoryDeleted(requireUid(), categoryId)
+    }
+
+    override suspend fun backfillLegacyAssignments(legacyCategoryId: String) {
+        firestoreRepository.markExercisesWithCategory(requireUid(), oldCategoryId = "", newCategoryId = legacyCategoryId)
     }
 
     private fun requireUid(): String {
