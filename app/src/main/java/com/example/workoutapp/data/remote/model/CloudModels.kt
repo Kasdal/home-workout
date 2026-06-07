@@ -29,7 +29,9 @@ data class CloudExercise(
     val deleted: Boolean = false,
     val photoUri: String? = null,
     val calorieCategory: String? = null,
-    val sortOrder: Int = Int.MAX_VALUE
+    val sortOrder: Int = Int.MAX_VALUE,
+    val activeInSession: Boolean = true,
+    val categoryId: String? = null
 )
 
 data class CloudWorkoutSession(
@@ -135,7 +137,9 @@ fun Exercise.toCloud() = CloudExercise(
     deleted = isDeleted,
     photoUri = photoUri,
     calorieCategory = calorieCategory,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    activeInSession = activeInSession,
+    categoryId = categoryId
 )
 
 fun CloudExercise.toLocal() = Exercise(
@@ -150,7 +154,9 @@ fun CloudExercise.toLocal() = Exercise(
     isDeleted = deleted,
     photoUri = photoUri,
     calorieCategory = calorieCategory,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    activeInSession = activeInSession,
+    categoryId = categoryId
 )
 
 fun WorkoutSession.toCloud() = CloudWorkoutSession(
