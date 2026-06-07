@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.0] - 2026-06-07
+
+### Added
+- Hero-photo library cards with per-exercise active/inactive toggle.
+- User-editable Categories with icons, including rename, re-icon, and delete-with-reassign flows.
+- A one-shot migration that seeds 7 default categories and tags every legacy exercise with a "Legacy" bucket.
+- Snackbars on the session screen that explain why a session cannot start (no active exercises).
+
+### Changed
+- The session card photo now expands to fill the available screen height, giving the exercise photo dominant space.
+- The "last completed" banner is removed from the active session screen.
+
+### Internal
+- `Exercise` gains `activeInSession` and `categoryId`; mirrored on `CloudExercise` with round-trip mappers.
+- New `CategoryRepository` interface, implemented on `CloudWorkoutRepository`.
+- `CloudMigrationMeta.schemaVersion` bumped to 2.
+
 ## [1.1.5] - 2026-06-03
 
 ### Changed
