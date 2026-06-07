@@ -518,4 +518,28 @@ class WorkoutViewModelTest {
         val event = withTimeoutOrNull(1000) { viewModel.sessionStartErrors.firstOrNull() }
         assertEquals(SessionStartError.NoActiveExercises, event)
     }
+
+    @Test
+    fun `toggleActiveInSession flips the exercise's active flag and persists`() = runTest {
+        val initial = Exercise(id = 1, name = "Squat", weight = 80f, activeInSession = true)
+        exercisesFlow.value = listOf(initial)
+        coEvery { exerciseRepository.updateExercise(any()) } returns Unit
+
+        viewModel.toggleActiveInSession(initial)
+        advanceUntilIdle()
+
+        coVerify { exerciseRepository.updateExercise(initial.copy(activeInSession = false)) }
+    }
+
+    @Test
+    fun `setExerciseCategory persists the new category id`() = runTest {
+        val initial = Exercise(id = 1, name = "Plank", weight = 0f, categoryId = null)
+        exercisesFlow.value = listOf(initial)
+        coEvery { exerciseRepository.updateExercise(any()) } returns Unit
+
+        viewModel.setExerciseCategory(exercise = initial, categoryId = "core")
+        advanceUntilIdle()
+
+        coVerify { exerciseRepository.updateExercise(initial.copy(categoryId = "core")) }
+    }
 }

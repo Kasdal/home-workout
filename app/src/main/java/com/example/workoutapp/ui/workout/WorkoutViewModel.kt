@@ -271,6 +271,20 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
+    fun toggleActiveInSession(exercise: Exercise) {
+        viewModelScope.launch {
+            exerciseRepository.updateExercise(
+                exercise.copy(activeInSession = !exercise.activeInSession)
+            )
+        }
+    }
+
+    fun setExerciseCategory(exercise: Exercise, categoryId: String?) {
+        viewModelScope.launch {
+            exerciseRepository.updateExercise(exercise.copy(categoryId = categoryId))
+        }
+    }
+
     fun completeSession(onComplete: (WorkoutSession) -> Unit) {
         viewModelScope.launch {
             _isCompletingSession.value = true
