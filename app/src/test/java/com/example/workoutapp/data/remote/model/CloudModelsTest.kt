@@ -34,4 +34,36 @@ class CloudModelsTest {
         assertEquals(true, local.activeInSession)
         assertEquals(null, local.categoryId)
     }
+
+    @Test
+    fun `Category round-trips through CloudCategory preserving all fields`() {
+        val source = com.example.workoutapp.model.Category(
+            id = "legs",
+            name = "Legs",
+            iconName = "DirectionsRun",
+            sortOrder = 2,
+            isLegacy = false,
+            isDeleted = false
+        )
+
+        val roundTrip = source.toCloud().toLocal()
+
+        assertEquals(source, roundTrip)
+    }
+
+    @Test
+    fun `Legacy CloudCategory flag survives round-trip`() {
+        val source = com.example.workoutapp.model.Category(
+            id = "legacy",
+            name = "Legacy",
+            iconName = "History",
+            sortOrder = 999,
+            isLegacy = true
+        )
+
+        val roundTrip = source.toCloud().toLocal()
+
+        assertEquals(true, roundTrip.isLegacy)
+        assertEquals(source, roundTrip)
+    }
 }

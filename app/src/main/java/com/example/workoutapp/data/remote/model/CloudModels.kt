@@ -276,3 +276,30 @@ fun CloudSessionExercise.toLocal() = SessionExercise(
     volume = volume,
     sortOrder = sortOrder
 )
+
+data class CloudCategory(
+    val id: String = "",
+    val name: String = "",
+    val iconName: String = "Category",
+    val sortOrder: Int = Int.MAX_VALUE,
+    val isLegacy: Boolean = false,
+    val isDeleted: Boolean = false
+)
+
+fun com.example.workoutapp.model.Category.toCloud() = CloudCategory(
+    id = id,
+    name = name,
+    iconName = iconName,
+    sortOrder = sortOrder,
+    isLegacy = isLegacy,
+    isDeleted = isDeleted
+)
+
+fun CloudCategory.toLocal() = com.example.workoutapp.model.Category(
+    id = id,
+    name = name,
+    iconName = iconName,
+    sortOrder = sortOrder,
+    isLegacy = isLegacy,
+    isDeleted = isDeleted
+)
