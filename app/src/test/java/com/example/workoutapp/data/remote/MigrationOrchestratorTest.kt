@@ -2,6 +2,7 @@ package com.example.workoutapp.data.remote
 
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.repository.CategoryRepository
+import com.example.workoutapp.model.Category
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.coVerifyOrder
@@ -78,11 +79,15 @@ class MigrationOrchestratorTest {
         orchestrator.migrateIfNeeded("user-123")
 
         coVerifyOrder {
-            for (seed in MigrationOrchestrator.SEED_CATEGORIES) {
-                categoryRepository.upsertCategory(seed)
-            }
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[0])
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[1])
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[2])
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[3])
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[4])
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[5])
+            categoryRepository.upsertCategory(MigrationOrchestrator.SEED_CATEGORIES[6])
         }
-        coVerify { categoryRepository.backfillLegacyAssignments(legacyCategoryId = "legacy") }
+        coVerify { categoryRepository.backfillLegacyAssignments(legacyCategoryId = Category.LEGACY_ID) }
     }
 
     @Test
@@ -98,5 +103,32 @@ class MigrationOrchestratorTest {
 
         coVerify(exactly = 0) { categoryRepository.upsertCategory(any()) }
         coVerify(exactly = 0) { categoryRepository.backfillLegacyAssignments(any()) }
+    }
+
+    @Test
+    fun `v1 meta with migrationComplete true still triggers seed and backfill`() = runTest {
+        val firestore = mockk<FirestoreRepository>(relaxed = true)
+        val categories = mockk<CategoryRepository>(relaxed = true)
+        val codec = mockk<LegacyMigrationBackupCodec>(relaxed = true)
+        val v1CompleteMeta = CloudMigrationMeta(
+            migrationComplete = true,
+            schemaVersion = 1,
+            backupImportPending = false
+        )
+        coEvery { firestore.getMigrationMeta("user-123") } returns v1CompleteMeta
+
+        val orchestrator = MigrationOrchestrator(
+            firestoreRepository = firestore,
+            legacyMigrationBackupCodec = codec,
+            categoryRepository = categories
+        )
+        orchestrator.migrateIfNeeded("user-123")
+
+        coVerify {
+            for (seed in MigrationOrchestrator.SEED_CATEGORIES) {
+                categories.upsertCategory(seed)
+            }
+            categories.backfillLegacyAssignments(legacyCategoryId = Category.LEGACY_ID)
+        }
     }
 }

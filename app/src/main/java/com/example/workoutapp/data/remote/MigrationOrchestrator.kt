@@ -20,6 +20,13 @@ class MigrationOrchestrator @Inject constructor(
 
     suspend fun migrateIfNeeded(uid: String): Result<MigrationBootstrapResult> {
         return runCatching {
+            val initialMeta = firestoreRepository.getMigrationMeta(uid)
+            if (initialMeta != null && initialMeta.schemaVersion < 2) {
+                SEED_CATEGORIES.forEach { categoryRepository.upsertCategory(it) }
+                categoryRepository.backfillLegacyAssignments(legacyCategoryId = Category.LEGACY_ID)
+                firestoreRepository.setMigrationMeta(uid, initialMeta.copy(schemaVersion = 2))
+            }
+
             val existingMeta = firestoreRepository.getMigrationMeta(uid)
             if (existingMeta?.migrationComplete == true) {
                 return@runCatching if (existingMeta.backupImportPending) {
@@ -66,13 +73,6 @@ class MigrationOrchestrator @Inject constructor(
                     )
                 )
                 MigrationBootstrapResult.NEEDS_BACKUP_IMPORT
-            }
-
-            val finalMeta = firestoreRepository.getMigrationMeta(uid)
-            if (finalMeta != null && finalMeta.schemaVersion < 2) {
-                SEED_CATEGORIES.forEach { categoryRepository.upsertCategory(it) }
-                categoryRepository.backfillLegacyAssignments(legacyCategoryId = Category.LEGACY_ID)
-                firestoreRepository.setMigrationMeta(uid, finalMeta.copy(schemaVersion = 2))
             }
 
             result
