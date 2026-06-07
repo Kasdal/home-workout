@@ -27,11 +27,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +56,7 @@ import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import com.example.workoutapp.ui.theme.NeonGreen
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 @Composable
@@ -77,6 +80,7 @@ fun WorkoutScreen(
     val sensorConnected by viewModel.sensorConnected.collectAsState()
     val activeExerciseId by viewModel.activeExerciseId.collectAsState()
     val activeExerciseMode by viewModel.activeExerciseMode.collectAsState()
+    val sessionExercises by viewModel.sessionExercises.collectAsState(initial = emptyList())
 
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<WorkoutSession?>(null) }
@@ -93,6 +97,17 @@ fun WorkoutScreen(
         }
         onDispose {
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.sessionStartErrors.collect { error ->
+            when (error) {
+                SessionStartError.NoActiveExercises -> snackbarHostState.showSnackbar(
+                    message = "No exercises are marked active. Toggle a few in the library.",
+                    duration = SnackbarDuration.Short
+                )
+            }
         }
     }
 
@@ -117,6 +132,7 @@ fun WorkoutScreen(
 
     WorkoutScreenContent(
         exercises = exercises,
+        sessionExercises = sessionExercises,
         timerSeconds = timerSeconds,
         isTimerRunning = isTimerRunning,
         isTimerPaused = isTimerPaused,
@@ -166,6 +182,7 @@ fun WorkoutScreen(
 @Composable
 fun WorkoutScreenContent(
     exercises: List<Exercise>,
+    sessionExercises: List<Exercise>,
     timerSeconds: Int,
     isTimerRunning: Boolean,
     isTimerPaused: Boolean,
@@ -258,15 +275,14 @@ fun WorkoutScreenContent(
         floatingActionButton = {}
     ) { padding ->
         if (sessionStarted) {
-            val completedExercises = exercises.filter { exercise ->
+            val completedExercises = sessionExercises.filter { exercise ->
                 val setCount = completedSets[exercise.id] ?: 0
                 setCount >= exercise.sets
             }
-            val activeExercise = exercises.firstOrNull { exercise ->
+            val activeExercise = sessionExercises.firstOrNull { exercise ->
                 val setCount = completedSets[exercise.id] ?: 0
                 setCount < exercise.sets
             }
-            val visibleCompletedExercises = completedExercises.takeLast(1)
 
             if (activeExercise != null) {
                 val setCount = completedSets[activeExercise.id] ?: 0
@@ -279,22 +295,6 @@ fun WorkoutScreenContent(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    visibleCompletedExercises.forEach { exercise ->
-                        val completedSetCount = completedSets[exercise.id] ?: 0
-                        ExerciseCard(
-                            exercise = exercise,
-                            completedSetCount = completedSetCount,
-                            isCompleted = true,
-                            onCompleteSet = {},
-                            onUndoSet = {},
-                            onUpdate = {},
-                            onDelete = {},
-                            undoEnabled = false,
-                            cardMode = ExerciseCardMode.LIST_COMPACT,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-
                     ExerciseCard(
                         exercise = activeExercise,
                         completedSetCount = setCount,
@@ -317,7 +317,6 @@ fun WorkoutScreenContent(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Spacer(modifier = Modifier.weight(1f))
                 }
             } else {
                 Column(
