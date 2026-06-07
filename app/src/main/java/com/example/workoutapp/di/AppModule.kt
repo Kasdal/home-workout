@@ -11,6 +11,7 @@ import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.RestDayRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.repository.SettingsRepository
+import com.example.workoutapp.data.repository.CategoryRepository
 import com.example.workoutapp.data.storage.PhotoUploader
 import android.content.Context
 import androidx.datastore.core.DataStore
@@ -112,6 +113,12 @@ object AppModule {
     fun provideSyncedWorkoutSettingsStore(
         cloudWorkoutRepository: CloudWorkoutRepository
     ): SyncedWorkoutSettingsStore = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideCategoryRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): CategoryRepository = cloudWorkoutRepository
 
     @Provides
     @Singleton
