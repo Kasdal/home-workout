@@ -26,6 +26,8 @@ import com.example.workoutapp.domain.session.WorkoutSessionClockFactory
 import com.example.workoutapp.domain.session.WorkoutSessionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -34,9 +36,14 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
+
+sealed class SessionStartError {
+    data object NoActiveExercises : SessionStartError()
+}
 
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
@@ -109,6 +116,14 @@ class WorkoutViewModel @Inject constructor(
     // Map of ExerciseId -> Number of Completed Sets (0-4)
     private val _completedSets = MutableStateFlow<Map<Int, Int>>(emptyMap())
     val completedSets: StateFlow<Map<Int, Int>> = _completedSets.asStateFlow()
+
+    // Snapshot of the exercises that were active when the current session was started.
+    // Cleared when the session ends (see completeSession).
+    private val _sessionExercises = MutableStateFlow<List<Exercise>>(emptyList())
+    val sessionExercises: StateFlow<List<Exercise>> = _sessionExercises.asStateFlow()
+
+    private val _sessionStartErrors = Channel<SessionStartError>(Channel.BUFFERED)
+    val sessionStartErrors: Flow<SessionStartError> = _sessionStartErrors.receiveAsFlow()
 
     private val _photoUploadEvents = MutableSharedFlow<PhotoUploadResult>(extraBufferCapacity = 4)
     val photoUploadEvents: SharedFlow<PhotoUploadResult> = _photoUploadEvents.asSharedFlow()
@@ -268,6 +283,7 @@ class WorkoutViewModel @Inject constructor(
 
             applySessionStateUpdate(result.stateUpdate)
             _sessionStarted.value = false
+            _sessionExercises.value = emptyList()
             sessionClock.stop()
             _isCompletingSession.value = false
 
