@@ -300,6 +300,9 @@ fun WorkoutsScreenContent(
                                 photoPickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                 )
+                            },
+                            onActiveToggle = {
+                                onUpdateExercise(exercise.copy(activeInSession = !exercise.activeInSession))
                             }
                         )
                     }
