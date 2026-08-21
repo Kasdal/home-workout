@@ -6,15 +6,22 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-fun getGitCommitCount(): Int {
-    return try {
-        val process = Runtime.getRuntime().exec("git rev-list --count HEAD")
-        process.waitFor()
-        process.inputStream.bufferedReader().readText().trim().toInt()
-    } catch (e: Exception) {
+// Deterministic versionCode derived from the SemVer version that Axion resolves
+// from the nearest v* tag (MAJOR*10000 + MINOR*100 + PATCH). Every build from the
+// same tag gets the same code, codes only grow when the tag does (including
+// hotfix branches), and no git subprocess runs at configuration time.
+// Constraint: MINOR and PATCH must stay below 100 within a release line.
+fun getVersionCode(version: String): Int {
+    val match = Regex("""(\d+)\.(\d+)\.(\d+)""").find(version)
+    return if (match != null) {
+        val (major, minor, patch) = match.destructured
+        major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
+    } else {
         1
     }
 }
+
+val appVersion = rootProject.version.toString()
 
 android {
     namespace = "com.example.workoutapp"
@@ -24,8 +31,8 @@ android {
         applicationId = "com.example.workoutapp"
         minSdk = 26
         targetSdk = 34
-        versionCode = getGitCommitCount()
-        versionName = rootProject.version.toString()
+        versionCode = getVersionCode(appVersion)
+        versionName = appVersion
 
         buildConfigField("String", "GITHUB_REPO_OWNER", "\"Kasdal\"")
         buildConfigField("String", "GITHUB_REPO_NAME", "\"home-workout\"")

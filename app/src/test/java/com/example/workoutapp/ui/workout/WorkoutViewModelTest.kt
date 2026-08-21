@@ -505,6 +505,40 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    fun `updateExercise during an active session refreshes the live sessionExercises snapshot`() = runTest {
+        val exercise = Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4, activeInSession = true)
+        exercisesFlow.value = listOf(exercise)
+        coEvery { exerciseRepository.updateExercise(any()) } returns Unit
+
+        viewModel.startSession()
+        advanceUntilIdle()
+
+        assertEquals(100f, viewModel.sessionExercises.value.single().weight)
+
+        val updated = exercise.copy(weight = 105f)
+        viewModel.updateExercise(updated)
+        advanceUntilIdle()
+
+        assertEquals(105f, viewModel.sessionExercises.value.single().weight)
+        coVerify { exerciseRepository.updateExercise(updated) }
+    }
+
+    @Test
+    fun `updateExercise without an active session leaves sessionExercises untouched`() = runTest {
+        val exercise = Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4, activeInSession = true)
+        exercisesFlow.value = listOf(exercise)
+        coEvery { exerciseRepository.updateExercise(any()) } returns Unit
+
+        val updated = exercise.copy(weight = 105f)
+        viewModel.updateExercise(updated)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.sessionExercises.value.isEmpty())
+        coVerify { exerciseRepository.updateExercise(updated) }
+    }
+
+
+    @Test
     fun `startSession emits NoActiveExercises when all exercises are inactive`() = runTest {
         exercisesFlow.value = listOf(
             Exercise(id = 1, name = "Plank", weight = 0f, activeInSession = false),

@@ -400,7 +400,15 @@ class WorkoutViewModel @Inject constructor(
     
     fun updateExercise(exercise: Exercise) {
         viewModelScope.launch {
+            // The running session renders from a snapshot captured at startSession().
+            // Persist the change and also refresh that live snapshot so in-session
+            // weight adjustments (the +/- controls) are reflected immediately.
             exerciseRepository.updateExercise(exercise)
+            if (_sessionStarted.value && _sessionExercises.value.isNotEmpty()) {
+                _sessionExercises.value = _sessionExercises.value.map { existing ->
+                    if (existing.id == exercise.id) exercise else existing
+                }
+            }
         }
     }
     
