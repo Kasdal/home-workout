@@ -109,6 +109,9 @@ jobs:
           echo "Next version: $NEXT"
           echo "VERSION=$NEXT" >> "$GITHUB_OUTPUT"
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
       - name: Create and push tag with Axion
         if: steps.version.outputs.VERSION != 'none'
         run: ./gradlew release -Prelease.version=${{ steps.version.outputs.VERSION }} -Prelease.pushTags=true -Prelease.ignoreUncommittedChanges=true --console=plain
