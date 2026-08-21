@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -37,10 +39,13 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,9 +69,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -75,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.workoutapp.R
 import com.example.workoutapp.data.storage.PhotoUploadResult
 import com.example.workoutapp.model.Exercise
@@ -289,6 +300,9 @@ fun WorkoutsScreenContent(
                                 photoPickerLauncher.launch(
                                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                 )
+                            },
+                            onActiveToggle = {
+                                onUpdateExercise(exercise.copy(activeInSession = !exercise.activeInSession))
                             }
                         )
                     }
@@ -311,7 +325,10 @@ private fun WorkoutLibraryItem(
     onDelete: () -> Unit,
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
-    onUploadPhoto: () -> Unit
+    onUploadPhoto: () -> Unit,
+    onActiveToggle: (Boolean) -> Unit = {},
+    onCategoryClick: () -> Unit = {},
+    category: com.example.workoutapp.model.Category? = null
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -400,6 +417,7 @@ private fun WorkoutLibraryItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (exercise.activeInSession) 1f else 0.55f)
             .then(interactionModifier)
             .onGloballyPositioned { cardHeightPx = it.size.height.toFloat() }
             .offset { IntOffset(x = 0, y = if (reorderMode) dragDistance.roundToInt() else 0) }
@@ -417,114 +435,172 @@ private fun WorkoutLibraryItem(
             }
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 14.dp, top = 14.dp, end = 6.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Column(
+        Column {
+            Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .combinedClickable(
-                        onClick = { showDetailsDialog = true },
-                        onLongClick = onEnterReorderMode
-                    ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .testTag("library_card_hero"),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = exercise.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = exerciseSummary(exercise),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (reorderMode) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Drag",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    LibraryBadge(
-                        text = when (exercise.exerciseType) {
-                            ExerciseType.HOLD.name -> "Hold"
-                            ExerciseType.BODYWEIGHT.name -> "Bodyweight"
-                            else -> "Standard"
-                        }
+                val photoModel = exercise.photoUri
+                if (photoModel.isNullOrBlank()) {
+                    Icon(
+                        imageVector = CategoryIcons.iconForName(category?.iconName ?: "Category"),
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    if (exercise.usesSensor) {
-                        LibraryBadge("Sensor")
-                    }
-                    if (exercise.photoUri != null) {
-                        LibraryBadge("Photo")
-                    }
-                }
-
-                if (reorderMode) {
-                    Text(
-                        text = "Drag this card up or down to move it.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else if (history.isNotEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Last: ${lastEntry?.sets ?: 0} x ${lastEntry?.reps ?: 0} @ ${formatKg(lastEntry?.weight ?: 0f)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "Best: ${formatKg(bestVolume)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 } else {
-                    Text(
-                        text = "Tap for setup and history",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    val saturation = if (exercise.activeInSession) 1f else 0f
+                    val matrix = ColorMatrix().apply { setToSaturation(saturation) }
+                    Image(
+                        painter = rememberAsyncImagePainter(photoModel),
+                        contentDescription = exercise.name,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("library_card_photo"),
+                        contentScale = ContentScale.Crop,
+                        colorFilter = ColorFilter.colorMatrix(matrix)
                     )
                 }
             }
 
-            if (!reorderMode) {
-                Box {
-                    IconButton(onClick = { showOverflowMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "Exercise actions")
-                    }
-                    ExerciseActionsMenu(
-                        expanded = showOverflowMenu,
-                        onDismiss = { showOverflowMenu = false },
-                        onDetails = { showDetailsDialog = true },
-                        onPhoto = onUploadPhoto,
-                        onEdit = { showEditDialog = true },
-                        onDelete = { showDeleteDialog = true },
-                        onReorder = onEnterReorderMode
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, top = 8.dp, end = 6.dp, bottom = 14.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                if (!reorderMode) {
+                    Checkbox(
+                        checked = exercise.activeInSession,
+                        onCheckedChange = onActiveToggle,
+                        modifier = Modifier.padding(top = 4.dp),
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = MaterialTheme.colorScheme.primary
+                        )
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .combinedClickable(
+                            onClick = { showDetailsDialog = true },
+                            onLongClick = onEnterReorderMode
+                        ),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = exercise.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = exerciseSummary(exercise),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (reorderMode) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Menu, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Drag",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LibraryBadge(
+                            text = when (exercise.exerciseType) {
+                                ExerciseType.HOLD.name -> "Hold"
+                                ExerciseType.BODYWEIGHT.name -> "Bodyweight"
+                                else -> "Standard"
+                            }
+                        )
+                        if (exercise.usesSensor) {
+                            LibraryBadge("Sensor")
+                        }
+                        if (exercise.photoUri != null) {
+                            LibraryBadge("Photo")
+                        }
+                    }
+
+                    if (!reorderMode && category != null) {
+                        AssistChip(
+                            onClick = onCategoryClick,
+                            label = { Text(category.name, style = MaterialTheme.typography.labelSmall) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = CategoryIcons.iconForName(category.iconName),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        )
+                    }
+
+                    if (reorderMode) {
+                        Text(
+                            text = "Drag this card up or down to move it.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else if (history.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Last: ${lastEntry?.sets ?: 0} x ${lastEntry?.reps ?: 0} @ ${formatKg(lastEntry?.weight ?: 0f)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Best: ${formatKg(bestVolume)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "Tap for setup and history",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                if (!reorderMode) {
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Exercise actions")
+                        }
+                        ExerciseActionsMenu(
+                            expanded = showOverflowMenu,
+                            onDismiss = { showOverflowMenu = false },
+                            onDetails = { showDetailsDialog = true },
+                            onPhoto = onUploadPhoto,
+                            onEdit = { showEditDialog = true },
+                            onDelete = { showDeleteDialog = true },
+                            onReorder = onEnterReorderMode
+                        )
+                    }
                 }
             }
         }

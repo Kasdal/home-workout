@@ -42,5 +42,5 @@
 
 ## Release/versioning
 
-- Release tags use the `v` prefix from Axion Release in the root `build.gradle.kts`.
-- `versionName` comes from the SCM tag-derived project version; `versionCode` is the git commit count from `app/build.gradle.kts`. Avoid changing versioning logic casually.
+- Releases are automatic: a push to `master` triggers `.github/workflows/release.yml`, which computes the next version from Conventional Commits (`scripts/next-version.sh`), tags with Axion's `release` task (`v` prefix, root `build.gradle.kts`), then creates the GitHub release. Manual dispatch on that workflow forces a run.
+- `versionName` comes from the SCM tag-derived project version; `versionCode` is derived deterministically from that version (`MAJOR*10000 + MINOR*100 + PATCH`) in `app/build.gradle.kts`. Avoid changing versioning logic casually.

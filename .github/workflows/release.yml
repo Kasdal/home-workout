@@ -9,17 +9,21 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -39,20 +43,20 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-      
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
-      
+
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
-      
+
       - name: Build Release APK
         run: ./gradlew assembleRelease --stacktrace
-      
+
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
@@ -63,33 +67,96 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    
-    permissions:
-      contents: write
-    
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      # Required before any Gradle invocation: the Google Services plugin fails
+      # configuration when app/google-services.json is missing. The file is
+      # untracked (gitignored), so Axion also needs to ignore uncommitted changes
+      # or its release task would refuse to tag.
+      - name: Write google-services.json from GitHub secret
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON_B64 secret"
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
+
+      - name: Compute next version from conventional commits
+        id: version
+        run: |
+          NEXT=$(bash scripts/next-version.sh)
+          echo "Next version: $NEXT"
+          echo "VERSION=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag with Axion
+        if: steps.version.outputs.VERSION != 'none'
+        run: ./gradlew release -Prelease.version=${{ steps.version.outputs.VERSION }} -Prelease.pushTags=true -Prelease.ignoreUncommittedChanges=true --console=plain
+
       - name: Download Debug APK
+        if: steps.version.outputs.VERSION != 'none'
         uses: actions/download-artifact@v4
         with:
           name: app-debug
           path: ./artifacts
-      
+
       - name: Download Release APK
+        if: steps.version.outputs.VERSION != 'none'
         uses: actions/download-artifact@v4
         with:
           name: app-release
           path: ./artifacts
-      
-      - name: Extract version from tag
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
+
+      # Deploy Firebase Storage rules on releases. The project_id is
+      # pulled from the regenerated google-services.json so the value isn't
+      # hardcoded in YAML; auth uses a Firebase CI token.
+      - name: Deploy Firebase Storage rules
+        if: steps.version.outputs.VERSION != 'none'
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON_B64 secret" >&2
+            exit 1
+          fi
+          if [ -z "$FIREBASE_TOKEN" ]; then
+            echo "Missing FIREBASE_TOKEN secret" >&2
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
+          PROJECT_ID=$(grep -oE '"project_id"[[:space:]]*:[[:space:]]*"[^"]+"' app/google-services.json | head -n1 | sed -E 's/.*"project_id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+          if [ -z "$PROJECT_ID" ]; then
+            echo "Could not extract project_id from google-services.json" >&2
+            exit 1
+          fi
+          echo "Deploying storage rules to Firebase project: $PROJECT_ID"
+          npx firebase-tools@latest deploy --only storage --project "$PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+
       - name: Extract changelog for this version
         id: changelog
+        if: steps.version.outputs.VERSION != 'none'
         run: |
           VERSION="${{ steps.version.outputs.VERSION }}"
           CHANGELOG=$(awk -v ver="## [${VERSION}]" '
@@ -114,37 +181,13 @@ jobs:
             echo 'CHANGELOG<<EOF'
             echo "$CHANGELOG"
             echo EOF
-          } >> $GITHUB_OUTPUT
+          } >> "$GITHUB_OUTPUT"
 
-      # Deploy Firebase Storage rules on tagged releases. The project_id is
-      # pulled from the regenerated google-services.json so the value isn't
-      # hardcoded in YAML; auth uses a Firebase CI token.
-      - name: Deploy Firebase Storage rules
-        env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "$GOOGLE_SERVICES_JSON_B64" ]; then
-            echo "Missing GOOGLE_SERVICES_JSON_B64 secret" >&2
-            exit 1
-          fi
-          if [ -z "$FIREBASE_TOKEN" ]; then
-            echo "Missing FIREBASE_TOKEN secret" >&2
-            exit 1
-          fi
-          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
-          PROJECT_ID=$(grep -oE '"project_id"[[:space:]]*:[[:space:]]*"[^"]+"' app/google-services.json | head -n1 | sed -E 's/.*"project_id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
-          if [ -z "$PROJECT_ID" ]; then
-            echo "Could not extract project_id from google-services.json" >&2
-            exit 1
-          fi
-          echo "Deploying storage rules to Firebase project: $PROJECT_ID"
-          npx firebase-tools@latest deploy --only storage --project "$PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
-
-      - name: Create Release
+      - name: Create GitHub Release
+        if: steps.version.outputs.VERSION != 'none'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
           name: Release ${{ steps.version.outputs.VERSION }}
           body: |
             ## Workout Tracker v${{ steps.version.outputs.VERSION }}

@@ -29,7 +29,9 @@ data class CloudExercise(
     val deleted: Boolean = false,
     val photoUri: String? = null,
     val calorieCategory: String? = null,
-    val sortOrder: Int = Int.MAX_VALUE
+    val sortOrder: Int = Int.MAX_VALUE,
+    val activeInSession: Boolean = true,
+    val categoryId: String? = null
 )
 
 data class CloudWorkoutSession(
@@ -100,7 +102,7 @@ data class CloudMigrationMeta(
     val sessionsCount: Int = 0,
     val sessionExercisesCount: Int = 0,
     val restDaysCount: Int = 0,
-    val schemaVersion: Int = 1
+    val schemaVersion: Int = 2
 )
 
 fun UserMetrics.toCloud() = CloudUserMetrics(
@@ -135,7 +137,9 @@ fun Exercise.toCloud() = CloudExercise(
     deleted = isDeleted,
     photoUri = photoUri,
     calorieCategory = calorieCategory,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    activeInSession = activeInSession,
+    categoryId = categoryId
 )
 
 fun CloudExercise.toLocal() = Exercise(
@@ -150,7 +154,9 @@ fun CloudExercise.toLocal() = Exercise(
     isDeleted = deleted,
     photoUri = photoUri,
     calorieCategory = calorieCategory,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    activeInSession = activeInSession,
+    categoryId = categoryId
 )
 
 fun WorkoutSession.toCloud() = CloudWorkoutSession(
@@ -269,4 +275,31 @@ fun CloudSessionExercise.toLocal() = SessionExercise(
     reps = reps,
     volume = volume,
     sortOrder = sortOrder
+)
+
+data class CloudCategory(
+    val id: String = "",
+    val name: String = "",
+    val iconName: String = "Category",
+    val sortOrder: Int = Int.MAX_VALUE,
+    val isLegacy: Boolean = false,
+    val isDeleted: Boolean = false
+)
+
+fun com.example.workoutapp.model.Category.toCloud() = CloudCategory(
+    id = id,
+    name = name,
+    iconName = iconName,
+    sortOrder = sortOrder,
+    isLegacy = isLegacy,
+    isDeleted = isDeleted
+)
+
+fun CloudCategory.toLocal() = com.example.workoutapp.model.Category(
+    id = id,
+    name = name,
+    iconName = iconName,
+    sortOrder = sortOrder,
+    isLegacy = isLegacy,
+    isDeleted = isDeleted
 )

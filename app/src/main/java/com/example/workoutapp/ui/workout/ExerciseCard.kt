@@ -375,7 +375,7 @@ fun ExerciseCard(
 
                 // Photo area (shown in SESSION and LIST_EXPANDED modes)
                 val photoSpaceHeight = when (cardMode) {
-                    ExerciseCardMode.SESSION -> if (exercise.photoUri != null) 140.dp else 0.dp
+                    ExerciseCardMode.SESSION -> if (exercise.photoUri != null) 180.dp else 0.dp
                     ExerciseCardMode.LIST_COMPACT -> 0.dp
                     ExerciseCardMode.LIST_EXPANDED -> 300.dp
                 }
