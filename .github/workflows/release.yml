@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          path: app/build/outputs/apk/release/app-release.apk
           retention-days: 90
 
   release:
@@ -192,14 +192,14 @@ jobs:
 
             ### Downloads
             - **app-debug.apk**: Debug build for testing
-            - **app-release-unsigned.apk**: Release build (unsigned)
+            - **app-release.apk**: Release build (signed)
 
             ### Installation
             Download the APK and install on your Android device.
             You may need to enable "Install from Unknown Sources" in your device settings.
           files: |
             ./artifacts/app-debug.apk
-            ./artifacts/app-release-unsigned.apk
+            ./artifacts/app-release.apk
           draft: false
           prerelease: false
         env:

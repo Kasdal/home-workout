@@ -43,10 +43,31 @@ android {
         }
     }
 
+    signingConfigs {
+        // Project keystore committed at keystore/release.jks, used for BOTH debug and
+        // release so every build (local, CI debug, CI release) shares one fingerprint.
+        // Register its SHA-1 (BA:3A:D6:BE:43:2E:92:BB:E4:AA:68:D7:0D:BF:A0:B7:E7:84:2A:DC)
+        // in Firebase (Project settings -> Your apps) or Google sign-in fails with a
+        // status-code error on builds signed by any other key.
+        // NOTE: the keystore and its password are public in this repo; fine for
+        // GitHub-release sideloading, NOT acceptable for Play Console (use a private
+        // keystore there).
+        create("release") {
+            storeFile = file("../keystore/release.jks")
+            storePassword = "W0rk0ut!App2026"
+            keyAlias = "workoutapp"
+            keyPassword = "W0rk0ut!App2026"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("release")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

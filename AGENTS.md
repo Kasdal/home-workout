@@ -44,3 +44,4 @@
 
 - Releases are automatic: a push to `master` triggers `.github/workflows/release.yml`, which computes the next version from Conventional Commits (`scripts/next-version.sh`), tags with Axion's `release` task (`v` prefix, root `build.gradle.kts`), then creates the GitHub release. Manual dispatch on that workflow forces a run.
 - `versionName` comes from the SCM tag-derived project version; `versionCode` is derived deterministically from that version (`MAJOR*10000 + MINOR*100 + PATCH`) in `app/build.gradle.kts`. Avoid changing versioning logic casually.
+- Debug and release builds are signed with the committed `keystore/release.jks` (alias `workoutapp`; password in `app/build.gradle.kts`). Keep its SHA-1 registered in Firebase (Project settings -> Your apps) or Google sign-in fails; the keystore is public, so it only suits GitHub-release sideloading, not Play Console.
