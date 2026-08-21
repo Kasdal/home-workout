@@ -41,9 +41,6 @@ jobs:
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
@@ -90,8 +87,7 @@ jobs:
 
       # Required before any Gradle invocation: the Google Services plugin fails
       # configuration when app/google-services.json is missing. The file is
-      # untracked (gitignored), so Axion also needs to ignore uncommitted changes
-      # or its release task would refuse to tag.
+      # gitignored, so it never shows up as a dirty file to Axion's verifyRelease.
       - name: Write google-services.json from GitHub secret
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
@@ -109,12 +105,9 @@ jobs:
           echo "Next version: $NEXT"
           echo "VERSION=$NEXT" >> "$GITHUB_OUTPUT"
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       - name: Create and push tag with Axion
         if: steps.version.outputs.VERSION != 'none'
-        run: ./gradlew release -Prelease.version=${{ steps.version.outputs.VERSION }} -Prelease.pushTags=true -Prelease.ignoreUncommittedChanges=true --console=plain
+        run: ./gradlew release -Prelease.version=${{ steps.version.outputs.VERSION }} -Prelease.pushTags=true --console=plain
 
       - name: Download Debug APK
         if: steps.version.outputs.VERSION != 'none'
