@@ -2,7 +2,7 @@
 
 ## Sources of truth
 
-- Trust Gradle files and app code over `AGENT.MD` and `Architecture.md`; both local docs can lag the codebase.
+- Trust Gradle files and app code over `AGENTS.md` and `Architecture.md`; both local docs can lag the codebase.
 
 ## Structure
 

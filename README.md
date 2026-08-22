@@ -10,6 +10,10 @@ A modern, native Android application designed for tracking strength training wor
 - **Analytics**: View volume trends and workout frequency charts.
 - **Rest Days**: Calendar view to track and manage rest days with notes.
 - **History**: Comprehensive view of past workout sessions.
+- **Cloud Photos**: Exercise photos synced to Firebase Cloud Storage.
+- **Categories**: Organize exercises into user-editable categories with icons.
+- **Auto-Updates**: In-app update notifications and "What's New" release notes.
+- **ESP Sensor**: Optional network sensor for automatic rep counting.
 - **Customization**: Configurable settings for themes (Light/Dark/Auto), sounds, and timers.
 - **Tutorial**: Interactive guide to help new users get started.
 
@@ -19,17 +23,17 @@ A modern, native Android application designed for tracking strength training wor
 - **UI Framework**: [Jetpack Compose](https://developer.android.com/jetbrains/compose) (Material3)
 - **Architecture**: MVVM (Model-View-ViewModel)
 - **Dependency Injection**: [Dagger Hilt](https://dagger.dev/hilt/)
-- **Database**: [Room](https://developer.android.com/training/data-storage/room)
-- **Cloud Backend**: [Firebase Authentication](https://firebase.google.com/docs/auth) + [Cloud Firestore](https://firebase.google.com/docs/firestore)
+- **Database**: [Cloud Firestore](https://firebase.google.com/docs/firestore) + [DataStore](https://developer.android.com/topic/libraries/architecture/datastore) (local app preferences)
+- **Cloud Backend**: [Firebase Authentication](https://firebase.google.com/docs/auth) + [Cloud Firestore](https://firebase.google.com/docs/firestore) + [Cloud Storage](https://firebase.google.com/docs/storage)
 - **Concurrency**: Kotlin Coroutines & Flow
 
 ## ☁️ Cloud Sync Status
 
-- Cloud migration foundation is now implemented.
+- Cloud migration foundation is implemented.
 - App startup requires Google sign-in before entering the main experience.
 - Data sync is user-scoped in Firestore under `users/{uid}/...`.
-- Local Room data is retained as migration safety fallback.
-- Firebase Storage-based photo sync is currently out of scope on Spark plan.
+- Exercise photos sync via Firebase Cloud Storage (compressed client-side, per-user isolation).
+- Legacy local data recovery relies on backup import/export (Room was removed; no local database fallback remains).
 
 See `CHANGELOG.md` for the latest migration milestones and details.
 

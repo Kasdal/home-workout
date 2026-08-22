@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [1.2.1] - 2026-08-21
+
+### Changed
+- Debug and release builds now both sign with the committed `keystore/release.jks`, so every build shares one SHA-1 fingerprint for Firebase Google sign-in.
+
+### Internal
+- `app/build.gradle.kts` points the debug `signingConfig` at the shared `release` signing config; CI no longer depends on a separate debug keystore.
+
 ## [1.2.0] - 2026-06-07
 
 ### Added
@@ -18,6 +26,24 @@ All notable changes to this project are documented in this file.
 - `Exercise` gains `activeInSession` and `categoryId`; mirrored on `CloudExercise` with round-trip mappers.
 - New `CategoryRepository` interface, implemented on `CloudWorkoutRepository`.
 - `CloudMigrationMeta.schemaVersion` bumped to 2.
+
+## [1.1.6] - 2026-06-06
+
+### Added
+- **Cloud-backed exercise photos:** Photos are now stored in Firebase Cloud Storage (1080px JPEG) and follow the user across reinstalls and devices.
+- **Photo upload pipeline:** Pick a photo from the library, it's compressed client-side and uploaded automatically. Success/failure snackbar feedback on the workouts screen.
+- **Lazy legacy migration:** Existing device-local (`content://`) photo URIs are re-uploaded to the cloud on first observation — no one-shot migration, no data loss.
+- **Remove photo:** A "Remove photo" action on the exercise card deletes the cloud file and clears the URI, available only for cloud-stored photos.
+- **Cascade-delete:** Deleting an exercise now cleans up its cloud-stored photo (best-effort) before removing the Firestore document.
+- **Storage security rules:** Firebase Storage rules enforce per-user isolation, a 2MB cap, and `image/*` content type; automatically deployed on tagged releases.
+
+### Changed
+- `WorkoutViewModel` now integrates a `PhotoProcessor` → `PhotoUploader` pipeline and exposes `photoUploadEvents: SharedFlow<PhotoUploadResult>` for UI feedback.
+- `MainViewModel` starts a `LegacyPhotoMigrator` on init to lazily migrate legacy URIs in the background.
+
+### CI
+- Release workflow deploys Firebase Storage rules on every tagged release (requires `FIREBASE_TOKEN` secret).
+- Added `storage.rules` and `firebase.json` at the repo root.
 
 ## [1.1.5] - 2026-06-03
 
@@ -45,21 +71,3 @@ All notable changes to this project are documented in this file.
 
 ### CI
 - Release workflow extracts relevant section from `CHANGELOG.md` for GitHub Release body instead of generic text.
-
-## [1.1.6] - 2026-06-06
-
-### Added
-- **Cloud-backed exercise photos:** Photos are now stored in Firebase Cloud Storage (1080px JPEG) and follow the user across reinstalls and devices.
-- **Photo upload pipeline:** Pick a photo from the library, it's compressed client-side and uploaded automatically. Success/failure snackbar feedback on the workouts screen.
-- **Lazy legacy migration:** Existing device-local (`content://`) photo URIs are re-uploaded to the cloud on first observation — no one-shot migration, no data loss.
-- **Remove photo:** A "Remove photo" action on the exercise card deletes the cloud file and clears the URI, available only for cloud-stored photos.
-- **Cascade-delete:** Deleting an exercise now cleans up its cloud-stored photo (best-effort) before removing the Firestore document.
-- **Storage security rules:** Firebase Storage rules enforce per-user isolation, a 2MB cap, and `image/*` content type; automatically deployed on tagged releases.
-
-### Changed
-- `WorkoutViewModel` now integrates a `PhotoProcessor` → `PhotoUploader` pipeline and exposes `photoUploadEvents: SharedFlow<PhotoUploadResult>` for UI feedback.
-- `MainViewModel` starts a `LegacyPhotoMigrator` on init to lazily migrate legacy URIs in the background.
-
-### CI
-- Release workflow deploys Firebase Storage rules on every tagged release (requires `FIREBASE_TOKEN` secret).
-- Added `storage.rules` and `firebase.json` at the repo root.

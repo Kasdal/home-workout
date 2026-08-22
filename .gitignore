@@ -22,6 +22,7 @@ version.txt
 AGENT.MD
 Architecture.md
 .worktrees/
+docs/improvement-plans/
 
 # Firebase local config
 app/google-services.json
@@ -30,3 +31,4 @@ local.properties
 gradlew
 TODO.md
 /screenshots/
+Architecture.md
