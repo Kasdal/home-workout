@@ -8,6 +8,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+enum class CountdownType {
+    NONE,
+    REST,
+    SWITCH,
+    HOLD
+}
+
 class WorkoutCountdownOrchestrator(
     private val scope: CoroutineScope,
     private val onCountdownWarning: () -> Unit,
@@ -23,11 +30,15 @@ class WorkoutCountdownOrchestrator(
     private val _isTimerPaused = MutableStateFlow(false)
     val isTimerPaused: StateFlow<Boolean> = _isTimerPaused.asStateFlow()
 
+    private val _timerType = MutableStateFlow(CountdownType.NONE)
+    val timerType: StateFlow<CountdownType> = _timerType.asStateFlow()
+
     private var timerJob: Job? = null
 
-    fun startTimer(seconds: Int) {
+    fun startTimer(seconds: Int, type: CountdownType = CountdownType.REST) {
         timerJob?.cancel()
         _timerSeconds.value = seconds
+        _timerType.value = type
         _isTimerRunning.value = true
         _isTimerPaused.value = false
         startTimerJob()
@@ -47,10 +58,21 @@ class WorkoutCountdownOrchestrator(
         startTimerJob()
     }
 
+    fun skipTimer() {
+        if (_timerSeconds.value <= 0 && timerJob?.isActive != true) return
+        timerJob?.cancel()
+        _timerSeconds.value = 0
+        _isTimerRunning.value = false
+        _isTimerPaused.value = false
+        _timerType.value = CountdownType.NONE
+        onTimerComplete()
+    }
+
     fun stopTimer() {
         timerJob?.cancel()
         _isTimerRunning.value = false
         _isTimerPaused.value = false
+        _timerType.value = CountdownType.NONE
     }
 
     private fun startTimerJob() {
@@ -67,6 +89,7 @@ class WorkoutCountdownOrchestrator(
             onTimerComplete()
             _isTimerRunning.value = false
             _isTimerPaused.value = false
+            _timerType.value = CountdownType.NONE
         }
     }
 }

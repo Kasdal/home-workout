@@ -6,6 +6,7 @@ import com.example.workoutapp.data.remote.model.CloudCategory
 import com.example.workoutapp.data.remote.model.toCloud
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import com.example.workoutapp.data.storage.PhotoUploader
+import com.example.workoutapp.data.sync.SyncStatusMonitor
 import com.example.workoutapp.model.Category
 import com.example.workoutapp.model.Exercise
 import io.mockk.coEvery
@@ -33,7 +34,7 @@ class CloudWorkoutRepositoryTest {
         authManager = mockk(relaxed = true)
         firestoreRepository = mockk(relaxed = true)
         photoUploader = mockk(relaxed = true)
-        repository = CloudWorkoutRepository(authManager, firestoreRepository, photoUploader)
+        repository = CloudWorkoutRepository(authManager, firestoreRepository, photoUploader, SyncStatusMonitor())
     }
 
     @Test

@@ -41,6 +41,28 @@ jobs:
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
 
+      # Gate builds (and therefore releases) on the full unit suite.
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Upload unit test results (XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results-xml
+          path: app/build/test-results/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload unit test report (HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report-html
+          path: app/build/reports/tests/testDebugUnitTest/
+          retention-days: 30
+          if-no-files-found: warn
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
@@ -123,10 +145,10 @@ jobs:
           name: app-release
           path: ./artifacts
 
-      # Deploy Firebase Storage rules on releases. The project_id is
-      # pulled from the regenerated google-services.json so the value isn't
-      # hardcoded in YAML; auth uses a Firebase CI token.
-      - name: Deploy Firebase Storage rules
+      # Deploy Firebase Storage and Firestore rules on releases. The
+      # project_id is pulled from the regenerated google-services.json so
+      # the value isn't hardcoded in YAML; auth uses a Firebase CI token.
+      - name: Deploy Firebase Storage and Firestore rules
         if: steps.version.outputs.VERSION != 'none'
         env:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
@@ -147,8 +169,8 @@ jobs:
             echo "Could not extract project_id from google-services.json" >&2
             exit 1
           fi
-          echo "Deploying storage rules to Firebase project: $PROJECT_ID"
-          npx firebase-tools@latest deploy --only storage --project "$PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
+          echo "Deploying storage and firestore rules to Firebase project: $PROJECT_ID"
+          npx firebase-tools@latest deploy --only storage,firestore:rules --project "$PROJECT_ID" --token "$FIREBASE_TOKEN" --non-interactive
 
       - name: Extract changelog for this version
         id: changelog

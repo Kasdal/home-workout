@@ -14,7 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -90,11 +89,17 @@ fun AboutScreen(navController: NavController) {
                             leadingContent = { Icon(Icons.Default.Email, null) }
                         )
                     }
-                    Surface {
-                        ListItem(
-                            headlineContent = { Text("Licenses") },
-                            supportingContent = { Text("Open source libraries used in this app") },
-                            leadingContent = { Icon(Icons.Default.Security, null) }
+                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                        Text(
+                            text = "Open-source licenses",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Built with Kotlin, Jetpack Compose, Firebase, and other open-source libraries.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }

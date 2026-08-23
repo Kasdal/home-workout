@@ -1,6 +1,11 @@
 package com.example.workoutapp.ui.settings
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,12 +18,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.workoutapp.data.sync.SyncState
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.navigation.Screen
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,9 +37,16 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
+    val remindersEnabled by viewModel.remindersEnabled.collectAsState()
     val context = LocalContext.current
     var showRestTimerDialog by remember { mutableStateOf(false) }
     var showSwitchTimerDialog by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.setRemindersEnabled(granted)
+    }
 
     if (showRestTimerDialog) {
         TimerSettingDialog(
@@ -76,6 +93,36 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
+            // Cloud Sync Status Section
+            val syncStatus by viewModel.syncStatus.collectAsState()
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Cloud Sync",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    val lastSyncedText = syncStatus.lastSyncedAtMillis?.let { millis ->
+                        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(millis))
+                    } ?: "Never"
+                    Text(
+                        text = when (syncStatus.state) {
+                            SyncState.SYNCING -> "Syncing…"
+                            SyncState.ERROR -> "Sync problem: ${syncStatus.lastErrorMessage ?: "unknown error"} · Last synced: $lastSyncedText"
+                            SyncState.IDLE -> "Last synced: $lastSyncedText"
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (syncStatus.state == SyncState.ERROR) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
+
             // Sound Settings Section
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -131,6 +178,28 @@ fun SettingsScreen(
                         description = "Play countdown cues during the final 3 seconds.",
                         checked = settings.finalCountdownEnabled,
                         onCheckedChange = { viewModel.setFinalCountdownEnabled(it) }
+                    )
+
+                    SettingsSwitchRow(
+                        title = "Training reminders",
+                        description = "Nudge me after two days without a workout. Scheduled rest days are respected.",
+                        checked = remindersEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                val needsPermission = Build.VERSION.SDK_INT >= 33 &&
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    ) != PackageManager.PERMISSION_GRANTED
+                                if (needsPermission) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    viewModel.setRemindersEnabled(true)
+                                }
+                            } else {
+                                viewModel.setRemindersEnabled(false)
+                            }
+                        }
                     )
 
                     ChoiceChipSelector(
@@ -344,6 +413,16 @@ fun SettingsScreen(
                         enabled = settings.sensorEnabled && !sensorActionInProgress
                     ) {
                         Text(connectionState ?: "Test Connection")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = { navController.navigate(Screen.SensorTest.route) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = settings.sensorEnabled
+                    ) {
+                        Text("Open sensor test screen")
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))

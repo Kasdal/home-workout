@@ -3,7 +3,10 @@ package com.example.workoutapp.ui.history
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,7 +49,9 @@ fun AnalyticsDashboard(
     volumeTrend: List<WeeklyVolumePoint>,
     weeklyFrequency: List<Int>,
     insights: List<WorkoutInsight>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    milestones: List<String> = emptyList(),
+    onSelectExercise: (String) -> Unit = {}
 ) {
     Column(
         modifier = modifier.padding(bottom = 24.dp),
@@ -68,17 +73,103 @@ fun AnalyticsDashboard(
             )
         }
 
+        StreakConsistencyCard(
+            currentStreakDays = personalRecords.currentStreak,
+            workoutsThisWeek = weeklyOverview.workoutsThisWeek,
+            totalWorkouts = personalRecords.totalWorkouts,
+            activeWeeksOfLastFour = weeklyFrequency.count { it > 0 },
+            milestones = milestones
+        )
+
         WeeklyOverviewCard(weeklyOverview)
 
         VolumeTrendChart(volumeTrend)
 
         FrequencyHeatmap(weeklyFrequency, personalRecords)
 
-        ExercisePrTable(exercisePrs)
+        ExercisePrTable(exercisePrs, onSelectExercise)
 
         AllTimeStats(personalRecords)
 
         InsightsSection(insights)
+    }
+}
+
+@Composable
+private fun StreakConsistencyCard(
+    currentStreakDays: Int,
+    workoutsThisWeek: Int,
+    totalWorkouts: Int,
+    activeWeeksOfLastFour: Int,
+    milestones: List<String>
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                StreakStat(value = "$currentStreakDays", label = "Day Streak")
+                StreakStat(value = "$workoutsThisWeek", label = "This Week")
+                StreakStat(value = "$totalWorkouts", label = "Total")
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "$activeWeeksOfLastFour of the last 4 weeks active",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            if (milestones.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    milestones.forEach { milestone ->
+                        Text(
+                            text = milestone,
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(50)
+                                )
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreakStat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = NeonGreen
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -391,7 +482,7 @@ private fun FrequencyHeatmap(frequency: List<Int>, personalRecords: PersonalReco
 }
 
 @Composable
-private fun ExercisePrTable(prs: List<ExercisePr>) {
+private fun ExercisePrTable(prs: List<ExercisePr>, onSelectExercise: (String) -> Unit) {
     if (prs.isEmpty()) return
 
     Card(
@@ -409,7 +500,7 @@ private fun ExercisePrTable(prs: List<ExercisePr>) {
                 color = NeonGreen
             )
             Text(
-                text = "Best weights by exercise",
+                text = "Tap an exercise to see its trends",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
@@ -420,6 +511,7 @@ private fun ExercisePrTable(prs: List<ExercisePr>) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable { onSelectExercise(pr.name) }
                         .padding(vertical = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically

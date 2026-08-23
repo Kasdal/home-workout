@@ -22,7 +22,7 @@ class MigrationOrchestrator @Inject constructor(
         return runCatching {
             val initialMeta = firestoreRepository.getMigrationMeta(uid)
             if (initialMeta != null && initialMeta.schemaVersion < 2) {
-                SEED_CATEGORIES.forEach { categoryRepository.upsertCategory(it) }
+                seedDefaultCategoriesIfNeeded()
                 categoryRepository.backfillLegacyAssignments(legacyCategoryId = Category.LEGACY_ID)
                 firestoreRepository.setMigrationMeta(uid, initialMeta.copy(schemaVersion = 2))
             }
@@ -58,6 +58,7 @@ class MigrationOrchestrator @Inject constructor(
             val result = if (hasRemoteData) {
                 MigrationBootstrapResult.READY
             } else {
+                seedDefaultCategoriesIfNeeded()
                 firestoreRepository.setMigrationMeta(
                     uid,
                     CloudMigrationMeta(
@@ -69,7 +70,7 @@ class MigrationOrchestrator @Inject constructor(
                         sessionsCount = 0,
                         sessionExercisesCount = 0,
                         restDaysCount = 0,
-                        schemaVersion = 1
+                        schemaVersion = 2
                     )
                 )
                 MigrationBootstrapResult.NEEDS_BACKUP_IMPORT
@@ -109,9 +110,18 @@ class MigrationOrchestrator @Inject constructor(
                     sessionsCount = existingMeta?.sessionsCount ?: 0,
                     sessionExercisesCount = existingMeta?.sessionExercisesCount ?: 0,
                     restDaysCount = existingMeta?.restDaysCount ?: 0,
-                    schemaVersion = existingMeta?.schemaVersion ?: 1
+                    schemaVersion = existingMeta?.schemaVersion ?: 2
                 )
             )
+        }
+    }
+
+    private suspend fun seedDefaultCategoriesIfNeeded() {
+        val existingIds = categoryRepository.getActiveCategories().map { it.id }.toSet()
+        SEED_CATEGORIES.forEach { seed ->
+            if (seed.id !in existingIds) {
+                categoryRepository.upsertCategory(seed)
+            }
         }
     }
 

@@ -9,6 +9,7 @@ import com.example.workoutapp.model.Settings
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.model.WorkoutStats
+import com.example.workoutapp.model.WorkoutTemplate
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.remote.model.CloudCategory
 import com.example.workoutapp.data.remote.model.toCloud
@@ -16,6 +17,7 @@ import com.example.workoutapp.data.remote.model.toLocal
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsStore
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import com.example.workoutapp.data.storage.PhotoUploader
+import com.example.workoutapp.data.sync.SyncStatusMonitor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -28,8 +30,13 @@ import javax.inject.Inject
 class CloudWorkoutRepository @Inject constructor(
     private val authManager: AuthManager,
     private val firestoreRepository: FirestoreRepository,
-    private val photoUploader: PhotoUploader
-) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore, CategoryRepository {
+    private val photoUploader: PhotoUploader,
+    private val syncStatusMonitor: SyncStatusMonitor
+) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore, CategoryRepository, TemplateRepository {
+
+    private suspend fun <T> tracked(block: suspend () -> T): T {
+        return syncStatusMonitor.track(block)
+    }
 
     override fun getUserMetrics(): Flow<UserMetrics?> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(null) else firestoreRepository.observeUserMetrics(user.uid)
@@ -39,23 +46,23 @@ class CloudWorkoutRepository @Inject constructor(
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeAllUserMetrics(user.uid)
     }
 
-    override suspend fun saveUserMetrics(metrics: UserMetrics) {
+    override suspend fun saveUserMetrics(metrics: UserMetrics) = tracked {
         firestoreRepository.saveUserMetrics(requireUid(), metrics)
     }
 
-    override suspend fun addUserMetrics(metrics: UserMetrics) {
+    override suspend fun addUserMetrics(metrics: UserMetrics) = tracked {
         firestoreRepository.addUserMetrics(requireUid(), metrics)
     }
 
-    override suspend fun updateUserMetrics(metrics: UserMetrics) {
+    override suspend fun updateUserMetrics(metrics: UserMetrics) = tracked {
         firestoreRepository.updateUserMetrics(requireUid(), metrics)
     }
 
-    override suspend fun setActiveProfile(profileId: Int) {
+    override suspend fun setActiveProfile(profileId: Int) = tracked {
         firestoreRepository.setActiveProfile(requireUid(), profileId)
     }
 
-    override suspend fun deleteUserMetrics(profileId: Int) {
+    override suspend fun deleteUserMetrics(profileId: Int) = tracked {
         firestoreRepository.deleteUserMetrics(requireUid(), profileId)
     }
 
@@ -63,15 +70,15 @@ class CloudWorkoutRepository @Inject constructor(
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeExercises(user.uid)
     }
 
-    override suspend fun addExercise(exercise: Exercise) {
+    override suspend fun addExercise(exercise: Exercise) = tracked {
         firestoreRepository.upsertExercise(requireUid(), exercise)
     }
 
-    override suspend fun updateExercise(exercise: Exercise) {
+    override suspend fun updateExercise(exercise: Exercise) = tracked {
         firestoreRepository.upsertExercise(requireUid(), exercise)
     }
 
-    override suspend fun deleteExercise(exerciseId: Int) {
+    override suspend fun deleteExercise(exerciseId: Int) = tracked {
         runCatching { photoUploader.deleteExercisePhoto(exerciseId) }
         firestoreRepository.markExerciseDeleted(requireUid(), exerciseId)
     }
@@ -88,11 +95,11 @@ class CloudWorkoutRepository @Inject constructor(
         if (user == null) flowOf(null) else firestoreRepository.observeWorkoutStats(user.uid)
     }
 
-    override suspend fun saveSession(session: WorkoutSession): Long {
-        return firestoreRepository.saveSession(requireUid(), session)
+    override suspend fun saveSession(session: WorkoutSession): Long = tracked {
+        firestoreRepository.saveSession(requireUid(), session)
     }
 
-    override suspend fun deleteSession(sessionId: Int) {
+    override suspend fun deleteSession(sessionId: Int) = tracked {
         firestoreRepository.deleteSession(requireUid(), sessionId)
     }
 
@@ -107,7 +114,7 @@ class CloudWorkoutRepository @Inject constructor(
         }
     }
 
-    override suspend fun saveSyncedWorkoutSettings(settings: WorkoutSessionSettings) {
+    override suspend fun saveSyncedWorkoutSettings(settings: WorkoutSessionSettings) = tracked {
         firestoreRepository.saveSyncedWorkoutSettings(requireUid(), settings)
     }
 
@@ -115,11 +122,11 @@ class CloudWorkoutRepository @Inject constructor(
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeRestDays(user.uid)
     }
 
-    override suspend fun addRestDay(restDay: RestDay) {
+    override suspend fun addRestDay(restDay: RestDay) = tracked {
         firestoreRepository.addRestDay(requireUid(), restDay)
     }
 
-    override suspend fun deleteRestDay(restDayId: Int) {
+    override suspend fun deleteRestDay(restDayId: Int) = tracked {
         firestoreRepository.deleteRestDay(requireUid(), restDayId)
     }
 
@@ -127,7 +134,7 @@ class CloudWorkoutRepository @Inject constructor(
         return firestoreRepository.getRestDayByDate(requireUid(), date)
     }
 
-    override suspend fun saveSessionExercises(exercises: List<SessionExercise>) {
+    override suspend fun saveSessionExercises(exercises: List<SessionExercise>) = tracked {
         firestoreRepository.saveSessionExercises(requireUid(), exercises)
     }
 
@@ -155,11 +162,11 @@ class CloudWorkoutRepository @Inject constructor(
     override suspend fun getActiveCategories(): List<Category> =
         firestoreRepository.observeActiveCategories(requireUid()).first().map { it.toLocal() }
 
-    override suspend fun upsertCategory(category: Category) {
+    override suspend fun upsertCategory(category: Category) = tracked {
         firestoreRepository.upsertCategory(requireUid(), category.toCloud())
     }
 
-    override suspend fun deleteAndReassign(categoryId: String, reassignToCategoryId: String) {
+    override suspend fun deleteAndReassign(categoryId: String, reassignToCategoryId: String) = tracked {
         if (categoryId == Category.LEGACY_ID) {
             throw IllegalStateException("Cannot delete the protected legacy category")
         }
@@ -167,8 +174,21 @@ class CloudWorkoutRepository @Inject constructor(
         firestoreRepository.markCategoryDeleted(requireUid(), categoryId)
     }
 
-    override suspend fun backfillLegacyAssignments(legacyCategoryId: String) {
+    override suspend fun backfillLegacyAssignments(legacyCategoryId: String) = tracked {
         firestoreRepository.markExercisesWithCategory(requireUid(), oldCategoryId = "", newCategoryId = legacyCategoryId)
+    }
+
+    override fun observeTemplates(): Flow<List<WorkoutTemplate>> = authManager.currentUser.flatMapLatest { user ->
+        if (user == null) flowOf(emptyList())
+        else firestoreRepository.observeTemplates(user.uid).map { clouds -> clouds.map { it.toLocal() } }
+    }
+
+    override suspend fun saveTemplate(template: WorkoutTemplate) = tracked {
+        firestoreRepository.saveTemplate(requireUid(), template.toCloud())
+    }
+
+    override suspend fun deleteTemplate(templateId: String) = tracked {
+        firestoreRepository.deleteTemplate(requireUid(), templateId)
     }
 
     private fun requireUid(): String {

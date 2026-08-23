@@ -8,5 +8,8 @@ data class SessionExercise(
     val sets: Int,
     val reps: Int,
     val volume: Float, // sets × reps × weight
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    val rpe: Int? = null,
+    val notes: String? = null,
+    val isWarmUp: Boolean = false
 )

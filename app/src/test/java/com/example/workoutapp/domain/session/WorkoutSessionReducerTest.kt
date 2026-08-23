@@ -47,7 +47,7 @@ class WorkoutSessionReducerTest {
 
         assertEquals(2, result.completedSets[1])
         assertEquals(null, result.activeExerciseSelection.activeExerciseId)
-        assertEquals(PostSetTimerRequest.Start(90), result.timerRequest)
+        assertEquals(PostSetTimerRequest.Start(90, CountdownType.SWITCH), result.timerRequest)
     }
 
     @Test
@@ -64,7 +64,7 @@ class WorkoutSessionReducerTest {
             exerciseSwitchDuration = 90
         )
 
-        assertEquals(PostSetTimerRequest.Start(45), result.timerRequest)
+        assertEquals(PostSetTimerRequest.Start(45, CountdownType.HOLD), result.timerRequest)
         assertEquals(ExerciseSessionMode.HOLD_TIMER, result.activeExerciseSelection.activeExerciseMode)
     }
 
@@ -95,5 +95,61 @@ class WorkoutSessionReducerTest {
 
         assertEquals(2, selection.activeExerciseId)
         assertEquals(ExerciseSessionMode.SENSOR_REPS, selection.activeExerciseMode)
+    }
+
+    @Test
+    fun `skipExercise advances past the current exercise without changing completed sets`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 100f, reps = 10, sets = 4),
+            Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 3)
+        )
+
+        val result = reducer.skipExercise(
+            exercises = exercises,
+            completedSets = mapOf(1 to 1),
+            exerciseId = 1,
+            exerciseSwitchDuration = 90,
+            skippedExerciseIds = emptySet()
+        )
+
+        assertEquals(1, result.completedSets[1])
+        assertEquals(2, result.activeExerciseSelection.activeExerciseId)
+        assertEquals(PostSetTimerRequest.Start(90, CountdownType.SWITCH), result.timerRequest)
+    }
+
+    @Test
+    fun `skipped exercises are excluded from active selection`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 100f, reps = 10, sets = 4),
+            Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 3),
+            Exercise(id = 3, name = "Row", weight = 80f, reps = 8, sets = 3)
+        )
+
+        val selection = reducer.selectActiveExercise(
+            exercises,
+            completedSets = emptyMap(),
+            skippedExerciseIds = setOf(1)
+        )
+
+        assertEquals(2, selection.activeExerciseId)
+    }
+
+    @Test
+    fun `finishExercise marks all sets complete and starts switch timer`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 100f, reps = 10, sets = 4),
+            Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 3)
+        )
+
+        val result = reducer.finishExercise(
+            exercises = exercises,
+            completedSets = mapOf(1 to 2),
+            exerciseId = 1,
+            exerciseSwitchDuration = 90
+        )
+
+        assertEquals(4, result.completedSets[1])
+        assertEquals(2, result.activeExerciseSelection.activeExerciseId)
+        assertEquals(PostSetTimerRequest.Start(90, CountdownType.SWITCH), result.timerRequest)
     }
 }

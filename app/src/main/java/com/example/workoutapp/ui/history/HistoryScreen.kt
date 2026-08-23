@@ -1,6 +1,5 @@
 package com.example.workoutapp.ui.history
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,6 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -53,9 +53,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.ui.components.BottomNavBar
+import com.example.workoutapp.ui.components.ExerciseTrendDialog
 import com.example.workoutapp.ui.theme.NeonGreen
+import com.example.workoutapp.util.formatDuration
+import com.example.workoutapp.util.formatKg
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -68,8 +72,11 @@ fun HistoryScreen(
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
     val sessions by viewModel.sessions.collectAsState(initial = emptyList())
+    val selectedSession by viewModel.selectedSession.collectAsState()
+    val selectedSessionExercises by viewModel.selectedSessionExercises.collectAsState(initial = emptyList())
     var selectedDate by remember { mutableStateOf<Calendar?>(null) }
     var currentMonth by remember { mutableStateOf(Calendar.getInstance()) }
+    var trendExerciseName by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -98,6 +105,7 @@ fun HistoryScreen(
         bestWeek = 0, totalWorkouts = 0
     ))
     val exercisePrs by viewModel.exercisePrs.collectAsState(initial = emptyList())
+    val milestones by viewModel.milestones.collectAsState(initial = emptyList())
     val volumeTrend by viewModel.volumeTrend.collectAsState(initial = emptyList())
     val weeklyFrequency by viewModel.weeklyFrequency.collectAsState(initial = listOf(0, 0, 0, 0))
     val insights by viewModel.insights.collectAsState(initial = emptyList())
@@ -109,6 +117,12 @@ fun HistoryScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
+        if (sessions.isEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            EmptyHistoryCard(modifier = Modifier.padding(horizontal = 20.dp))
+            return@Column
+        }
+
         Spacer(modifier = Modifier.height(8.dp))
 
         AnalyticsDashboard(
@@ -118,7 +132,9 @@ fun HistoryScreen(
             volumeTrend = volumeTrend,
             weeklyFrequency = weeklyFrequency,
             insights = insights,
-            modifier = Modifier.padding(horizontal = 0.dp)
+            modifier = Modifier.padding(horizontal = 0.dp),
+            milestones = milestones,
+            onSelectExercise = { trendExerciseName = it }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -211,6 +227,7 @@ fun HistoryScreen(
                 dateSessions.forEach { session: WorkoutSession ->
                     SessionCard(
                         session = session,
+                        onClick = { viewModel.openSessionDetail(session) },
                         onDelete = { viewModel.deleteSession(session.id) }
                     )
                 }
@@ -232,6 +249,26 @@ fun HistoryScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
     }
+    }
+
+    val openSession = selectedSession
+    if (openSession != null) {
+        ModalBottomSheet(onDismissRequest = { viewModel.closeSessionDetail() }) {
+            SessionDetailContent(
+                session = openSession,
+                exercises = selectedSessionExercises
+            )
+        }
+    }
+
+    val trendExercise = trendExerciseName
+    if (trendExercise != null) {
+        val trendPoints by viewModel.exerciseTrend(trendExercise).collectAsState(initial = emptyList())
+        ExerciseTrendDialog(
+            exerciseName = trendExercise,
+            points = trendPoints,
+            onDismiss = { trendExerciseName = null }
+        )
     }
 }
 
@@ -266,40 +303,47 @@ private fun CalendarGrid(
                 for (col in 0..6) {
                     val cellIndex = row * 7 + col
                     val dayIndex = cellIndex - leadingEmpty
+                    val day = daysInMonth.getOrNull(dayIndex)
+
+                    if (day == null) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        )
+                        return@Row
+                    }
+
+                    val isToday = isSameDay(day, Calendar.getInstance())
+                    val hasWorkout = sessionsInMonth.any { isSameDay(it.date, day) }
+                    val isSelected = selectedDate != null && isSameDay(selectedDate!!, day)
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .clickable { onDateSelected(day) },
                         contentAlignment = Alignment.Center
                     ) {
-                        if (dayIndex in daysInMonth.indices) {
-                            val day = daysInMonth[dayIndex]
-                            val isToday = isSameDay(day, Calendar.getInstance())
-                            val hasWorkout = sessionsInMonth.any { isSameDay(it.date, day) }
-                            val isSelected = selectedDate != null && isSameDay(selectedDate!!, day)
-
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        when {
-                                            isSelected -> NeonGreen
-                                            hasWorkout -> NeonGreen.copy(alpha = 0.5f)
-                                            isToday -> MaterialTheme.colorScheme.outlineVariant
-                                            else -> Color.Transparent
-                                        }
-                                    )
-                                    .clickable { onDateSelected(day) },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = day.get(Calendar.DAY_OF_MONTH).toString(),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onBackground
-                                )
-                            }
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        isSelected -> NeonGreen
+                                        hasWorkout -> NeonGreen.copy(alpha = 0.5f)
+                                        isToday -> MaterialTheme.colorScheme.outlineVariant
+                                        else -> Color.Transparent
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = day.get(Calendar.DAY_OF_MONTH).toString(),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isSelected) Color.Black else MaterialTheme.colorScheme.onBackground
+                            )
                         }
                     }
                 }
@@ -310,7 +354,11 @@ private fun CalendarGrid(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
+fun SessionCard(
+    session: WorkoutSession,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
@@ -342,7 +390,7 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 4.dp)
             .combinedClickable(
-                onClick = {},
+                onClick = onClick,
                 onLongClick = { showDeleteDialog = true }
             ),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
@@ -355,7 +403,7 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
             ) {
                 Text("Time: ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(session.date))}")
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${session.durationSeconds / 60} mins")
+                    Text(formatDuration(session.durationSeconds))
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Delete,
@@ -370,9 +418,189 @@ fun SessionCard(session: WorkoutSession, onDelete: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Weight: ${session.totalWeightLifted} kg", color = NeonGreen)
+                Text("Weight: ${formatKg(session.totalWeightLifted)}", color = NeonGreen)
                 Text("Cals: ${String.format("%.0f", session.caloriesBurned)}")
             }
+        }
+    }
+}
+
+@Composable
+private fun SessionDetailContent(
+    session: WorkoutSession,
+    exercises: List<SessionExercise>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 24.dp)
+    ) {
+        Text(
+            text = SimpleDateFormat("EEEE, MMM dd yyyy", Locale.getDefault()).format(Date(session.date)),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Started at ${SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(session.date))}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            SessionStat(label = "Duration", value = formatDuration(session.durationSeconds))
+            SessionStat(label = "Volume", value = formatKg(session.totalWeightLifted))
+            SessionStat(label = "Calories", value = String.format("%.0f", session.caloriesBurned))
+        }
+
+        if (session.rpe != null || !session.notes.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (session.rpe != null) {
+                    Text(
+                        text = "Session RPE: ${session.rpe}/10",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                if (!session.notes.isNullOrBlank()) {
+                    Text(
+                        text = session.notes!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Text(
+            text = "Exercises",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val workingExercises = exercises.sortedBy { it.sortOrder }.filterNot { it.isWarmUp }
+        val warmUpExercises = exercises.sortedBy { it.sortOrder }.filter { it.isWarmUp }
+        if (exercises.isEmpty()) {
+            Text(
+                text = "No exercise data was recorded for this session.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            workingExercises.forEachIndexed { index, exercise ->
+                if (index > 0) {
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                }
+                SessionExerciseRow(exercise = exercise)
+            }
+
+            if (warmUpExercises.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Warm-up",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                warmUpExercises.forEach { exercise ->
+                    SessionExerciseRow(exercise = exercise)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionStat(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = NeonGreen
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SessionExerciseRow(exercise: SessionExercise) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = exercise.exerciseName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                if (exercise.rpe != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "RPE ${exercise.rpe}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NeonGreen
+                    )
+                }
+            }
+            Text(
+                text = "${exercise.sets} × ${exercise.reps} @ ${formatKg(exercise.weight)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (!exercise.notes.isNullOrBlank()) {
+                Text(
+                    text = exercise.notes!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Text(
+            text = formatKg(exercise.volume),
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = NeonGreen
+        )
+    }
+}
+
+@Composable
+private fun EmptyHistoryCard(modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(
+                text = "No workouts yet",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Complete your first session and it will show up here with trends, records, and a per-exercise breakdown.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -400,147 +628,3 @@ fun isSameDay(timestamp: Long, cal: Calendar): Boolean {
     return isSameDay(c, cal)
 }
 
-@Composable
-fun StatisticsSection(sessions: List<WorkoutSession>) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Trends",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Total Volume (Last 10 Sessions)",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = NeonGreen
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                VolumeChart(sessions = sessions)
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Weekly Frequency (Last 4 Weeks)",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = NeonGreen
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                FrequencyChart(sessions = sessions)
-            }
-        }
-    }
-}
-
-@Composable
-fun VolumeChart(sessions: List<WorkoutSession>) {
-    val sortedSessions = sessions.sortedBy { it.date }.takeLast(10)
-    if (sortedSessions.isEmpty()) {
-        Text("No data available", style = MaterialTheme.typography.bodyMedium)
-        return
-    }
-
-    val maxVolume = sortedSessions.maxOfOrNull { it.totalWeightLifted } ?: 1f
-
-    androidx.compose.foundation.Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp)
-    ) {
-        val width = size.width
-        val height = size.height
-        val spacing = width / (sortedSessions.size - 1).coerceAtLeast(1)
-
-        val path = androidx.compose.ui.graphics.Path()
-        sortedSessions.forEachIndexed { index, session ->
-            val x = index * spacing
-            val y = height - (session.totalWeightLifted / maxVolume * height)
-
-            if (index == 0) {
-                path.moveTo(x, y)
-            } else {
-                path.lineTo(x, y)
-            }
-
-            drawCircle(
-                color = NeonGreen,
-                radius = 4.dp.toPx(),
-                center = androidx.compose.ui.geometry.Offset(x, y)
-            )
-        }
-
-        drawPath(
-            path = path,
-            color = NeonGreen,
-            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-        )
-    }
-}
-
-@Composable
-fun FrequencyChart(sessions: List<WorkoutSession>) {
-    val currentCal = Calendar.getInstance()
-    val weeks = (0..3).map { offset ->
-        val weekStart = currentCal.clone() as Calendar
-        weekStart.add(Calendar.WEEK_OF_YEAR, -offset)
-        weekStart.set(Calendar.DAY_OF_WEEK, weekStart.getFirstDayOfWeek())
-
-        val weekEnd = weekStart.clone() as Calendar
-        weekEnd.add(Calendar.DAY_OF_WEEK, 6)
-
-        val count = sessions.count { session ->
-            val sessionCal = Calendar.getInstance().apply { timeInMillis = session.date }
-            sessionCal.timeInMillis >= weekStart.timeInMillis &&
-            sessionCal.timeInMillis <= weekEnd.timeInMillis
-        }
-        count
-    }.reversed()
-
-    val maxFreq = weeks.maxOrNull()?.coerceAtLeast(1) ?: 1
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.Bottom
-    ) {
-        weeks.forEachIndexed { index, count ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom,
-                modifier = Modifier.fillMaxHeight()
-            ) {
-                Text(
-                    text = count.toString(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = NeonGreen
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Box(
-                    modifier = Modifier
-                        .width(20.dp)
-                        .fillMaxHeight(count.toFloat() / maxFreq)
-                        .background(NeonGreen, shape = MaterialTheme.shapes.small)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "W${4-index}",
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-        }
-    }
-}

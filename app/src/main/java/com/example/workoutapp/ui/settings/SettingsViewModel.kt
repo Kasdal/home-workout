@@ -1,14 +1,20 @@
 package com.example.workoutapp.ui.settings
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.workoutapp.data.notifications.ReminderScheduler
+import com.example.workoutapp.data.notifications.isReminderEnabled
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.SensorRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
 import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
+import com.example.workoutapp.data.sync.SyncStatus
+import com.example.workoutapp.data.sync.SyncStatusMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,23 +25,36 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    @ApplicationContext private val appContext: Context,
     private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val exerciseRepository: ExerciseRepository,
     private val sessionHistoryRepository: SessionHistoryRepository,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
     private val soundManager: com.example.workoutapp.util.SoundManager,
-    private val sensorRepository: SensorRepository
+    private val sensorRepository: SensorRepository,
+    syncStatusMonitor: SyncStatusMonitor
 ) : ViewModel() {
 
     private val _settings = MutableStateFlow(SettingsScreenState())
     val settings: StateFlow<SettingsScreenState> = _settings.asStateFlow()
 
+    private val _remindersEnabled = MutableStateFlow(false)
+    val remindersEnabled: StateFlow<Boolean> = _remindersEnabled.asStateFlow()
+
     private val _sensorConnectionState = MutableStateFlow<String?>(null)
     val sensorConnectionState: StateFlow<String?> = _sensorConnectionState.asStateFlow()
 
+    val syncStatus: StateFlow<SyncStatus> = syncStatusMonitor.status
+
     init {
         loadSettings()
+        _remindersEnabled.value = isReminderEnabled(appContext)
+    }
+
+    fun setRemindersEnabled(enabled: Boolean) {
+        _remindersEnabled.value = enabled
+        ReminderScheduler.setEnabled(appContext, enabled)
     }
 
     private fun loadSettings() {

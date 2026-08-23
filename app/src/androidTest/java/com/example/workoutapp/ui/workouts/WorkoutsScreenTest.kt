@@ -32,6 +32,7 @@ class WorkoutsScreenTest {
         composeTestRule.setContent {
             WorkoutsScreenContent(
                 exercises = exercises,
+                categories = emptyList(),
                 snackbarHostState = remember { SnackbarHostState() },
                 onNavigateToRoute = { _: String -> },
                 onAddExercise = { _: Exercise -> },
@@ -39,7 +40,8 @@ class WorkoutsScreenTest {
                 onDeleteExercise = { _: Int -> },
                 onUpdateExercisePhoto = { _: Int, _: Uri -> },
                 getExerciseHistory = { _: String -> flowOf(emptyList()) },
-                onReorderExercises = { _: List<Exercise> -> }
+                onReorderExercises = { _: List<Exercise> -> },
+                onSetExerciseCategory = { _: Exercise, _: String? -> }
             )
         }
 

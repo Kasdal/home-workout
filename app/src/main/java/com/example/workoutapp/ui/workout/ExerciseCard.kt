@@ -7,7 +7,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
@@ -40,6 +42,7 @@ import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.ui.theme.NeonGreen
+import com.example.workoutapp.util.formatKg
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -62,6 +65,13 @@ fun ExerciseCard(
     onRemovePhoto: (() -> Unit)? = null,
     onResetSensorCounter: (() -> Unit)? = null,
     activeExerciseMode: ExerciseSessionMode? = null,
+    historyProvider: ((String) -> kotlinx.coroutines.flow.Flow<List<com.example.workoutapp.model.SessionExercise>>)? = null,
+    warmUpOnly: Boolean = false,
+    onWarmUpOnlyChange: ((Boolean) -> Unit)? = null,
+    rpe: Int? = null,
+    onRpeChange: ((Int?) -> Unit)? = null,
+    note: String = "",
+    onNoteChange: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
@@ -206,14 +216,19 @@ fun ExerciseCard(
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 // Compact header: Name, Weight controls, and Checkmarks in one row
+                val headerInteraction = if (cardMode == ExerciseCardMode.SESSION) {
+                    Modifier
+                } else {
+                    Modifier.combinedClickable(
+                        onClick = { showEditDialog = true },
+                        onLongClick = { showEditDialog = true }
+                    )
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp) // Fixed height to prevent layout shift
-                        .combinedClickable(
-                            onClick = {},
-                            onLongClick = { showEditDialog = true }
-                        ),
+                        .then(headerInteraction),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -228,8 +243,14 @@ fun ExerciseCard(
                             modifier = Modifier.weight(1f),
                             maxLines = 1
                         )
-                        if (cardMode != ExerciseCardMode.SESSION) {
-                            IconButton(onClick = { showEditDialog = true }, modifier = Modifier.size(32.dp)) {
+                if (cardMode == ExerciseCardMode.SESSION && historyProvider != null) {
+                    val historyFlow = remember(exercise.name) { historyProvider.invoke(exercise.name) }
+                    val history by historyFlow.collectAsState(initial = emptyList())
+                    PreviousPerformanceLine(history = history)
+                }
+
+                if (cardMode != ExerciseCardMode.SESSION) {
+                            IconButton(onClick = { showEditDialog = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
                                     contentDescription = "Edit exercise",
@@ -245,31 +266,29 @@ fun ExerciseCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) },
-                            modifier = Modifier.size(28.dp)
+                            onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Remove,
-                                contentDescription = "-5kg",
+                                contentDescription = "Decrease weight by 5 kg",
                                 tint = MaterialTheme.colorScheme.error,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
                         
                         Text(
-                            text = "${exercise.weight} kg",
+                            text = formatKg(exercise.weight),
                             style = MaterialTheme.typography.titleMedium,
                             color = NeonGreen,
                             fontWeight = FontWeight.Bold
                         )
                         
                         IconButton(
-                            onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) },
-                            modifier = Modifier.size(28.dp)
+                            onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "+5kg",
+                                contentDescription = "Increase weight by 5 kg",
                                 tint = NeonGreen,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -340,6 +359,18 @@ fun ExerciseCard(
                     }
                 }
 
+                if (cardMode == ExerciseCardMode.SESSION && onWarmUpOnlyChange != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SessionLoggingSection(
+                        warmUpOnly = warmUpOnly,
+                        onWarmUpOnlyChange = onWarmUpOnlyChange,
+                        rpe = rpe,
+                        onRpeChange = onRpeChange,
+                        note = note,
+                        onNoteChange = onNoteChange
+                    )
+                }
+
                 if (cardMode != ExerciseCardMode.SESSION) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
@@ -375,7 +406,7 @@ fun ExerciseCard(
 
                 // Photo area (shown in SESSION and LIST_EXPANDED modes)
                 val photoSpaceHeight = when (cardMode) {
-                    ExerciseCardMode.SESSION -> if (exercise.photoUri != null) 180.dp else 0.dp
+                    ExerciseCardMode.SESSION -> if (exercise.photoUri != null) 140.dp else 0.dp
                     ExerciseCardMode.LIST_COMPACT -> 0.dp
                     ExerciseCardMode.LIST_EXPANDED -> 300.dp
                 }
@@ -745,6 +776,121 @@ private fun exerciseSummary(exercise: Exercise): String {
     return when (exercise.exerciseType) {
         ExerciseType.HOLD.name -> "${exercise.sets} sets × ${exercise.holdDurationSeconds}s hold"
         ExerciseType.BODYWEIGHT.name -> "${exercise.sets} sets × ${exercise.reps} reps (bodyweight)"
-        else -> "${exercise.sets} sets × ${exercise.reps} reps @ ${exercise.weight}kg"
+        else -> "${exercise.sets} sets × ${exercise.reps} reps @ ${formatKg(exercise.weight)}"
+    }
+}
+
+@Composable
+private fun PreviousPerformanceLine(history: List<com.example.workoutapp.model.SessionExercise>) {
+    if (history.isEmpty()) {
+        Text(
+            text = "First time here - good luck!",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        return
+    }
+
+    val last = history.first()
+    val best = history.maxByOrNull { it.volume }
+    val holdsPr = remember(history) {
+        com.example.workoutapp.domain.stats.MilestoneCalculator.holdsPersonalRecord(history)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Text(
+                text = "Last: ${last.sets} x ${last.reps} @ ${formatWeightKg(last.weight)}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (holdsPr) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "PR",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier
+                        .background(NeonGreen, shape = androidx.compose.foundation.shape.RoundedCornerShape(50))
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                )
+            }
+        }
+        if (best != null) {
+            Text(
+                text = "Best: ${formatWeightKg(best.volume)}",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+
+private fun formatWeightKg(value: Float): String {
+    return if (value % 1f == 0f) "${value.toInt()} kg" else String.format(java.util.Locale.US, "%.1f kg", value)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SessionLoggingSection(
+    warmUpOnly: Boolean,
+    onWarmUpOnlyChange: (Boolean) -> Unit,
+    rpe: Int?,
+    onRpeChange: ((Int?) -> Unit)?,
+    note: String,
+    onNoteChange: ((String) -> Unit)?
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilterChip(
+                selected = warmUpOnly,
+                onClick = { onWarmUpOnlyChange(!warmUpOnly) },
+                label = { Text("Warm-up only") }
+            )
+            if (onRpeChange != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    (1..10).forEach { value ->
+                        FilterChip(
+                            selected = rpe == value,
+                            onClick = { onRpeChange(if (rpe == value) null else value) },
+                            label = { Text("$value") }
+                        )
+                    }
+                }
+            }
+        }
+        if (onRpeChange != null) {
+            Text(
+                text = "RPE",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (onNoteChange != null) {
+            OutlinedTextField(
+                value = note,
+                onValueChange = onNoteChange,
+                label = { Text("Exercise note (optional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

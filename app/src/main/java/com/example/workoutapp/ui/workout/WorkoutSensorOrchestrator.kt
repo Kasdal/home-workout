@@ -17,8 +17,18 @@ data class WorkoutSensorSnapshot(
     val reps: Int = 0,
     val state: String = "REST",
     val distance: Int = 0,
-    val connected: Boolean = false
+    val connected: Boolean = false,
+    val quality: SensorConnectionQuality = SensorConnectionQuality.LOST
 )
+
+enum class SensorConnectionQuality { GOOD, WEAK, LOST }
+
+/** Maps consecutive failed polls to a connection-quality bucket. */
+fun qualityForConsecutiveFailures(consecutiveFailures: Int): SensorConnectionQuality = when {
+    consecutiveFailures <= 0 -> SensorConnectionQuality.GOOD
+    consecutiveFailures < 3 -> SensorConnectionQuality.WEAK
+    else -> SensorConnectionQuality.LOST
+}
 
 data class SensorSetCompletionTarget(
     val exerciseId: Int,
@@ -43,25 +53,33 @@ class WorkoutSensorOrchestrator(
     private var pendingResetJob: Job? = null
     private var lastSensorReps = 0
     private var currentIpAddress: String? = null
+    private var consecutivePollFailures = 0
 
     fun start(ipAddress: String, intervalMs: Long = 200) {
         sensorPollingJob?.cancel()
         pendingResetJob?.cancel()
         currentIpAddress = ipAddress
         lastSensorReps = 0
+        consecutivePollFailures = 0
         val pollingJob = scope.launch {
             pollSensorStatus(ipAddress, intervalMs)
                 .catch { emitAll(flowOf(null)) }
                 .collect { sensorData ->
                     val snapshot = if (sensorData != null) {
+                        consecutivePollFailures = 0
                         WorkoutSensorSnapshot(
                             reps = sensorData.reps,
                             state = sensorData.state,
                             distance = sensorData.dist,
-                            connected = true
+                            connected = true,
+                            quality = qualityForConsecutiveFailures(0)
                         )
                     } else {
-                        _sensorSnapshot.value.copy(connected = false)
+                        consecutivePollFailures++
+                        _sensorSnapshot.value.copy(
+                            connected = false,
+                            quality = qualityForConsecutiveFailures(consecutivePollFailures)
+                        )
                     }
 
                     _sensorSnapshot.value = snapshot
@@ -84,6 +102,7 @@ class WorkoutSensorOrchestrator(
         pendingResetJob = null
         currentIpAddress = null
         lastSensorReps = 0
+        consecutivePollFailures = 0
         _sensorSnapshot.value = WorkoutSensorSnapshot()
     }
 

@@ -9,6 +9,8 @@ import io.mockk.coVerifyOrder
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MigrationOrchestratorTest {
@@ -68,8 +70,71 @@ class MigrationOrchestratorTest {
     }
 
     @Test
+    fun `importLegacyBackup surfaces migration conflict as failure without retrying`() = runTest {
+        val payload = mockk<LegacyMigrationPayload>()
+        val orchestrator = MigrationOrchestrator(firestoreRepository, legacyMigrationBackupCodec, categoryRepository)
+
+        every { payload.userMetrics } returns emptyList()
+        every { payload.exercises } returns listOf(mockk())
+        every { payload.sessions } returns emptyList()
+        every { payload.sessionExercises } returns emptyList()
+        every { payload.restDays } returns emptyList()
+        every { payload.settings } returns null
+        coEvery { legacyMigrationBackupCodec.decode("backup-json") } returns payload
+        coEvery {
+            firestoreRepository.performInitialMigration(any(), any(), any(), any(), any(), any(), any(), any())
+        } throws MigrationConflictException()
+
+        val result = orchestrator.importLegacyBackup("user-123", "backup-json")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is MigrationConflictException)
+    }
+
+    @Test
+    fun `fresh user gets default categories and v2 pending meta in one pass`() = runTest {
+        val orchestrator = MigrationOrchestrator(firestoreRepository, legacyMigrationBackupCodec, categoryRepository)
+        coEvery { firestoreRepository.getMigrationMeta("user-123") } returns null
+        coEvery { categoryRepository.getActiveCategories() } returns emptyList()
+
+        val result = orchestrator.migrateIfNeeded("user-123")
+
+        assertEquals(MigrationBootstrapResult.NEEDS_BACKUP_IMPORT, result.getOrThrow())
+        MigrationOrchestrator.SEED_CATEGORIES.forEach { seed ->
+            coVerify { categoryRepository.upsertCategory(seed) }
+        }
+        coVerify {
+            firestoreRepository.setMigrationMeta(
+                "user-123",
+                match { meta -> meta.schemaVersion == 2 && meta.backupImportPending && meta.migrationComplete }
+            )
+        }
+    }
+
+    @Test
+    fun `seeding skips categories that already exist`() = runTest {
+        val orchestrator = MigrationOrchestrator(firestoreRepository, legacyMigrationBackupCodec, categoryRepository)
+        coEvery { firestoreRepository.getMigrationMeta("user-123") } returns null
+        coEvery { categoryRepository.getActiveCategories() } returns listOf(
+            Category(id = "push", name = "Push", iconName = "FitnessCenter"),
+            Category(id = "pull", name = "Pull", iconName = "BackHand"),
+            Category(id = "legs", name = "Legs", iconName = "DirectionsRun"),
+            Category(id = "core", name = "Core", iconName = "SelfImprovement"),
+            Category(id = "cardio", name = "Cardio", iconName = "LocalFireDepartment"),
+            Category(id = "mobility", name = "Mobility", iconName = "Accessibility"),
+            Category(id = "legacy", name = "Legacy", iconName = "History", isLegacy = true)
+        )
+
+        val result = orchestrator.migrateIfNeeded("user-123")
+
+        assertTrue(result.isSuccess)
+        coVerify(exactly = 0) { categoryRepository.upsertCategory(any()) }
+    }
+
+    @Test
     fun `v1 meta triggers seed categories and backfill on first run`() = runTest {
         coEvery { firestoreRepository.getMigrationMeta("user-123") } returns CloudMigrationMeta(migrationComplete = false, schemaVersion = 1)
+        coEvery { categoryRepository.getActiveCategories() } returns emptyList()
 
         val orchestrator = MigrationOrchestrator(
             firestoreRepository = firestoreRepository,
@@ -116,6 +181,7 @@ class MigrationOrchestratorTest {
             backupImportPending = false
         )
         coEvery { firestore.getMigrationMeta("user-123") } returns v1CompleteMeta
+        coEvery { categories.getActiveCategories() } returns emptyList()
 
         val orchestrator = MigrationOrchestrator(
             firestoreRepository = firestore,

@@ -29,11 +29,15 @@ class MainViewModel @Inject constructor(
     private val updateChecker: UpdateChecker,
     @ApplicationContext private val appContext: Context,
     private val legacyPhotoMigrator: LegacyPhotoMigrator,
-    appLaunchCoordinator: AppLaunchCoordinator
+    private val appLaunchCoordinator: AppLaunchCoordinator
 ) : ViewModel() {
 
     val appEntryState: StateFlow<AppEntryState?> = appLaunchCoordinator.appEntryState()
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    fun retryStartup() {
+        appLaunchCoordinator.retryStartup()
+    }
 
     val themeMode = localAppPreferencesRepository.settings
 

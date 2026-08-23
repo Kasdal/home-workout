@@ -25,6 +25,7 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import com.example.workoutapp.data.sync.SyncStatusMonitor
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -69,12 +70,14 @@ object AppModule {
     fun provideCloudWorkoutRepository(
         authManager: AuthManager,
         firestoreRepository: FirestoreRepository,
-        photoUploader: PhotoUploader
+        photoUploader: PhotoUploader,
+        syncStatusMonitor: SyncStatusMonitor
     ): CloudWorkoutRepository {
         return CloudWorkoutRepository(
             authManager = authManager,
             firestoreRepository = firestoreRepository,
-            photoUploader = photoUploader
+            photoUploader = photoUploader,
+            syncStatusMonitor = syncStatusMonitor
         )
     }
 
@@ -119,6 +122,18 @@ object AppModule {
     fun provideCategoryRepository(
         cloudWorkoutRepository: CloudWorkoutRepository
     ): CategoryRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideTemplateRepository(
+        cloudWorkoutRepository: CloudWorkoutRepository
+    ): com.example.workoutapp.data.repository.TemplateRepository = cloudWorkoutRepository
+
+    @Provides
+    @Singleton
+    fun provideCredentialStateClearer(
+        impl: com.example.workoutapp.auth.DefaultCredentialStateClearer
+    ): com.example.workoutapp.auth.CredentialStateClearer = impl
 
     @Provides
     @Singleton

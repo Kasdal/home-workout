@@ -1,12 +1,13 @@
 package com.example.workoutapp.ui.auth
 
-import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.auth.AuthManager
-import com.example.workoutapp.auth.GoogleSignInClientFactory
+import com.example.workoutapp.auth.CredentialStateClearer
 import com.example.workoutapp.data.remote.MigrationBootstrapResult
+import com.example.workoutapp.data.remote.MigrationConflictException
+import com.example.workoutapp.data.settings.MigrationPreferences
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,15 +22,17 @@ data class AuthUiState(
     val isMigrationComplete: Boolean = false,
     val awaitingBackupImport: Boolean = false,
     val infoMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val importConflict: Boolean = false
 )
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authManager: AuthManager,
-    private val googleSignInClientFactory: GoogleSignInClientFactory,
+    private val credentialStateClearer: CredentialStateClearer,
     private val authMigrationCoordinator: AuthMigrationCoordinator,
-    private val appLaunchCoordinator: AppLaunchCoordinator
+    private val appLaunchCoordinator: AppLaunchCoordinator,
+    private val migrationPreferences: MigrationPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(AuthUiState())
@@ -50,7 +53,8 @@ class AuthViewModel @Inject constructor(
                             isMigrationComplete = false,
                             awaitingBackupImport = false,
                             infoMessage = null,
-                            errorMessage = null
+                            errorMessage = null,
+                            importConflict = false
                         )
                     }
                     return@collect
@@ -62,17 +66,14 @@ class AuthViewModel @Inject constructor(
                         isLoading = false,
                         awaitingBackupImport = false,
                         infoMessage = null,
-                        errorMessage = null
+                        errorMessage = null,
+                        importConflict = false
                     )
                 }
 
                 migrate(user.uid)
             }
         }
-    }
-
-    fun buildGoogleSignInIntent(): Intent {
-        return googleSignInClientFactory.create().signInIntent
     }
 
     fun signInWithGoogleIdToken(idToken: String) {
@@ -97,7 +98,8 @@ class AuthViewModel @Inject constructor(
             it.copy(
                 isLoading = false,
                 infoMessage = null,
-                errorMessage = message
+                errorMessage = message,
+                importConflict = false
             )
         }
     }
@@ -105,15 +107,17 @@ class AuthViewModel @Inject constructor(
     fun importLegacyBackup(backupJson: String) {
         val uid = authManager.currentUserId() ?: return
         viewModelScope.launch {
-            updateState { it.copy(isLoading = true, infoMessage = null, errorMessage = null) }
+            updateState { it.copy(isLoading = true, infoMessage = null, errorMessage = null, importConflict = false) }
             val result = authMigrationCoordinator.importLegacyBackup(uid, backupJson)
+            val failure = result.exceptionOrNull()
             updateState {
                 it.copy(
                     isLoading = false,
                     isMigrationComplete = result.isSuccess,
                     awaitingBackupImport = !result.isSuccess,
                     infoMessage = null,
-                    errorMessage = result.exceptionOrNull()?.message
+                    errorMessage = failure?.message,
+                    importConflict = failure is MigrationConflictException
                 )
             }
         }
@@ -122,7 +126,7 @@ class AuthViewModel @Inject constructor(
     fun continueWithoutImport() {
         val uid = authManager.currentUserId() ?: return
         viewModelScope.launch {
-            updateState { it.copy(isLoading = true, errorMessage = null) }
+            updateState { it.copy(isLoading = true, errorMessage = null, importConflict = false) }
             val result = authMigrationCoordinator.continueWithoutBackupImport(uid)
             updateState {
                 it.copy(
@@ -130,7 +134,8 @@ class AuthViewModel @Inject constructor(
                     isMigrationComplete = result.isSuccess,
                     awaitingBackupImport = !result.isSuccess,
                     infoMessage = null,
-                    errorMessage = result.exceptionOrNull()?.message
+                    errorMessage = result.exceptionOrNull()?.message,
+                    importConflict = false
                 )
             }
         }
@@ -144,12 +149,24 @@ class AuthViewModel @Inject constructor(
     }
 
     fun signOut() {
-        googleSignInClientFactory.create().signOut()
         authManager.signOut()
+        viewModelScope.launch {
+            runCatching { credentialStateClearer.clear() }.onFailure { ex ->
+                Log.w("AuthViewModel", "Failed to clear credential state", ex)
+            }
+            migrationPreferences.clear()
+        }
     }
 
     private suspend fun migrate(uid: String) {
-        updateState { it.copy(isLoading = true, errorMessage = null, isMigrationComplete = false) }
+        updateState {
+            it.copy(
+                isLoading = true,
+                errorMessage = null,
+                isMigrationComplete = false,
+                importConflict = false
+            )
+        }
         val migrationResult = authMigrationCoordinator.migrateIfNeeded(uid)
         updateState { currentState ->
             migrationResult.fold(
@@ -160,7 +177,8 @@ class AuthViewModel @Inject constructor(
                             isMigrationComplete = true,
                             awaitingBackupImport = false,
                             infoMessage = null,
-                            errorMessage = null
+                            errorMessage = null,
+                            importConflict = false
                         )
 
                         MigrationBootstrapResult.NEEDS_BACKUP_IMPORT -> currentState.copy(
@@ -168,7 +186,8 @@ class AuthViewModel @Inject constructor(
                             isMigrationComplete = false,
                             awaitingBackupImport = true,
                             infoMessage = "Import a backup file if you have one, or continue without importing.",
-                            errorMessage = null
+                            errorMessage = null,
+                            importConflict = false
                         )
                     }
                 },
@@ -178,7 +197,8 @@ class AuthViewModel @Inject constructor(
                         isMigrationComplete = false,
                         awaitingBackupImport = false,
                         infoMessage = null,
-                        errorMessage = it.message
+                        errorMessage = it.message,
+                        importConflict = false
                     )
                 }
             )

@@ -5,10 +5,19 @@ import androidx.lifecycle.viewModelScope
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.SessionHistoryRepository
+import com.example.workoutapp.domain.stats.MilestoneCalculator
+import com.example.workoutapp.domain.trend.ExerciseTrendCalculator
+import com.example.workoutapp.domain.trend.ExerciseTrendPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -27,6 +36,36 @@ class HistoryViewModel @Inject constructor(
     val sessionExercises = repository.getAllSessionExercises()
         .catch { Timber.e(it, "sessionExercises flow error") }
 
+    private val _selectedSession = MutableStateFlow<WorkoutSession?>(null)
+    val selectedSession: StateFlow<WorkoutSession?> = _selectedSession.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val selectedSessionExercises: Flow<List<SessionExercise>> = _selectedSession
+        .flatMapLatest { session ->
+            if (session == null) {
+                flowOf(emptyList())
+            } else {
+                repository.getSessionExercises(session.id)
+                    .catch { Timber.e(it, "selected session exercises flow error") }
+            }
+        }
+
+    fun openSessionDetail(session: WorkoutSession) {
+        _selectedSession.value = session
+    }
+
+    fun closeSessionDetail() {
+        _selectedSession.value = null
+    }
+
+    fun exerciseTrend(exerciseName: String): Flow<List<ExerciseTrendPoint>> =
+        combine(sessions, sessionExercises) { sessionList, allEntries ->
+            ExerciseTrendCalculator.build(
+                entries = allEntries.filter { it.exerciseName == exerciseName },
+                sessionDates = sessionList.associate { it.id to it.date }
+            )
+        }
+
     val personalRecords: Flow<PersonalRecords> = combine(sessions, sessionExercises) { sessionList, exercises ->
         try {
             calculatePersonalRecords(sessionList, exercises)
@@ -36,8 +75,7 @@ class HistoryViewModel @Inject constructor(
         }
     }
 
-    val exercisePrs: Flow<List<ExercisePr>> = sessionExercises.map { exercises ->
-        try {
+    val exercisePrs: Flow<List<ExercisePr>> = sessionExercises.map { exercises ->        try {
             exercises
                 .groupBy { it.exerciseName }
                 .map { (name, entries) ->
@@ -53,6 +91,14 @@ class HistoryViewModel @Inject constructor(
             Timber.e(e, "exercisePrs error")
             emptyList()
         }
+    }
+
+    val milestones: Flow<List<String>> = combine(personalRecords, exercisePrs) { records, prs ->
+        MilestoneCalculator.unlockedMilestones(
+            totalWorkouts = records.totalWorkouts,
+            currentStreakDays = records.currentStreak,
+            hasAnyLoggedLift = prs.isNotEmpty()
+        )
     }
 
     val weeklySummary: Flow<SummaryComparison> = sessions.map { calculateWeeklySummary(it) }

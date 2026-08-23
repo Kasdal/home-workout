@@ -51,7 +51,9 @@ data class CloudWorkoutSession(
     val calorieUserWeightKg: Float = 70f,
     val calorieMetCorrectionFactor: Float = 1f,
     val calorieActiveSeconds: Float = 0f,
-    val calorieRestSeconds: Int = 0
+    val calorieRestSeconds: Int = 0,
+    val skippedExerciseNames: List<String> = emptyList(),
+    val rpe: Int? = null
 )
 
 data class CloudSettings(
@@ -90,7 +92,10 @@ data class CloudSessionExercise(
     val sets: Int = 0,
     val reps: Int = 0,
     val volume: Float = 0f,
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    val rpe: Int? = null,
+    val notes: String? = null,
+    val isWarmUp: Boolean = false
 )
 
 data class CloudMigrationMeta(
@@ -176,7 +181,9 @@ fun WorkoutSession.toCloud() = CloudWorkoutSession(
     calorieUserWeightKg = calorieUserWeightKg,
     calorieMetCorrectionFactor = calorieMetCorrectionFactor,
     calorieActiveSeconds = calorieActiveSeconds,
-    calorieRestSeconds = calorieRestSeconds
+    calorieRestSeconds = calorieRestSeconds,
+    skippedExerciseNames = skippedExerciseNames,
+    rpe = rpe
 )
 
 fun CloudWorkoutSession.toLocal() = WorkoutSession(
@@ -196,7 +203,9 @@ fun CloudWorkoutSession.toLocal() = WorkoutSession(
     calorieUserWeightKg = calorieUserWeightKg,
     calorieMetCorrectionFactor = calorieMetCorrectionFactor,
     calorieActiveSeconds = calorieActiveSeconds,
-    calorieRestSeconds = calorieRestSeconds
+    calorieRestSeconds = calorieRestSeconds,
+    skippedExerciseNames = skippedExerciseNames,
+    rpe = rpe
 )
 
 fun Settings.toCloud() = CloudSettings(
@@ -263,7 +272,10 @@ fun SessionExercise.toCloud() = CloudSessionExercise(
     sets = sets,
     reps = reps,
     volume = volume,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    rpe = rpe,
+    notes = notes,
+    isWarmUp = isWarmUp
 )
 
 fun CloudSessionExercise.toLocal() = SessionExercise(
@@ -274,7 +286,10 @@ fun CloudSessionExercise.toLocal() = SessionExercise(
     sets = sets,
     reps = reps,
     volume = volume,
-    sortOrder = sortOrder
+    sortOrder = sortOrder,
+    rpe = rpe,
+    notes = notes,
+    isWarmUp = isWarmUp
 )
 
 data class CloudCategory(
@@ -302,4 +317,25 @@ fun CloudCategory.toLocal() = com.example.workoutapp.model.Category(
     sortOrder = sortOrder,
     isLegacy = isLegacy,
     isDeleted = isDeleted
+)
+
+data class CloudWorkoutTemplate(
+    val id: String = "",
+    val name: String = "",
+    val exerciseIds: List<Long> = emptyList(),
+    val sortOrder: Int = 0
+)
+
+fun com.example.workoutapp.model.WorkoutTemplate.toCloud() = CloudWorkoutTemplate(
+    id = id,
+    name = name,
+    exerciseIds = exerciseIds.map { it.toLong() },
+    sortOrder = sortOrder
+)
+
+fun CloudWorkoutTemplate.toLocal() = com.example.workoutapp.model.WorkoutTemplate(
+    id = id,
+    name = name,
+    exerciseIds = exerciseIds.map { it.toInt() },
+    sortOrder = sortOrder
 )

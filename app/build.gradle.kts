@@ -98,8 +98,14 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-storage")
-    implementation("com.google.android.gms:play-services-auth:21.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Credential Manager (Google ID token sign-in)
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
@@ -150,4 +156,20 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+}
+
+// Unit-test throughput for this machine (16C/24T, 32 GB RAM):
+// - 8 parallel worker JVMs (Robolectric is memory-hungry; 8 x ~2 GB fits comfortably)
+// - workers recycle after 40 classes so Robolectric sandboxes cannot leak memory forever
+// - per-test console logging gives live progress in the detached run log
+tasks.withType<Test>().configureEach {
+    maxParallelForks = 8
+    forkEvery = 40
+    maxHeapSize = "2560m"
+    testLogging {
+        events("passed", "failed", "skipped")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        showCauses = true
+        showStackTraces = true
+    }
 }

@@ -31,6 +31,11 @@ class FirestoreRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
 
+    private companion object {
+        const val COUNTERS_COLLECTION = "counters"
+        const val NEXT_ID_FIELD = "nextId"
+    }
+
     private fun userRoot(uid: String) = firestore.collection("users").document(uid)
 
     fun observeUserMetrics(uid: String): Flow<UserMetrics?> = callbackFlow {
@@ -91,32 +96,32 @@ class FirestoreRepository @Inject constructor(
         val root = userRoot(uid)
         val allProfiles = root.collection("profiles").get().await()
         val batch = firestore.batch()
-        val resolvedId = if (metrics.id > 0) metrics.id else nextNumericId(uid, "profiles")
+        val resolvedId = if (metrics.id > 0) metrics.id else allocateId(uid, "profiles")
 
         allProfiles.documents.forEach { doc ->
             batch.set(doc.reference, mapOf("isActive" to false), SetOptions.merge())
         }
 
         val targetDoc = root.collection("profiles").document(resolvedId.toString())
-        batch.set(targetDoc, metrics.copy(id = resolvedId, isActive = true).toCloud())
+        batch.set(targetDoc, metrics.copy(id = resolvedId, isActive = true).toCloud(), SetOptions.merge())
         batch.commit().await()
     }
 
     suspend fun addUserMetrics(uid: String, metrics: UserMetrics) {
-        val resolvedId = if (metrics.id > 0) metrics.id else nextNumericId(uid, "profiles")
+        val resolvedId = if (metrics.id > 0) metrics.id else allocateId(uid, "profiles")
         userRoot(uid)
             .collection("profiles")
             .document(resolvedId.toString())
-            .set(metrics.copy(id = resolvedId).toCloud())
+            .set(metrics.copy(id = resolvedId).toCloud(), SetOptions.merge())
             .await()
     }
 
     suspend fun updateUserMetrics(uid: String, metrics: UserMetrics) {
-        val resolvedId = if (metrics.id > 0) metrics.id else nextNumericId(uid, "profiles")
+        val resolvedId = if (metrics.id > 0) metrics.id else allocateId(uid, "profiles")
         userRoot(uid)
             .collection("profiles")
             .document(resolvedId.toString())
-            .set(metrics.copy(id = resolvedId).toCloud())
+            .set(metrics.copy(id = resolvedId).toCloud(), SetOptions.merge())
             .await()
     }
 
@@ -165,11 +170,11 @@ class FirestoreRepository @Inject constructor(
     }.conflate()
 
     suspend fun upsertExercise(uid: String, exercise: Exercise) {
-        val resolvedId = if (exercise.id > 0) exercise.id else nextNumericId(uid, "exercises")
+        val resolvedId = if (exercise.id > 0) exercise.id else allocateId(uid, "exercises")
         userRoot(uid)
             .collection("exercises")
             .document(resolvedId.toString())
-            .set(exercise.copy(id = resolvedId).toCloud())
+            .set(exercise.copy(id = resolvedId).toCloud(), SetOptions.merge())
             .await()
     }
 
@@ -229,6 +234,46 @@ class FirestoreRepository @Inject constructor(
         doc.set(mapOf("isDeleted" to true), SetOptions.merge()).await()
     }
 
+    fun observeTemplates(uid: String): Flow<List<com.example.workoutapp.data.remote.model.CloudWorkoutTemplate>> = callbackFlow {
+        val subscription = userRoot(uid).collection("templates")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                val templates = snapshot?.documents.orEmpty().mapNotNull { doc ->
+                    val data = doc.data ?: return@mapNotNull null
+                    com.example.workoutapp.data.remote.model.CloudWorkoutTemplate(
+                        id = doc.id,
+                        name = data["name"] as? String ?: "",
+                        exerciseIds = (data["exerciseIds"] as? List<*>)
+                            ?.mapNotNull { (it as? Number)?.toLong() }
+                            ?: emptyList(),
+                        sortOrder = (data["sortOrder"] as? Long)?.toInt() ?: 0
+                    )
+                }
+                trySend(templates.sortedWith(compareBy({ it.sortOrder }, { it.name })))
+            }
+        awaitClose { subscription.remove() }
+    }
+
+    suspend fun saveTemplate(uid: String, template: com.example.workoutapp.data.remote.model.CloudWorkoutTemplate) {
+        val docId = template.id.ifBlank {
+            userRoot(uid).collection("templates").document().id
+        }
+        val data = mapOf(
+            "id" to docId,
+            "name" to template.name,
+            "exerciseIds" to template.exerciseIds,
+            "sortOrder" to template.sortOrder
+        )
+        userRoot(uid).collection("templates").document(docId).set(data, SetOptions.merge()).await()
+    }
+
+    suspend fun deleteTemplate(uid: String, templateId: String) {
+        userRoot(uid).collection("templates").document(templateId).delete().await()
+    }
+
     suspend fun markExercisesWithCategory(uid: String, oldCategoryId: String, newCategoryId: String) {
         val exercises = userRoot(uid).collection("exercises")
         val matching = exercises.whereEqualTo("categoryId", oldCategoryId).get().await()
@@ -267,8 +312,12 @@ class FirestoreRepository @Inject constructor(
     }.conflate()
 
     suspend fun saveSession(uid: String, session: WorkoutSession): Long {
-        val id = if (session.id > 0) session.id else nextSessionId(uid)
-        userRoot(uid).collection("sessions").document(id.toString()).set(session.copy(id = id).toCloud()).await()
+        val id = if (session.id > 0) session.id else allocateId(uid, "sessions")
+        userRoot(uid)
+            .collection("sessions")
+            .document(id.toString())
+            .set(session.copy(id = id).toCloud(), SetOptions.merge())
+            .await()
         return id.toLong()
     }
 
@@ -410,11 +459,11 @@ class FirestoreRepository @Inject constructor(
     }.conflate()
 
     suspend fun addRestDay(uid: String, restDay: RestDay) {
-        val resolvedId = if (restDay.id > 0) restDay.id else nextNumericId(uid, "restDays")
+        val resolvedId = if (restDay.id > 0) restDay.id else allocateId(uid, "restDays")
         userRoot(uid)
             .collection("restDays")
             .document(resolvedId.toString())
-            .set(restDay.copy(id = resolvedId).toCloud())
+            .set(restDay.copy(id = resolvedId).toCloud(), SetOptions.merge())
             .await()
     }
 
@@ -438,11 +487,12 @@ class FirestoreRepository @Inject constructor(
     suspend fun saveSessionExercises(uid: String, exercises: List<SessionExercise>) {
         if (exercises.isEmpty()) return
         val root = userRoot(uid)
-        var nextId = nextNumericId(uid, "sessionExercises")
+        val unassignedCount = exercises.count { it.id <= 0 }
+        var allocatedStart = if (unassignedCount > 0) allocateIds(uid, "sessionExercises", unassignedCount) else 0
         val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, SessionExercise>>()
 
         exercises.forEach { exercise ->
-            val resolvedId = if (exercise.id > 0) exercise.id else nextId++
+            val resolvedId = if (exercise.id > 0) exercise.id else allocatedStart++
             val doc = root.collection("sessionExercises").document(resolvedId.toString())
             writes.add(doc to exercise.copy(id = resolvedId))
         }
@@ -450,7 +500,7 @@ class FirestoreRepository @Inject constructor(
         writes.chunked(400).forEach { chunk ->
             val batch = firestore.batch()
             chunk.forEach { (docRef, exercise) ->
-                batch.set(docRef, exercise.toCloud())
+                batch.set(docRef, exercise.toCloud(), SetOptions.merge())
             }
             batch.commit().await()
         }
@@ -620,7 +670,8 @@ class FirestoreRepository @Inject constructor(
         if (!force && getMigrationMeta(uid)?.migrationComplete == true) return
 
         val root = userRoot(uid)
-        val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, Any>>()
+
+        val existingCounts = readRemoteCounts(root)
         val localCounts = MigrationCounts(
             userMetrics = userMetrics.size,
             exercises = exercises.size,
@@ -628,6 +679,17 @@ class FirestoreRepository @Inject constructor(
             sessionExercises = sessionExercises.size,
             restDays = restDays.size
         )
+
+        if (!existingCounts.isEmpty()) {
+            if (localCounts.isEmpty()) {
+                adoptExistingCloudData(uid, root, existingCounts)
+                return
+            }
+
+            throw MigrationConflictException()
+        }
+
+        val writes = mutableListOf<Pair<com.google.firebase.firestore.DocumentReference, Any>>()
 
         userMetrics.forEach { metric ->
             writes.add(root.collection("profiles").document(metric.id.toString()) to metric.toCloud())
@@ -661,39 +723,6 @@ class FirestoreRepository @Inject constructor(
             batch.commit().await()
         }
 
-        val remoteCounts = MigrationCounts(
-            userMetrics = root.collection("profiles").get().await().size(),
-            exercises = root.collection("exercises").get().await().size(),
-            sessions = root.collection("sessions").get().await().size(),
-            sessionExercises = root.collection("sessionExercises").get().await().size(),
-            restDays = root.collection("restDays").get().await().size()
-        )
-
-        if (localCounts.isEmpty()) {
-            setMigrationMeta(uid, remoteCounts.toMigrationMeta())
-
-            if (remoteCounts.userMetrics > 0) {
-                val profiles = root.collection("profiles").get().await()
-                val hasActiveProfile = profiles.documents.any { it.getBoolean("isActive") == true }
-                if (!hasActiveProfile) {
-                    val fallbackProfileId = profiles.documents
-                        .mapNotNull { it.getLong("id")?.toInt() }
-                        .minOrNull()
-
-                    if (fallbackProfileId != null) {
-                        setActiveProfile(uid, fallbackProfileId)
-                    }
-                }
-            }
-            return
-        }
-
-        val countsMatch = remoteCounts == localCounts
-
-        if (!countsMatch) {
-            throw IllegalStateException("Cloud migration verification failed. Local data remains intact.")
-        }
-
         setMigrationMeta(uid, localCounts.toMigrationMeta())
 
         if (userMetrics.isNotEmpty() && userMetrics.none { it.isActive }) {
@@ -704,8 +733,36 @@ class FirestoreRepository @Inject constructor(
         }
     }
 
-    private suspend fun nextSessionId(uid: String): Int {
-        return nextNumericId(uid, "sessions")
+    private suspend fun readRemoteCounts(root: com.google.firebase.firestore.DocumentReference): MigrationCounts {
+        return MigrationCounts(
+            userMetrics = root.collection("profiles").get().await().size(),
+            exercises = root.collection("exercises").get().await().size(),
+            sessions = root.collection("sessions").get().await().size(),
+            sessionExercises = root.collection("sessionExercises").get().await().size(),
+            restDays = root.collection("restDays").get().await().size()
+        )
+    }
+
+    private suspend fun adoptExistingCloudData(
+        uid: String,
+        root: com.google.firebase.firestore.DocumentReference,
+        counts: MigrationCounts
+    ) {
+        setMigrationMeta(uid, counts.toMigrationMeta())
+
+        if (counts.userMetrics > 0) {
+            val profiles = root.collection("profiles").get().await()
+            val hasActiveProfile = profiles.documents.any { it.getBoolean("isActive") == true }
+            if (!hasActiveProfile) {
+                val fallbackProfileId = profiles.documents
+                    .mapNotNull { it.getLong("id")?.toInt() }
+                    .minOrNull()
+
+                if (fallbackProfileId != null) {
+                    setActiveProfile(uid, fallbackProfileId)
+                }
+            }
+        }
     }
 
     private data class MigrationCounts(
@@ -736,7 +793,29 @@ class FirestoreRepository @Inject constructor(
         )
     }
 
-    private suspend fun nextNumericId(uid: String, collection: String): Int {
+    private suspend fun allocateId(uid: String, collection: String): Int {
+        return allocateIds(uid, collection, 1)
+    }
+
+    private suspend fun allocateIds(uid: String, collection: String, count: Int): Int {
+        require(count > 0) { "ID allocation requires a positive count" }
+
+        val counterDoc = userRoot(uid).collection(COUNTERS_COLLECTION).document(collection)
+        val staleSeed = if (counterDoc.get().await().exists()) null else currentMaxIdPlusOne(uid, collection)
+
+        return firestore.runTransaction { tx ->
+            val snapshot = tx.get(counterDoc)
+            val start = resolveAllocationStart(
+                counterExists = snapshot.exists(),
+                storedNextId = snapshot.getLong(NEXT_ID_FIELD),
+                staleSeed = staleSeed
+            )
+            tx.set(counterDoc, mapOf(NEXT_ID_FIELD to start + count))
+            start.toInt()
+        }.await()
+    }
+
+    private suspend fun currentMaxIdPlusOne(uid: String, collection: String): Long {
         val snapshot = userRoot(uid)
             .collection(collection)
             .orderBy("id", Query.Direction.DESCENDING)
@@ -744,10 +823,24 @@ class FirestoreRepository @Inject constructor(
             .get()
             .await()
 
-        val currentMax = snapshot.documents.firstOrNull()?.getLong("id")?.toInt() ?: 0
-        return currentMax + 1
+        return (snapshot.documents.firstOrNull()?.getLong("id") ?: 0L) + 1L
     }
 }
+
+internal fun resolveAllocationStart(
+    counterExists: Boolean,
+    storedNextId: Long?,
+    staleSeed: Long?
+): Long {
+    if (!counterExists) {
+        return staleSeed ?: 1L
+    }
+    return storedNextId ?: (staleSeed ?: 1L)
+}
+
+class MigrationConflictException : IllegalStateException(
+    "This account already has workout data in the cloud. The import stopped before changing anything."
+)
 
 internal fun syncedWorkoutSettingsEvent(
     snapshot: DocumentSnapshot?,

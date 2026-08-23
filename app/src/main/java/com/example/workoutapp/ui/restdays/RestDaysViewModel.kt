@@ -39,21 +39,28 @@ class RestDaysViewModel @Inject constructor(
         }
     }
 
-    fun toggleRestDay(date: LocalDate) {
+    fun markRestDay(date: LocalDate, note: String? = null) {
+        viewModelScope.launch {
+            val timestamp = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val existingRestDay = repository.getRestDayByDate(timestamp)
+
+            if (existingRestDay == null) {
+                repository.addRestDay(RestDay(date = timestamp, note = note?.takeIf { it.isNotBlank() }))
+            }
+        }
+    }
+
+    fun removeRestDay(date: LocalDate) {
         viewModelScope.launch {
             val timestamp = date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             val existingRestDay = repository.getRestDayByDate(timestamp)
 
             if (existingRestDay != null) {
-                // Remove rest day
                 repository.deleteRestDay(existingRestDay.id)
                 if (_selectedDate.value == date) {
                     _selectedDate.value = null
                     _noteText.value = ""
                 }
-            } else {
-                // Add rest day
-                repository.addRestDay(RestDay(date = timestamp, note = null))
             }
         }
     }

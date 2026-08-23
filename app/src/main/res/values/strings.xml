@@ -4,4 +4,6 @@
     <string name="photo_upload_source_unreadable">Couldn\'t read that photo. Try a different one.</string>
     <string name="photo_upload_failed">Upload failed. Please try again.</string>
     <string name="exercise_remove_photo">Remove photo</string>
+    <string name="reminder_notification_title">Time to train</string>
+    <string name="reminder_notification_body">It has been a couple of days since your last workout. Keep the streak going!</string>
 </resources>

@@ -23,13 +23,20 @@ class SessionCompletionCalculator @Inject constructor() {
         userMetrics: UserMetrics?,
         restTimerDuration: Int,
         exerciseSwitchDuration: Int,
-        calorieIntensity: String
+        calorieIntensity: String,
+        skippedExerciseIds: Set<Int> = emptySet(),
+        warmUpOnlyExerciseIds: Set<Int> = emptySet(),
+        exerciseRpe: Map<Int, Int> = emptyMap(),
+        exerciseNotes: Map<Int, String> = emptyMap(),
+        sessionRpe: Int? = null,
+        sessionNotes: String? = null
     ): SessionCompletionResult {
         val userWeight = userMetrics?.weightKg ?: 70f
         var totalWeight = 0f
         var totalVolume = 0f
 
         completedSets.forEach { (exerciseId, setCount) ->
+            if (exerciseId in warmUpOnlyExerciseIds) return@forEach
             val exercise = exercises.find { it.id == exerciseId } ?: return@forEach
             val volume = calculateExerciseVolume(exercise, setCount, userWeight)
             totalWeight += volume
@@ -58,7 +65,12 @@ class SessionCompletionCalculator @Inject constructor() {
             calorieUserWeightKg = calorieEstimate.userWeightKg,
             calorieMetCorrectionFactor = calorieEstimate.metCorrectionFactor,
             calorieActiveSeconds = calorieEstimate.activeSeconds,
-            calorieRestSeconds = calorieEstimate.restSeconds
+            calorieRestSeconds = calorieEstimate.restSeconds,
+            skippedExerciseNames = skippedExerciseIds.mapNotNull { id ->
+                exercises.firstOrNull { it.id == id }?.name
+            },
+            rpe = sessionRpe,
+            notes = sessionNotes
         )
 
         val sessionExercises = exercises.mapIndexedNotNull { index, exercise ->
@@ -78,7 +90,10 @@ class SessionCompletionCalculator @Inject constructor() {
                 sets = setCount,
                 reps = displayReps,
                 volume = calculateExerciseVolume(exercise, setCount, userWeight),
-                sortOrder = index
+                sortOrder = index,
+                rpe = exerciseRpe[exercise.id],
+                notes = exerciseNotes[exercise.id]?.ifBlank { null },
+                isWarmUp = exercise.id in warmUpOnlyExerciseIds
             )
         }
 

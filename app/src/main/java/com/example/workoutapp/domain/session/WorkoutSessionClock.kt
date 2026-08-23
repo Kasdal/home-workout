@@ -8,31 +8,35 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class WorkoutSessionClock(
+/**
+ * Ticks [elapsedSeconds] once per second while running. Subclasses may override
+ * the lifecycle methods to control ticking manually (used by unit tests).
+ */
+open class WorkoutSessionClock(
     private val scope: CoroutineScope
 ) {
 
-    private val _elapsedSeconds = MutableStateFlow(0)
+    protected val _elapsedSeconds = MutableStateFlow(0)
     val elapsedSeconds: StateFlow<Int> = _elapsedSeconds.asStateFlow()
 
     private var timerJob: Job? = null
 
-    fun start() {
+    open fun start() {
         timerJob?.cancel()
         _elapsedSeconds.value = 0
         startTimerJob()
     }
 
-    fun pause() {
+    open fun pause() {
         timerJob?.cancel()
     }
 
-    fun resume() {
+    open fun resume() {
         if (timerJob?.isActive == true) return
         startTimerJob()
     }
 
-    fun stop() {
+    open fun stop() {
         timerJob?.cancel()
         timerJob = null
         _elapsedSeconds.value = 0

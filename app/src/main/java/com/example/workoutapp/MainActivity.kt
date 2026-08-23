@@ -62,7 +62,11 @@ class MainActivity : ComponentActivity() {
                     when (val entryState = appEntryState) {
                         null,
                         AppEntryState.AuthRequired,
-                        AppEntryState.MigrationInProgress -> AuthGateScreen(onReady = {})
+                        AppEntryState.MigrationInProgress -> AuthGateScreen()
+                        is AppEntryState.StartupFailed -> AuthGateScreen(
+                            startupFailed = true,
+                            onRetryStartup = { mainViewModel.retryStartup() }
+                        )
                         is AppEntryState.Ready -> {
                             Surface(
                                 modifier = Modifier.fillMaxSize(),
@@ -112,6 +116,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                     composable(Screen.Workouts.route) {
                                         com.example.workoutapp.ui.workouts.WorkoutsScreen(navController = navController)
+                                    }
+                                    composable(Screen.SensorTest.route) {
+                                        com.example.workoutapp.ui.sensor.SensorTestScreen(navController = navController)
                                     }
                                 }
                             }

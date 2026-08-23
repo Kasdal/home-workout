@@ -1,8 +1,8 @@
 package com.example.workoutapp.ui.auth
 
 import com.example.workoutapp.auth.AuthManager
-import com.example.workoutapp.auth.GoogleSignInClientFactory
 import com.example.workoutapp.data.remote.MigrationBootstrapResult
+import com.example.workoutapp.data.settings.MigrationPreferences
 import com.example.workoutapp.domain.startup.AppLaunchCoordinator
 import com.google.firebase.auth.FirebaseUser
 import io.mockk.coEvery
@@ -31,7 +31,6 @@ import org.junit.Test
 class AuthViewModelTest {
 
     private lateinit var authManager: AuthManager
-    private lateinit var googleSignInClientFactory: GoogleSignInClientFactory
     private lateinit var authMigrationCoordinator: AuthMigrationCoordinator
     private lateinit var appLaunchCoordinator: AppLaunchCoordinator
     private lateinit var firebaseUser: FirebaseUser
@@ -42,7 +41,6 @@ class AuthViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         authManager = mockk(relaxed = true)
-        googleSignInClientFactory = mockk(relaxed = true)
         authMigrationCoordinator = mockk()
         appLaunchCoordinator = mockk(relaxed = true)
         firebaseUser = mockk()
@@ -243,6 +241,12 @@ class AuthViewModelTest {
     }
 
     private fun createViewModel(): AuthViewModel {
-        return AuthViewModel(authManager, googleSignInClientFactory, authMigrationCoordinator, appLaunchCoordinator)
+        return AuthViewModel(
+            authManager,
+            mockk<com.example.workoutapp.auth.CredentialStateClearer>(relaxed = true),
+            authMigrationCoordinator,
+            appLaunchCoordinator,
+            mockk<MigrationPreferences>(relaxed = true)
+        )
     }
 }

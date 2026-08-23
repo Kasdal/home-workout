@@ -9,6 +9,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -23,19 +24,27 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -49,13 +58,18 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -63,10 +77,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -88,14 +105,16 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.workoutapp.R
 import com.example.workoutapp.data.storage.PhotoUploadResult
+import com.example.workoutapp.model.Category
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.model.SessionExercise
+import com.example.workoutapp.model.WorkoutTemplate
 import com.example.workoutapp.ui.components.BottomNavBar
 import com.example.workoutapp.ui.workout.ExerciseEditDialog
+import com.example.workoutapp.util.formatKg
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
-import java.util.Locale
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,6 +124,9 @@ fun WorkoutsScreen(
     viewModel: com.example.workoutapp.ui.workout.WorkoutViewModel = hiltViewModel()
 ) {
     val exercises by viewModel.exercises.collectAsState(initial = emptyList())
+    val categories by viewModel.categories.collectAsState(initial = emptyList())
+    val templates by viewModel.templates.collectAsState(initial = emptyList())
+    val sessionDates by viewModel.sessions.collectAsState(initial = emptyList())
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
     val successMessage = stringResource(R.string.photo_upload_success)
@@ -124,8 +146,26 @@ fun WorkoutsScreen(
         }
     }
 
+    LaunchedEffect(viewModel) {
+        viewModel.syncErrorEvents.collect { event ->
+            snackbarScope.launch {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Sync failed. Changes were not saved.",
+                    actionLabel = if (event.canRetry) "Retry" else null,
+                    duration = SnackbarDuration.Long
+                )
+                if (result == SnackbarResult.ActionPerformed && event.canRetry) {
+                    viewModel.retryPendingWrites()
+                }
+            }
+        }
+    }
+
     WorkoutsScreenContent(
         exercises = exercises,
+        categories = categories,
+        templates = templates,
+        sessionDates = sessionDates.associate { it.id to it.date },
         snackbarHostState = snackbarHostState,
         onNavigateToRoute = navController::navigate,
         onAddExercise = viewModel::addExercise,
@@ -133,7 +173,10 @@ fun WorkoutsScreen(
         onDeleteExercise = viewModel::deleteExercise,
         onUpdateExercisePhoto = viewModel::updateExercisePhoto,
         getExerciseHistory = viewModel::getExerciseHistory,
-        onReorderExercises = viewModel::updateExerciseOrder
+        onReorderExercises = viewModel::updateExerciseOrder,
+        onSetExerciseCategory = viewModel::setExerciseCategory,
+        onSaveTemplate = viewModel::saveTemplate,
+        onDeleteTemplate = viewModel::deleteTemplate
     )
 }
 
@@ -141,6 +184,9 @@ fun WorkoutsScreen(
 @Composable
 fun WorkoutsScreenContent(
     exercises: List<Exercise>,
+    categories: List<com.example.workoutapp.model.Category>,
+    templates: List<WorkoutTemplate> = emptyList(),
+    sessionDates: Map<Int, Long> = emptyMap(),
     snackbarHostState: SnackbarHostState,
     onNavigateToRoute: (String) -> Unit,
     onAddExercise: (Exercise) -> Unit,
@@ -148,13 +194,37 @@ fun WorkoutsScreenContent(
     onDeleteExercise: (Int) -> Unit,
     onUpdateExercisePhoto: (Int, Uri) -> Unit,
     getExerciseHistory: (String) -> Flow<List<SessionExercise>>,
-    onReorderExercises: (List<Exercise>) -> Unit
+    onReorderExercises: (List<Exercise>) -> Unit,
+    onSetExerciseCategory: (Exercise, String?) -> Unit = { _, _ -> },
+    onSaveTemplate: (WorkoutTemplate) -> Unit = {},
+    onDeleteTemplate: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var selectedExerciseId by remember { mutableStateOf<Int?>(null) }
     var showExerciseWizard by remember { mutableStateOf(false) }
     var reorderMode by remember { mutableStateOf(false) }
     var orderedExercises by remember { mutableStateOf(exercises) }
+    var selectedCategoryId by remember { mutableStateOf<String?>(null) }
+    var showTemplatesDialog by remember { mutableStateOf(false) }
+    var trendExerciseName by remember { mutableStateOf<String?>(null) }
+
+    val trendPoints = produceState<List<com.example.workoutapp.domain.trend.ExerciseTrendPoint>>(
+        initialValue = emptyList(),
+        trendExerciseName,
+        sessionDates
+    ) {
+        val name = trendExerciseName ?: return@produceState
+        getExerciseHistory(name).collect { entries ->
+            value = com.example.workoutapp.domain.trend.ExerciseTrendCalculator.build(entries, sessionDates)
+        }
+    }
+
+    val categoriesById = categories.associateBy { it.id }
+    val displayExercises = if (selectedCategoryId == null) {
+        orderedExercises
+    } else {
+        orderedExercises.filter { it.categoryId == selectedCategoryId }
+    }
 
     LaunchedEffect(exercises, reorderMode) {
         if (!reorderMode) {
@@ -189,6 +259,25 @@ fun WorkoutsScreenContent(
         )
     }
 
+    if (showTemplatesDialog) {
+        TemplatesDialog(
+            templates = templates,
+            exercises = exercises,
+            onSaveTemplate = onSaveTemplate,
+            onDeleteTemplate = onDeleteTemplate,
+            onDismiss = { showTemplatesDialog = false }
+        )
+    }
+
+    val trendExercise = trendExerciseName
+    if (trendExercise != null) {
+        com.example.workoutapp.ui.components.ExerciseTrendDialog(
+            exerciseName = trendExercise,
+            points = trendPoints.value,
+            onDismiss = { trendExerciseName = null }
+        )
+    }
+
     fun enterReorderMode() {
         orderedExercises = exercises
         reorderMode = true
@@ -213,6 +302,9 @@ fun WorkoutsScreenContent(
                     if (exercises.isNotEmpty() && !reorderMode) {
                         TextButton(onClick = ::enterReorderMode) {
                             Text("Reorder")
+                        }
+                        TextButton(onClick = { showTemplatesDialog = true }) {
+                            Text("Templates")
                         }
                     }
                     Text(
@@ -276,6 +368,14 @@ fun WorkoutsScreenContent(
                     )
                 }
 
+                if (!reorderMode && categories.isNotEmpty()) {
+                    CategoryFilterRow(
+                        categories = categories,
+                        selectedCategoryId = selectedCategoryId,
+                        onSelectCategory = { selectedCategoryId = it }
+                    )
+                }
+
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -283,12 +383,12 @@ fun WorkoutsScreenContent(
                     contentPadding = PaddingValues(bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    itemsIndexed(orderedExercises, key = { _, exercise -> exercise.id }) { index, exercise ->
+                    itemsIndexed(displayExercises, key = { _, exercise -> exercise.id }) { index, exercise ->
                         WorkoutLibraryItem(
                             exercise = exercise,
                             exerciseHistory = getExerciseHistory(exercise.name),
                             canMoveUp = index > 0,
-                            canMoveDown = index < orderedExercises.lastIndex,
+                            canMoveDown = index < displayExercises.lastIndex,
                             reorderMode = reorderMode,
                             onEnterReorderMode = ::enterReorderMode,
                             onUpdate = onUpdateExercise,
@@ -303,7 +403,13 @@ fun WorkoutsScreenContent(
                             },
                             onActiveToggle = {
                                 onUpdateExercise(exercise.copy(activeInSession = !exercise.activeInSession))
-                            }
+                            },
+                            category = exercise.categoryId?.let { categoriesById[it] },
+                            allCategories = categories,
+                            onSetCategory = { categoryId ->
+                                onSetExerciseCategory(exercise, categoryId)
+                            },
+                            onViewTrends = { trendExerciseName = exercise.name }
                         )
                     }
                 }
@@ -328,12 +434,16 @@ private fun WorkoutLibraryItem(
     onUploadPhoto: () -> Unit,
     onActiveToggle: (Boolean) -> Unit = {},
     onCategoryClick: () -> Unit = {},
-    category: com.example.workoutapp.model.Category? = null
+    category: Category? = null,
+    allCategories: List<Category> = emptyList(),
+    onSetCategory: ((String?) -> Unit)? = null,
+    onViewTrends: (() -> Unit)? = null
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showDetailsDialog by remember { mutableStateOf(false) }
     var showOverflowMenu by remember { mutableStateOf(false) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
     var dragDistance by remember { mutableStateOf(0f) }
     var cardHeightPx by remember { mutableStateOf(0f) }
     val history by exerciseHistory.collectAsState(initial = emptyList())
@@ -384,7 +494,20 @@ private fun WorkoutLibraryItem(
         ExerciseDetailsDialog(
             exercise = exercise,
             history = history,
+            onViewTrends = onViewTrends,
             onDismiss = { showDetailsDialog = false }
+        )
+    }
+
+    if (showCategoryDialog && onSetCategory != null) {
+        CategoryAssignDialog(
+            categories = allCategories,
+            currentCategoryId = exercise.categoryId,
+            onSelect = { categoryId ->
+                onSetCategory(categoryId)
+                showCategoryDialog = false
+            },
+            onDismiss = { showCategoryDialog = false }
         )
     }
 
@@ -542,7 +665,13 @@ private fun WorkoutLibraryItem(
 
                     if (!reorderMode && category != null) {
                         AssistChip(
-                            onClick = onCategoryClick,
+                            onClick = {
+                                if (onSetCategory != null) {
+                                    showCategoryDialog = true
+                                } else {
+                                    onCategoryClick()
+                                }
+                            },
                             label = { Text(category.name, style = MaterialTheme.typography.labelSmall) },
                             leadingIcon = {
                                 Icon(
@@ -598,7 +727,12 @@ private fun WorkoutLibraryItem(
                             onPhoto = onUploadPhoto,
                             onEdit = { showEditDialog = true },
                             onDelete = { showDeleteDialog = true },
-                            onReorder = onEnterReorderMode
+                            onReorder = onEnterReorderMode,
+                            onCategory = if (onSetCategory != null) {
+                                { showCategoryDialog = true }
+                            } else {
+                                null
+                            }
                         )
                     }
                 }
@@ -622,6 +756,297 @@ private fun LibraryBadge(text: String) {
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryFilterRow(
+    categories: List<Category>,
+    selectedCategoryId: String?,
+    onSelectCategory: (String?) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        item(key = "all") {
+            FilterChip(
+                selected = selectedCategoryId == null,
+                onClick = { onSelectCategory(null) },
+                label = { Text("All") }
+            )
+        }
+        items(categories, key = { it.id }) { category ->
+            FilterChip(
+                selected = selectedCategoryId == category.id,
+                onClick = {
+                    onSelectCategory(if (selectedCategoryId == category.id) null else category.id)
+                },
+                label = { Text(category.name) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = CategoryIcons.iconForName(category.iconName),
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryAssignDialog(
+    categories: List<Category>,
+    currentCategoryId: String?,
+    onSelect: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Assign Category") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                CategoryOptionRow(
+                    label = "No category",
+                    selected = currentCategoryId == null,
+                    onClick = { onSelect(null) }
+                )
+                categories.forEach { category ->
+                    CategoryOptionRow(
+                        label = category.name,
+                        leadingIcon = CategoryIcons.iconForName(category.iconName),
+                        selected = currentCategoryId == category.id,
+                        onClick = { onSelect(category.id) }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+private fun CategoryOptionRow(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        if (leadingIcon != null) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun TemplatesDialog(
+    templates: List<WorkoutTemplate>,
+    exercises: List<Exercise>,
+    onSaveTemplate: (WorkoutTemplate) -> Unit,
+    onDeleteTemplate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var editingTemplate by remember { mutableStateOf<WorkoutTemplate?>(null) }
+    var creating by remember { mutableStateOf(false) }
+
+    if (creating || editingTemplate != null) {
+        TemplateEditorDialog(
+            initial = editingTemplate,
+            exercises = exercises,
+            onSave = { template ->
+                onSaveTemplate(template)
+                creating = false
+                editingTemplate = null
+            },
+            onDismiss = {
+                creating = false
+                editingTemplate = null
+            }
+        )
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Workout Templates") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (templates.isEmpty()) {
+                    Text(
+                        text = "No templates yet. Create one to reuse an exercise selection and order.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    templates.forEach { template ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = template.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "${template.exerciseIds.size} exercises",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            IconButton(onClick = { editingTemplate = template }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit ${template.name}")
+                            }
+                            IconButton(onClick = { onDeleteTemplate(template.id) }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = "Delete ${template.name}",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { creating = true }) {
+                Text("New Template")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
+}
+
+@Composable
+private fun TemplateEditorDialog(
+    initial: WorkoutTemplate?,
+    exercises: List<Exercise>,
+    onSave: (WorkoutTemplate) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    val selectedIds = remember(exercises) {
+        initial?.exerciseIds?.filter { id -> exercises.any { it.id == id } }?.toMutableStateList()
+            ?: mutableStateListOf()
+    }
+
+    fun move(id: Int, delta: Int) {
+        val index = selectedIds.indexOf(id)
+        val target = index + delta
+        if (index < 0 || target !in selectedIds.indices) return
+        selectedIds.removeAt(index)
+        selectedIds.add(target, id)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (initial == null) "New Template" else "Edit Template") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Template name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Select exercises in order. Use arrows to reorder.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(max = 320.dp)
+                ) {
+                    exercises.forEach { exercise ->
+                        val isSelected = exercise.id in selectedIds
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { checked ->
+                                    if (checked) selectedIds.add(exercise.id) else selectedIds.remove(exercise.id)
+                                }
+                            )
+                            Text(
+                                text = exercise.name,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1
+                            )
+                            if (isSelected) {
+                                IconButton(
+                                    onClick = { move(exercise.id, -1) },
+                                    enabled = exercise.id != selectedIds.first()
+                                ) {
+                                    Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
+                                }
+                                IconButton(
+                                    onClick = { move(exercise.id, 1) },
+                                    enabled = exercise.id != selectedIds.last()
+                                ) {
+                                    Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        WorkoutTemplate(
+                            id = initial?.id ?: "",
+                            name = name.trim(),
+                            exerciseIds = selectedIds.toList(),
+                            sortOrder = initial?.sortOrder ?: 0
+                        )
+                    )
+                },
+                enabled = name.isNotBlank() && selectedIds.isNotEmpty()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
 @Composable
 private fun ExerciseActionsMenu(
     expanded: Boolean,
@@ -630,7 +1055,8 @@ private fun ExerciseActionsMenu(
     onPhoto: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onReorder: () -> Unit
+    onReorder: () -> Unit,
+    onCategory: (() -> Unit)? = null
 ) {
     DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
         DropdownMenuItem(
@@ -641,6 +1067,16 @@ private fun ExerciseActionsMenu(
             },
             leadingIcon = { Icon(Icons.Default.Info, contentDescription = null) }
         )
+        if (onCategory != null) {
+            DropdownMenuItem(
+                text = { Text("Category") },
+                onClick = {
+                    onDismiss()
+                    onCategory()
+                },
+                leadingIcon = { Icon(Icons.Default.Label, contentDescription = null) }
+            )
+        }
         DropdownMenuItem(
             text = { Text("Photo") },
             onClick = {
@@ -711,7 +1147,8 @@ private fun ReorderModeBanner(
 private fun ExerciseDetailsDialog(
     exercise: Exercise,
     history: List<SessionExercise>,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onViewTrends: (() -> Unit)? = null
 ) {
     val recentHistory = history.sortedByDescending { it.sessionId }
     val lastEntry = recentHistory.firstOrNull()
@@ -756,8 +1193,15 @@ private fun ExerciseDetailsDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
+            Row {
+                if (onViewTrends != null && history.isNotEmpty()) {
+                    TextButton(onClick = onViewTrends) {
+                        Text("View Trends")
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Close")
+                }
             }
         }
     )
@@ -788,13 +1232,5 @@ private fun exerciseSummary(exercise: Exercise): String {
         ExerciseType.HOLD.name -> "${exercise.sets} sets x ${exercise.holdDurationSeconds}s hold"
         ExerciseType.BODYWEIGHT.name -> "${exercise.sets} sets x ${exercise.reps} reps (bodyweight)"
         else -> "${exercise.sets} sets x ${exercise.reps} reps @ ${formatKg(exercise.weight)}"
-    }
-}
-
-private fun formatKg(value: Float): String {
-    return if (value % 1f == 0f) {
-        "${value.toInt()}kg"
-    } else {
-        "${String.format(Locale.US, "%.1f", value)}kg"
     }
 }

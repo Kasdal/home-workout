@@ -3,11 +3,14 @@ package com.example.workoutapp.ui.workout
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.workoutapp.model.Category
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.WorkoutSession
+import com.example.workoutapp.model.WorkoutTemplate
+import com.example.workoutapp.data.repository.CategoryRepository
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
@@ -18,6 +21,9 @@ import com.example.workoutapp.data.storage.PhotoProcessor
 import com.example.workoutapp.data.storage.PhotoUploadResult
 import com.example.workoutapp.data.storage.PhotoUploader
 import com.example.workoutapp.data.storage.SourceUnreadableException
+import com.example.workoutapp.data.sync.SyncStatus
+import com.example.workoutapp.data.sync.SyncStatusMonitor
+import com.example.workoutapp.domain.session.CountdownType
 import com.example.workoutapp.domain.session.PostSetTimerRequest
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestratorFactory
@@ -45,6 +51,11 @@ sealed class SessionStartError {
     data object NoActiveExercises : SessionStartError()
 }
 
+data class SyncErrorEvent(
+    val label: String,
+    val canRetry: Boolean
+)
+
 @HiltViewModel
 class WorkoutViewModel @Inject constructor(
     private val exerciseRepository: ExerciseRepository,
@@ -53,17 +64,26 @@ class WorkoutViewModel @Inject constructor(
     private val legacySettingsBootstrapper: LegacySettingsBootstrapper,
     private val localAppPreferencesRepository: LocalAppPreferencesRepository,
     private val syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository,
+    private val syncStatusMonitor: SyncStatusMonitor,
     private val soundManager: com.example.workoutapp.util.SoundManager,
     private val sessionCoordinator: WorkoutSessionCoordinator,
     private val countdownOrchestratorFactory: WorkoutCountdownOrchestratorFactory,
     private val sessionClockFactory: WorkoutSessionClockFactory,
     private val sensorOrchestratorFactory: WorkoutSensorOrchestratorFactory,
     private val photoProcessor: PhotoProcessor,
-    private val photoUploader: PhotoUploader
+    private val photoUploader: PhotoUploader,
+    private val categoryRepository: CategoryRepository,
+    private val templateRepository: com.example.workoutapp.data.repository.TemplateRepository
 ) : ViewModel() {
 
     // Exercises from DB
     val exercises = exerciseRepository.getExercises()
+
+    val categories: Flow<List<Category>> = categoryRepository.observeActiveCategories()
+
+    val templates: Flow<List<WorkoutTemplate>> = templateRepository.observeTemplates()
+
+    val sessions: Flow<List<WorkoutSession>> = sessionHistoryRepository.getSessions()
 
     fun getExerciseHistory(exerciseName: String): kotlinx.coroutines.flow.Flow<List<SessionExercise>> {
         return sessionHistoryRepository.getExerciseHistory(exerciseName)
@@ -91,6 +111,7 @@ class WorkoutViewModel @Inject constructor(
     val timerSeconds: StateFlow<Int> = countdownOrchestrator.timerSeconds
     val isTimerRunning: StateFlow<Boolean> = countdownOrchestrator.isTimerRunning
     val isTimerPaused: StateFlow<Boolean> = countdownOrchestrator.isTimerPaused
+    val timerType: StateFlow<CountdownType> = countdownOrchestrator.timerType
 
     // Custom timer durations
     private val _restTimerDuration = MutableStateFlow(30)
@@ -108,6 +129,9 @@ class WorkoutViewModel @Inject constructor(
     private val _sessionStarted = MutableStateFlow(false)
     val sessionStarted: StateFlow<Boolean> = _sessionStarted.asStateFlow()
 
+    private val _isSessionPaused = MutableStateFlow(false)
+    val isSessionPaused: StateFlow<Boolean> = _isSessionPaused.asStateFlow()
+
     private val _isCompletingSession = MutableStateFlow(false)
 
     // Session elapsed time (total time since session started)
@@ -122,11 +146,31 @@ class WorkoutViewModel @Inject constructor(
     private val _sessionExercises = MutableStateFlow<List<Exercise>>(emptyList())
     val sessionExercises: StateFlow<List<Exercise>> = _sessionExercises.asStateFlow()
 
+    // Exercises bypassed with "Skip exercise" during the running session.
+    private val _skippedExerciseIds = MutableStateFlow<Set<Int>>(emptySet())
+    val skippedExerciseIds: StateFlow<Set<Int>> = _skippedExerciseIds.asStateFlow()
+
+    // Exercises whose completed sets count as warm-up only (excluded from working volume).
+    private val _warmUpOnlyExerciseIds = MutableStateFlow<Set<Int>>(emptySet())
+    val warmUpOnlyExerciseIds: StateFlow<Set<Int>> = _warmUpOnlyExerciseIds.asStateFlow()
+
+    // Optional per-exercise effort (RPE 1-10) and notes captured during the session.
+    private val _exerciseRpe = MutableStateFlow<Map<Int, Int?>>(emptyMap())
+    val exerciseRpe: StateFlow<Map<Int, Int?>> = _exerciseRpe.asStateFlow()
+
+    private val _exerciseNotes = MutableStateFlow<Map<Int, String>>(emptyMap())
+    val exerciseNotes: StateFlow<Map<Int, String>> = _exerciseNotes.asStateFlow()
+
     private val _sessionStartErrors = Channel<SessionStartError>(Channel.BUFFERED)
     val sessionStartErrors: Flow<SessionStartError> = _sessionStartErrors.receiveAsFlow()
 
     private val _photoUploadEvents = MutableSharedFlow<PhotoUploadResult>(extraBufferCapacity = 4)
     val photoUploadEvents: SharedFlow<PhotoUploadResult> = _photoUploadEvents.asSharedFlow()
+
+    private val _syncErrorEvents = MutableSharedFlow<SyncErrorEvent>(extraBufferCapacity = 4)
+    val syncErrorEvents: SharedFlow<SyncErrorEvent> = _syncErrorEvents.asSharedFlow()
+
+    val syncStatus: StateFlow<SyncStatus> = syncStatusMonitor.status
 
     private var sessionStartTime = 0L
     
@@ -229,40 +273,55 @@ class WorkoutViewModel @Inject constructor(
                     "Barbell Row", "Pull Up", "Dips", "Bicep Curl",
                     "Tricep Extension", "Lateral Raise", "Calf Raise"
                 )
-                defaults.forEachIndexed { index, name ->
-                    exerciseRepository.addExercise(
-                        Exercise(
-                            name = name,
-                            weight = 20f,
-                            exerciseType = com.example.workoutapp.model.ExerciseType.STANDARD.name,
-                            usesSensor = true,
-                            holdDurationSeconds = 30,
-                            sortOrder = index
+                launchSyncedWrite("Seed default exercises") {
+                    defaults.forEachIndexed { index, name ->
+                        exerciseRepository.addExercise(
+                            Exercise(
+                                name = name,
+                                weight = 20f,
+                                exerciseType = com.example.workoutapp.model.ExerciseType.STANDARD.name,
+                                usesSensor = true,
+                                holdDurationSeconds = 30,
+                                sortOrder = index
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
     }
 
     // --- Session Management ---
-    fun startSession() {
+    fun startSession(template: WorkoutTemplate? = null) {
         _isCompletingSession.value = false
         viewModelScope.launch {
-            val activeExercises = exercises.first().filter { !it.isDeleted && it.activeInSession }
+            val allExercises = exercises.first()
+            val activeExercises = if (template == null) {
+                allExercises.filter { !it.isDeleted && it.activeInSession }
+            } else {
+                val byId = allExercises.associateBy { it.id }
+                template.exerciseIds.mapNotNull { byId[it] }
+                    .filter { !it.isDeleted && it.activeInSession }
+            }
             if (activeExercises.isEmpty()) {
                 _sessionExercises.value = emptyList()
                 _sessionStartErrors.send(SessionStartError.NoActiveExercises)
                 return@launch
             }
             _sessionExercises.value = activeExercises
+            _skippedExerciseIds.value = emptySet()
+            _completedSets.value = emptyMap()
+            _warmUpOnlyExerciseIds.value = emptySet()
+            _exerciseRpe.value = emptyMap()
+            _exerciseNotes.value = emptyMap()
             _sessionStarted.value = true
+            _isSessionPaused.value = false
             sessionStartTime = System.currentTimeMillis()
             sessionClock.start()
             applySessionStateUpdate(
                 sessionCoordinator.startSession(
                     exercises = activeExercises,
-                    completedSets = _completedSets.value
+                    completedSets = emptyMap()
                 )
             )
             if (sensorEnabled) {
@@ -271,8 +330,43 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
-    fun toggleActiveInSession(exercise: Exercise) {
+    fun skipCurrentExercise() {
+        val currentId = _activeExerciseId.value ?: return
         viewModelScope.launch {
+            val result = sessionCoordinator.skipExercise(
+                exercises = exercises.first(),
+                completedSets = _completedSets.value,
+                exerciseId = currentId,
+                exerciseSwitchDuration = _exerciseSwitchDuration.value,
+                skippedExerciseIds = _skippedExerciseIds.value
+            )
+            if (result.didUpdate) {
+                _skippedExerciseIds.value = _skippedExerciseIds.value + currentId
+                applySessionStateUpdate(result.stateUpdate)
+                handlePostSetTimerRequest(result.timerRequest)
+            }
+        }
+    }
+
+    fun finishCurrentExercise() {
+        val currentId = _activeExerciseId.value ?: return
+        viewModelScope.launch {
+            val result = sessionCoordinator.finishExercise(
+                exercises = exercises.first(),
+                completedSets = _completedSets.value,
+                exerciseId = currentId,
+                exerciseSwitchDuration = _exerciseSwitchDuration.value,
+                skippedExerciseIds = _skippedExerciseIds.value
+            )
+            if (result.didUpdate) {
+                applySessionStateUpdate(result.stateUpdate)
+                handlePostSetTimerRequest(result.timerRequest)
+            }
+        }
+    }
+
+    fun toggleActiveInSession(exercise: Exercise) {
+        launchSyncedWrite("Update exercise") {
             exerciseRepository.updateExercise(
                 exercise.copy(activeInSession = !exercise.activeInSession)
             )
@@ -280,87 +374,167 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun setExerciseCategory(exercise: Exercise, categoryId: String?) {
-        viewModelScope.launch {
+        launchSyncedWrite("Update exercise category") {
             exerciseRepository.updateExercise(exercise.copy(categoryId = categoryId))
         }
     }
 
-    fun completeSession(onComplete: (WorkoutSession) -> Unit) {
+    fun saveTemplate(template: WorkoutTemplate) {
+        launchSyncedWrite("Save template") {
+            templateRepository.saveTemplate(template)
+        }
+    }
+
+    fun fallbackToManualReps() {
+        _activeExerciseMode.value = ExerciseSessionMode.MANUAL_REPS
+    }
+
+    fun setExerciseWarmUpOnly(exerciseId: Int, isWarmUpOnly: Boolean) {
+        _warmUpOnlyExerciseIds.value = if (isWarmUpOnly) {
+            _warmUpOnlyExerciseIds.value + exerciseId
+        } else {
+            _warmUpOnlyExerciseIds.value - exerciseId
+        }
+    }
+
+    fun setExerciseRpe(exerciseId: Int, rpe: Int?) {
+        _exerciseRpe.value = _exerciseRpe.value + (exerciseId to rpe)
+    }
+
+    fun setExerciseNote(exerciseId: Int, note: String) {
+        _exerciseNotes.value = _exerciseNotes.value + (exerciseId to note)
+    }
+
+    fun deleteTemplate(templateId: String) {
+        launchSyncedWrite("Delete template") {
+            templateRepository.deleteTemplate(templateId)
+        }
+    }
+
+    fun completeSession(
+        onComplete: (WorkoutSession) -> Unit,
+        sessionRpe: Int? = null,
+        sessionNotes: String? = null
+    ) {
         viewModelScope.launch {
             _isCompletingSession.value = true
             sessionClock.pause()
 
-            val result = sessionCoordinator.completeSession(
-                exercises = exercises.first(),
-                completedSets = _completedSets.value,
-                elapsedSeconds = sessionElapsedSeconds.value.toLong(),
-                endTime = System.currentTimeMillis(),
-                userMetrics = profileRepository.getUserMetrics().first(),
-                restTimerDuration = _restTimerDuration.value,
-                exerciseSwitchDuration = _exerciseSwitchDuration.value,
-                calorieIntensity = _calorieIntensity.value
-            )
+            try {
+                val result = sessionCoordinator.completeSession(
+                    exercises = exercises.first(),
+                    completedSets = _completedSets.value,
+                    elapsedSeconds = sessionElapsedSeconds.value.toLong(),
+                    endTime = System.currentTimeMillis(),
+                    userMetrics = profileRepository.getUserMetrics().first(),
+                    restTimerDuration = _restTimerDuration.value,
+                    exerciseSwitchDuration = _exerciseSwitchDuration.value,
+                    calorieIntensity = _calorieIntensity.value,
+                    skippedExerciseIds = _skippedExerciseIds.value,
+                    warmUpOnlyExerciseIds = _warmUpOnlyExerciseIds.value,
+                    exerciseRpe = _exerciseRpe.value.filterValues { it != null }.mapValues { it.value!! },
+                    exerciseNotes = _exerciseNotes.value,
+                    sessionRpe = sessionRpe,
+                    sessionNotes = sessionNotes
+                )
 
-            applySessionStateUpdate(result.stateUpdate)
-            _sessionStarted.value = false
-            _sessionExercises.value = emptyList()
-            sessionClock.stop()
-            _isCompletingSession.value = false
+                applySessionStateUpdate(result.stateUpdate)
+                _sessionStarted.value = false
+                _isSessionPaused.value = false
+                _sessionExercises.value = emptyList()
+                _skippedExerciseIds.value = emptySet()
+                _warmUpOnlyExerciseIds.value = emptySet()
+                _exerciseRpe.value = emptyMap()
+                _exerciseNotes.value = emptyMap()
 
-            stopSensorPolling()
+                stopSensorPolling()
 
-            soundManager.playCelebrationSound(
-                celebrationSoundType,
-                soundVolume,
-                soundsEnabled,
-                vibrationEnabled,
-                silentModeBehavior
-            )
+                soundManager.playCelebrationSound(
+                    celebrationSoundType,
+                    soundVolume,
+                    soundsEnabled,
+                    vibrationEnabled,
+                    silentModeBehavior
+                )
 
-            onComplete(result.completedSession)
+                onComplete(result.completedSession)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                Timber.e(t, "Failed to persist completed session")
+                syncStatusMonitor.reportFailure(t)
+                _syncErrorEvents.emit(SyncErrorEvent(label = "Save workout", canRetry = false))
+            } finally {
+                _isCompletingSession.value = false
+                sessionClock.stop()
+            }
         }
     }
     
     // Pause session timer
     fun pauseSession() {
+        if (!_sessionStarted.value || _isCompletingSession.value) return
         sessionClock.pause()
+        countdownOrchestrator.pauseTimer()
+        _isSessionPaused.value = true
     }
-    
+
     // Resume session timer
     fun resumeSession() {
-        if (_sessionStarted.value && !_isCompletingSession.value) {
-            sessionClock.resume()
+        if (!_sessionStarted.value || _isCompletingSession.value || !_isSessionPaused.value) return
+        sessionClock.resume()
+        countdownOrchestrator.resumeTimer()
+        _isSessionPaused.value = false
+    }
+
+    fun retryPendingWrites() {
+        viewModelScope.launch {
+            syncStatusMonitor.retryPending()
+        }
+    }
+
+    private fun launchSyncedWrite(label: String, block: suspend () -> Unit) {
+        viewModelScope.launch {
+            val saved = syncStatusMonitor.runTrackedWithRetry(label, block)
+            if (!saved) {
+                Timber.w("Firestore write failed: %s", label)
+                _syncErrorEvents.emit(SyncErrorEvent(label = label, canRetry = true))
+            }
         }
     }
 
     // --- Timer Logic ---
     fun setRestTimerDuration(seconds: Int) {
         _restTimerDuration.value = seconds
-        viewModelScope.launch {
+        launchSyncedWrite("Save rest timer setting") {
             syncedWorkoutSettingsRepository.setRestTimerDuration(seconds)
         }
     }
 
     fun setExerciseSwitchDuration(seconds: Int) {
         _exerciseSwitchDuration.value = seconds
-        viewModelScope.launch {
+        launchSyncedWrite("Save exercise switch setting") {
             syncedWorkoutSettingsRepository.setExerciseSwitchDuration(seconds)
         }
     }
 
     fun startTimer(seconds: Int) {
         activeTimerCompleteSoundType = restCompleteSoundType
-        countdownOrchestrator.startTimer(seconds)
+        countdownOrchestrator.startTimer(seconds, CountdownType.REST)
     }
 
     fun startRestTimer() {
         activeTimerCompleteSoundType = restCompleteSoundType
-        countdownOrchestrator.startTimer(_restTimerDuration.value)
+        countdownOrchestrator.startTimer(_restTimerDuration.value, CountdownType.REST)
     }
 
     fun startExerciseSwitchTimer() {
         activeTimerCompleteSoundType = exerciseSwitchSoundType
-        countdownOrchestrator.startTimer(_exerciseSwitchDuration.value)
+        countdownOrchestrator.startTimer(_exerciseSwitchDuration.value, CountdownType.SWITCH)
+    }
+
+    fun skipActiveTimer() {
+        countdownOrchestrator.skipTimer()
     }
 
     fun pauseTimer() {
@@ -392,14 +566,15 @@ class WorkoutViewModel @Inject constructor(
                 exercises = exercises.first(),
                 completedSets = _completedSets.value,
                 exerciseId = exerciseId,
-                undoEnabled = _undoLastSetEnabled.value
+                undoEnabled = _undoLastSetEnabled.value,
+                skippedExerciseIds = _skippedExerciseIds.value
             )
             applySessionStateUpdate(result.stateUpdate)
         }
     }
     
     fun updateExercise(exercise: Exercise) {
-        viewModelScope.launch {
+        launchSyncedWrite("Update exercise") {
             // The running session renders from a snapshot captured at startSession().
             // Persist the change and also refresh that live snapshot so in-session
             // weight adjustments (the +/- controls) are reflected immediately.
@@ -431,7 +606,12 @@ class WorkoutViewModel @Inject constructor(
 
             val existing = exercises.first().firstOrNull { it.id == exerciseId }
             if (existing != null) {
-                exerciseRepository.updateExercise(existing.copy(photoUri = photoUri))
+                val saved = syncStatusMonitor.runTrackedWithRetry("Save exercise photo") {
+                    exerciseRepository.updateExercise(existing.copy(photoUri = photoUri))
+                }
+                if (!saved) {
+                    _syncErrorEvents.emit(SyncErrorEvent(label = "Save exercise photo", canRetry = true))
+                }
             }
             _photoUploadEvents.emit(PhotoUploadResult.Success(photoUri))
         }
@@ -443,12 +623,17 @@ class WorkoutViewModel @Inject constructor(
                 ?: return@launch
             runCatching { photoUploader.deleteExercisePhoto(exerciseId) }
                 .onFailure { Timber.w(it, "Failed to delete remote photo for exercise %d", exerciseId) }
-            exerciseRepository.updateExercise(existing.copy(photoUri = null))
+            val saved = syncStatusMonitor.runTrackedWithRetry("Remove exercise photo") {
+                exerciseRepository.updateExercise(existing.copy(photoUri = null))
+            }
+            if (!saved) {
+                _syncErrorEvents.emit(SyncErrorEvent(label = "Remove exercise photo", canRetry = true))
+            }
         }
     }
 
     fun addExercise() {
-        viewModelScope.launch {
+        launchSyncedWrite("Add exercise") {
             val currentExercises = exercises.first()
             val nextSortOrder = nextSortOrder(currentExercises)
             exerciseRepository.addExercise(Exercise(name = "New Exercise", weight = 0f, sortOrder = nextSortOrder))
@@ -456,7 +641,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun addExercise(exercise: Exercise) {
-        viewModelScope.launch {
+        launchSyncedWrite("Add exercise") {
             val currentExercises = exercises.first()
             val nextSortOrder = nextSortOrder(currentExercises)
             exerciseRepository.addExercise(exercise.copy(sortOrder = nextSortOrder))
@@ -464,12 +649,12 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun moveExercise(exerciseId: Int, direction: Int) {
-        viewModelScope.launch {
+        launchSyncedWrite("Reorder exercises") {
             val orderedExercises = exercises.first()
             val fromIndex = orderedExercises.indexOfFirst { it.id == exerciseId }
             val toIndex = fromIndex + direction
 
-            if (fromIndex !in orderedExercises.indices || toIndex !in orderedExercises.indices) return@launch
+            if (fromIndex !in orderedExercises.indices || toIndex !in orderedExercises.indices) return@launchSyncedWrite
 
             val reordered = orderedExercises.toMutableList().apply {
                 add(toIndex, removeAt(fromIndex))
@@ -482,7 +667,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun updateExerciseOrder(orderedExercises: List<Exercise>) {
-        viewModelScope.launch {
+        launchSyncedWrite("Reorder exercises") {
             orderedExercises.forEachIndexed { index, exercise ->
                 exerciseRepository.updateExercise(exercise.copy(sortOrder = index))
             }
@@ -495,7 +680,7 @@ class WorkoutViewModel @Inject constructor(
     }
 
     fun deleteExercise(exerciseId: Int) {
-        viewModelScope.launch {
+        launchSyncedWrite("Delete exercise") {
             exerciseRepository.deleteExercise(exerciseId)
         }
     }
@@ -510,9 +695,11 @@ class WorkoutViewModel @Inject constructor(
 
     private suspend fun getSensorSetCompletionTarget(): SensorSetCompletionTarget? {
         val exerciseList = exercises.first()
+        val skipped = _skippedExerciseIds.value
         val incompleteExercise = exerciseList.firstOrNull { exercise ->
             val completedSets = _completedSets.value[exercise.id] ?: 0
-            completedSets < exercise.sets &&
+            exercise.id !in skipped &&
+                completedSets < exercise.sets &&
                 exercise.usesSensor &&
                 exercise.exerciseType != ExerciseType.HOLD.name
         }
@@ -529,13 +716,28 @@ class WorkoutViewModel @Inject constructor(
         return completeNextSetInternal(exerciseId)
     }
 
+    private fun handlePostSetTimerRequest(request: PostSetTimerRequest) {
+        when (request) {
+            is PostSetTimerRequest.Start -> {
+                activeTimerCompleteSoundType = if (request.timerType == CountdownType.SWITCH) {
+                    exerciseSwitchSoundType
+                } else {
+                    restCompleteSoundType
+                }
+                countdownOrchestrator.startTimer(request.seconds, request.timerType)
+            }
+            PostSetTimerRequest.None -> Unit
+        }
+    }
+
     private suspend fun completeNextSetInternal(exerciseId: Int): Boolean {
         val result = sessionCoordinator.completeNextSet(
             exercises = exercises.first(),
             completedSets = _completedSets.value,
             exerciseId = exerciseId,
             restTimerDuration = _restTimerDuration.value,
-            exerciseSwitchDuration = _exerciseSwitchDuration.value
+            exerciseSwitchDuration = _exerciseSwitchDuration.value,
+            skippedExerciseIds = _skippedExerciseIds.value
         )
 
         if (!result.didUpdate) {
@@ -543,17 +745,7 @@ class WorkoutViewModel @Inject constructor(
         }
 
         applySessionStateUpdate(result.stateUpdate)
-        when (val timerRequest = result.timerRequest) {
-            is PostSetTimerRequest.Start -> {
-                activeTimerCompleteSoundType = if (timerRequest.seconds == _exerciseSwitchDuration.value) {
-                    exerciseSwitchSoundType
-                } else {
-                    restCompleteSoundType
-                }
-                countdownOrchestrator.startTimer(timerRequest.seconds)
-            }
-            PostSetTimerRequest.None -> Unit
-        }
+        handlePostSetTimerRequest(result.timerRequest)
         return true
     }
     

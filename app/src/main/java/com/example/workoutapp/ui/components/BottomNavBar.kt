@@ -1,112 +1,69 @@
 package com.example.workoutapp.ui.components
 
-import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.workoutapp.ui.theme.NeonGreen
+
+private data class BottomNavDestination(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+)
+
+private val bottomNavDestinations = listOf(
+    BottomNavDestination("profiles", "Profile", Icons.Default.Person),
+    BottomNavDestination("history", "Calendar", Icons.Default.CalendarToday),
+    BottomNavDestination("workout", "Home", Icons.Default.Home),
+    BottomNavDestination("workouts", "Workouts", Icons.Default.FitnessCenter),
+    BottomNavDestination("settings", "Settings", Icons.Default.Settings)
+)
 
 @Composable
 fun BottomNavBar(
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
-    Surface(
-        shadowElevation = 8.dp,
-        tonalElevation = 3.dp
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp, horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BottomNavItem(
-                icon = Icons.Default.Person,
-                label = "Profile",
-                route = "profiles",
-                currentRoute = currentRoute,
-                onClick = { onNavigate("profiles") }
-            )
-            
-            BottomNavItem(
-                icon = Icons.Default.CalendarToday,
-                label = "Calendar",
-                route = "history",
-                currentRoute = currentRoute,
-                onClick = { onNavigate("history") }
-            )
-            
-            BottomNavItem(
-                icon = Icons.Default.Home,
-                label = "Home",
-                route = "workout",
-                currentRoute = currentRoute,
-                onClick = { onNavigate("workout") }
-            )
-            
-            BottomNavItem(
-                icon = Icons.Default.FitnessCenter,
-                label = "Workouts",
-                route = "workouts",
-                currentRoute = currentRoute,
-                onClick = { onNavigate("workouts") }
-            )
-            
-            BottomNavItem(
-                icon = Icons.Default.Settings,
-                label = "Settings",
-                route = "settings",
-                currentRoute = currentRoute,
-                onClick = { onNavigate("settings") }
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        bottomNavDestinations.forEach { destination ->
+            val isSelected = currentRoute == destination.route
+            NavigationBarItem(
+                selected = isSelected,
+                onClick = { onNavigate(destination.route) },
+                icon = {
+                    Icon(
+                        imageVector = destination.icon,
+                        contentDescription = destination.label
+                    )
+                },
+                label = {
+                    Text(
+                        text = destination.label,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = NeonGreen,
+                    selectedTextColor = NeonGreen,
+                    indicatorColor = NeonGreen.copy(alpha = 0.25f),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
         }
-    }
-}
-
-@Composable
-fun BottomNavItem(
-    icon: ImageVector,
-    label: String,
-    route: String,
-    currentRoute: String,
-    onClick: () -> Unit
-) {
-    val isSelected = currentRoute == route
-    
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .width(70.dp)
-    ) {
-        IconButton(
-            onClick = onClick,
-            modifier = Modifier.semantics(mergeDescendants = true) {
-                selected = isSelected
-                role = Role.Tab
-            }
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = if (isSelected) NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (isSelected) NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
-        )
     }
 }

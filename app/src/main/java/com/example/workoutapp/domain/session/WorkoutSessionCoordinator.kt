@@ -46,14 +46,16 @@ class WorkoutSessionCoordinator @Inject constructor(
         completedSets: Map<Int, Int>,
         exerciseId: Int,
         restTimerDuration: Int,
-        exerciseSwitchDuration: Int
+        exerciseSwitchDuration: Int,
+        skippedExerciseIds: Set<Int> = emptySet()
     ): WorkoutSessionPolicyResult {
         val reducerUpdate = sessionReducer.completeNextSet(
             exercises = exercises,
             completedSets = completedSets,
             exerciseId = exerciseId,
             restTimerDuration = restTimerDuration,
-            exerciseSwitchDuration = exerciseSwitchDuration
+            exerciseSwitchDuration = exerciseSwitchDuration,
+            skippedExerciseIds = skippedExerciseIds
         )
 
         if (reducerUpdate.completedSets == completedSets) {
@@ -77,7 +79,8 @@ class WorkoutSessionCoordinator @Inject constructor(
         exercises: List<Exercise>,
         completedSets: Map<Int, Int>,
         exerciseId: Int,
-        undoEnabled: Boolean
+        undoEnabled: Boolean,
+        skippedExerciseIds: Set<Int> = emptySet()
     ): WorkoutSessionPolicyResult {
         if (!undoEnabled) {
             return WorkoutSessionPolicyResult(
@@ -89,7 +92,8 @@ class WorkoutSessionCoordinator @Inject constructor(
         val reducerUpdate = sessionReducer.undoSet(
             exercises = exercises,
             completedSets = completedSets,
-            exerciseId = exerciseId
+            exerciseId = exerciseId,
+            skippedExerciseIds = skippedExerciseIds
         )
 
         if (reducerUpdate.completedSets == completedSets) {
@@ -108,6 +112,56 @@ class WorkoutSessionCoordinator @Inject constructor(
         )
     }
 
+    fun finishExercise(
+        exercises: List<Exercise>,
+        completedSets: Map<Int, Int>,
+        exerciseId: Int,
+        exerciseSwitchDuration: Int,
+        skippedExerciseIds: Set<Int> = emptySet()
+    ): WorkoutSessionPolicyResult {
+        val update = sessionReducer.finishExercise(
+            exercises = exercises,
+            completedSets = completedSets,
+            exerciseId = exerciseId,
+            exerciseSwitchDuration = exerciseSwitchDuration,
+            skippedExerciseIds = skippedExerciseIds
+        )
+
+        return WorkoutSessionPolicyResult(
+            didUpdate = true,
+            stateUpdate = WorkoutSessionStateUpdate(
+                completedSets = update.completedSets,
+                activeExerciseSelection = update.activeExerciseSelection
+            ),
+            timerRequest = update.timerRequest
+        )
+    }
+
+    fun skipExercise(
+        exercises: List<Exercise>,
+        completedSets: Map<Int, Int>,
+        exerciseId: Int,
+        exerciseSwitchDuration: Int,
+        skippedExerciseIds: Set<Int> = emptySet()
+    ): WorkoutSessionPolicyResult {
+        val update = sessionReducer.skipExercise(
+            exercises = exercises,
+            completedSets = completedSets,
+            exerciseId = exerciseId,
+            exerciseSwitchDuration = exerciseSwitchDuration,
+            skippedExerciseIds = skippedExerciseIds
+        )
+
+        return WorkoutSessionPolicyResult(
+            didUpdate = true,
+            stateUpdate = WorkoutSessionStateUpdate(
+                completedSets = update.completedSets,
+                activeExerciseSelection = update.activeExerciseSelection
+            ),
+            timerRequest = update.timerRequest
+        )
+    }
+
     suspend fun completeSession(
         exercises: List<Exercise>,
         completedSets: Map<Int, Int>,
@@ -116,7 +170,13 @@ class WorkoutSessionCoordinator @Inject constructor(
         userMetrics: UserMetrics?,
         restTimerDuration: Int,
         exerciseSwitchDuration: Int,
-        calorieIntensity: String
+        calorieIntensity: String,
+        skippedExerciseIds: Set<Int> = emptySet(),
+        warmUpOnlyExerciseIds: Set<Int> = emptySet(),
+        exerciseRpe: Map<Int, Int> = emptyMap(),
+        exerciseNotes: Map<Int, String> = emptyMap(),
+        sessionRpe: Int? = null,
+        sessionNotes: String? = null
     ): WorkoutSessionPersistenceResult {
         val completion = sessionCompletionCalculator.calculate(
             exercises = exercises,
@@ -126,7 +186,13 @@ class WorkoutSessionCoordinator @Inject constructor(
             userMetrics = userMetrics,
             restTimerDuration = restTimerDuration,
             exerciseSwitchDuration = exerciseSwitchDuration,
-            calorieIntensity = calorieIntensity
+            calorieIntensity = calorieIntensity,
+            skippedExerciseIds = skippedExerciseIds,
+            warmUpOnlyExerciseIds = warmUpOnlyExerciseIds,
+            exerciseRpe = exerciseRpe,
+            exerciseNotes = exerciseNotes,
+            sessionRpe = sessionRpe,
+            sessionNotes = sessionNotes
         )
 
         val sessionId = sessionHistoryRepository.saveSession(completion.session).toInt()

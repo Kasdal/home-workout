@@ -2,6 +2,7 @@ package com.example.workoutapp.ui.settings
 
 import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.SensorRepository
+import com.example.workoutapp.data.sync.SyncStatusMonitor
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import com.example.workoutapp.data.settings.LegacySettingsBootstrapper
 import com.example.workoutapp.data.settings.LocalAppPreferencesRepository
@@ -46,13 +47,15 @@ class SettingsViewModelTest {
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
         every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns flowOf(WorkoutSessionSettings())
         viewModel = SettingsViewModel(
+            appContext = mockk<android.content.Context>(relaxed = true),
             legacySettingsBootstrapper = LegacySettingsBootstrapper(),
             exerciseRepository = exerciseRepository,
             sessionHistoryRepository = sessionHistoryRepository,
             localAppPreferencesRepository = localAppPreferencesRepository,
             syncedWorkoutSettingsRepository = syncedWorkoutSettingsRepository,
             soundManager = mockk<SoundManager>(relaxed = true),
-            sensorRepository = mockk<SensorRepository>(relaxed = true)
+            sensorRepository = mockk<SensorRepository>(relaxed = true),
+            syncStatusMonitor = SyncStatusMonitor()
         )
     }
 

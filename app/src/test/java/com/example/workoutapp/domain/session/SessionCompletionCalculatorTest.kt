@@ -122,4 +122,82 @@ class SessionCompletionCalculatorTest {
         assertEquals(0f, session.calorieActiveSeconds, 0.01f)
         assertEquals(0, session.calorieRestSeconds)
     }
+
+    @Test
+    fun `calculate does not inflate volume for skipped exercises and records their names`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 100f, reps = 10, sets = 4, exerciseType = ExerciseType.STANDARD.name),
+            Exercise(id = 2, name = "Squat", weight = 150f, reps = 5, sets = 3, exerciseType = ExerciseType.STANDARD.name)
+        )
+
+        val result = calculator.calculate(
+            exercises = exercises,
+            completedSets = mapOf(1 to 4),
+            elapsedSeconds = 900,
+            endTime = 1L,
+            userMetrics = UserMetrics(weightKg = 80f),
+            restTimerDuration = 30,
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal",
+            skippedExerciseIds = setOf(2)
+        )
+
+        assertEquals(4 * 10 * 100f, result.session.totalVolume, 0.01f)
+        assertTrue(result.sessionExercises.none { it.exerciseName == "Squat" })
+        assertEquals(listOf("Squat"), result.session.skippedExerciseNames)
+    }
+
+    @Test
+    fun `warm-up only exercises are excluded from working volume but kept in history`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 100f, reps = 10, sets = 4, exerciseType = ExerciseType.STANDARD.name),
+            Exercise(id = 2, name = "Bar Warmup", weight = 20f, reps = 10, sets = 2, exerciseType = ExerciseType.STANDARD.name)
+        )
+
+        val result = calculator.calculate(
+            exercises = exercises,
+            completedSets = mapOf(1 to 4, 2 to 2),
+            elapsedSeconds = 900,
+            endTime = 1L,
+            userMetrics = UserMetrics(weightKg = 80f),
+            restTimerDuration = 30,
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal",
+            warmUpOnlyExerciseIds = setOf(2)
+        )
+
+        assertEquals(4 * 10 * 100f, result.session.totalVolume, 0.01f)
+
+        val warmUpEntry = result.sessionExercises.single { it.exerciseName == "Bar Warmup" }
+        assertTrue(warmUpEntry.isWarmUp)
+        assertEquals(2 * 10 * 20f, warmUpEntry.volume, 0.01f)
+    }
+
+    @Test
+    fun `rpe and notes round-trip onto session and exercise entries`() {
+        val exercises = listOf(
+            Exercise(id = 1, name = "Bench", weight = 100f, reps = 10, sets = 4, exerciseType = ExerciseType.STANDARD.name)
+        )
+
+        val result = calculator.calculate(
+            exercises = exercises,
+            completedSets = mapOf(1 to 3),
+            elapsedSeconds = 600,
+            endTime = 1L,
+            userMetrics = UserMetrics(weightKg = 80f),
+            restTimerDuration = 30,
+            exerciseSwitchDuration = 90,
+            calorieIntensity = "normal",
+            exerciseRpe = mapOf(1 to 8),
+            exerciseNotes = mapOf(1 to "felt strong"),
+            sessionRpe = 7,
+            sessionNotes = "good day"
+        )
+
+        assertEquals(7, result.session.rpe)
+        assertEquals("good day", result.session.notes)
+        val entry = result.sessionExercises.single()
+        assertEquals(8, entry.rpe)
+        assertEquals("felt strong", entry.notes)
+    }
 }

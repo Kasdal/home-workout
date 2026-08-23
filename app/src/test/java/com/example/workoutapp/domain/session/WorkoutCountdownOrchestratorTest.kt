@@ -97,4 +97,46 @@ class WorkoutCountdownOrchestratorTest {
         runCurrent()
         assertEquals(4, orchestrator.timerSeconds.value)
     }
+
+    @Test
+    fun `skipTimer ends early, fires completion once, and clears state`() = runTest {
+        val completions = mutableListOf<Unit>()
+        val orchestrator = WorkoutCountdownOrchestrator(
+            scope = backgroundScope,
+            onCountdownWarning = {},
+            onTimerComplete = { completions += Unit }
+        )
+
+        orchestrator.startTimer(30, CountdownType.REST)
+        advanceTimeBy(2000)
+        runCurrent()
+        assertEquals(28, orchestrator.timerSeconds.value)
+
+        orchestrator.skipTimer()
+
+        assertEquals(0, orchestrator.timerSeconds.value)
+        assertFalse(orchestrator.isTimerRunning.value)
+        assertFalse(orchestrator.isTimerPaused.value)
+        assertEquals(CountdownType.NONE, orchestrator.timerType.value)
+        assertEquals(listOf(Unit), completions)
+
+        advanceTimeBy(5000)
+        runCurrent()
+        assertEquals(1, completions.size)
+    }
+
+    @Test
+    fun `timer type is tracked while running and cleared on stop`() = runTest {
+        val orchestrator = WorkoutCountdownOrchestrator(
+            scope = backgroundScope,
+            onCountdownWarning = {},
+            onTimerComplete = {}
+        )
+
+        orchestrator.startTimer(10, CountdownType.SWITCH)
+        assertEquals(CountdownType.SWITCH, orchestrator.timerType.value)
+
+        orchestrator.stopTimer()
+        assertEquals(CountdownType.NONE, orchestrator.timerType.value)
+    }
 }

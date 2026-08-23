@@ -18,6 +18,8 @@ import com.example.workoutapp.data.storage.PhotoProcessor
 import com.example.workoutapp.data.storage.PhotoUploadResult
 import com.example.workoutapp.data.storage.PhotoUploader
 import com.example.workoutapp.data.storage.SourceUnreadableException
+import com.example.workoutapp.data.sync.SyncState
+import com.example.workoutapp.data.sync.SyncStatusMonitor
 import com.example.workoutapp.domain.session.SessionCompletionCalculator
 import com.example.workoutapp.domain.session.WorkoutCountdownOrchestratorFactory
 import com.example.workoutapp.domain.session.WorkoutSessionClockFactory
@@ -35,7 +37,9 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -46,11 +50,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -68,9 +74,13 @@ class WorkoutViewModelTest {
     private lateinit var sessionCoordinator: WorkoutSessionCoordinator
     private lateinit var countdownOrchestratorFactory: WorkoutCountdownOrchestratorFactory
     private lateinit var sessionClockFactory: WorkoutSessionClockFactory
+    private lateinit var sessionClock: ManualSessionClock
     private lateinit var sensorOrchestratorFactory: WorkoutSensorOrchestratorFactory
     private lateinit var photoProcessor: PhotoProcessor
     private lateinit var photoUploader: PhotoUploader
+    private lateinit var categoryRepository: com.example.workoutapp.data.repository.CategoryRepository
+    private lateinit var templateRepository: com.example.workoutapp.data.repository.TemplateRepository
+    private lateinit var syncStatusMonitor: SyncStatusMonitor
     private lateinit var exercisesFlow: MutableStateFlow<List<Exercise>>
     private lateinit var localSettingsFlow: MutableStateFlow<LocalAppSettings>
     private lateinit var sessionSettingsFlow: MutableStateFlow<WorkoutSessionSettings>
@@ -96,9 +106,15 @@ class WorkoutViewModelTest {
         )
         countdownOrchestratorFactory = mockk()
         sessionClockFactory = mockk()
+        sessionClock = ManualSessionClock()
         sensorOrchestratorFactory = mockk()
         photoProcessor = mockk(relaxed = true)
         photoUploader = mockk(relaxed = true)
+        categoryRepository = mockk(relaxed = true)
+        every { categoryRepository.observeActiveCategories() } returns flowOf(emptyList())
+        templateRepository = mockk(relaxed = true)
+        every { templateRepository.observeTemplates() } returns flowOf(emptyList())
+        syncStatusMonitor = SyncStatusMonitor()
         exercisesFlow = MutableStateFlow(
             listOf(
                 Exercise(id = 1, name = "Bench Press", weight = 100f, reps = 10, sets = 4),
@@ -122,9 +138,7 @@ class WorkoutViewModelTest {
                 onTimerComplete = thirdArg()
             )
         }
-        every { sessionClockFactory.create(any()) } answers {
-            com.example.workoutapp.domain.session.WorkoutSessionClock(firstArg())
-        }
+        every { sessionClockFactory.create(any()) } returns sessionClock
         every {
             sensorOrchestratorFactory.create(
                 any(),
@@ -152,13 +166,16 @@ class WorkoutViewModelTest {
             legacySettingsBootstrapper,
             localAppPreferencesRepository,
             syncedWorkoutSettingsRepository,
+            syncStatusMonitor,
             soundManager,
             sessionCoordinator,
             countdownOrchestratorFactory,
             sessionClockFactory,
             sensorOrchestratorFactory,
             photoProcessor,
-            photoUploader
+            photoUploader,
+            categoryRepository,
+            templateRepository
         )
     }
 
@@ -166,6 +183,18 @@ class WorkoutViewModelTest {
         val method = WorkoutViewModel::class.java.getDeclaredMethod("onCleared")
         method.isAccessible = true
         method.invoke(viewModel)
+    }
+
+    /** Never ticks on its own, so `advanceUntilIdle` cannot loop forever on virtual time. */
+    private class ManualSessionClock : com.example.workoutapp.domain.session.WorkoutSessionClock(
+        kotlinx.coroutines.MainScope()
+    ) {
+        override fun start() { }
+        override fun pause() { }
+        override fun resume() { }
+        override fun stop() {
+            _elapsedSeconds.value = 0
+        }
     }
 
     @After
@@ -198,10 +227,10 @@ class WorkoutViewModelTest {
         coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
         coEvery { sessionHistoryRepository.saveSessionExercises(any()) } just Runs
 
-        viewModel.completeSession { session ->
+        viewModel.completeSession(onComplete = { session ->
             assertEquals(0L, session.durationSeconds)
             assertEquals(1000f, session.totalWeightLifted) // 1 set * 10 reps * 100 weight
-        }
+        })
         runCurrent()
 
         coVerify { sessionHistoryRepository.saveSession(any()) }
@@ -358,7 +387,7 @@ class WorkoutViewModelTest {
         assertTrue(viewModel.sensorConnected.value)
         assertEquals(4, viewModel.sensorReps.value)
 
-        viewModel.completeSession { }
+        viewModel.completeSession(onComplete = { })
         runCurrent()
 
         assertFalse(viewModel.sensorConnected.value)
@@ -575,5 +604,63 @@ class WorkoutViewModelTest {
         advanceUntilIdle()
 
         coVerify { exerciseRepository.updateExercise(initial.copy(categoryId = "core")) }
+    }
+
+    @Test
+    fun `completeSession failure resets completing flag and emits non-retryable sync error`() = runTest {
+        val events = mutableListOf<SyncErrorEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testDispatcher.scheduler)) {
+            viewModel.syncErrorEvents.collect { events += it }
+        }
+        coEvery { sessionHistoryRepository.saveSession(any()) } throws IOException("rules denied")
+
+        viewModel.completeSession(onComplete = { })
+        advanceUntilIdle()
+
+        assertEquals(1, events.size)
+        assertFalse(events[0].canRetry)
+        assertEquals(SyncState.ERROR, syncStatusMonitor.status.value.state)
+
+        coEvery { sessionHistoryRepository.saveSession(any()) } returns 42L
+        var saved: WorkoutSession? = null
+        viewModel.completeSession(onComplete = { saved = it })
+        advanceUntilIdle()
+
+        assertNotNull(saved)
+
+        // In production the repository's tracked write flips the monitor back to IDLE.
+        // The mocked history repo bypasses that layer, so run one successful synced
+        // write to mirror the recovery path.
+        coEvery { exerciseRepository.updateExercise(any()) } returns Unit
+        exercisesFlow.value = listOf(Exercise(id = 1, name = "Bench", weight = 100f))
+        viewModel.setExerciseCategory(exercise = Exercise(id = 1, name = "Bench", weight = 100f), categoryId = "core")
+        advanceUntilIdle()
+
+        assertEquals(SyncState.IDLE, syncStatusMonitor.status.value.state)
+    }
+
+    @Test
+    fun `failed exercise write surfaces retryable error and manual retry succeeds`() = runTest {
+        val events = mutableListOf<SyncErrorEvent>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testDispatcher.scheduler)) {
+            viewModel.syncErrorEvents.collect { events += it }
+        }
+        var failWrites = true
+        coEvery { exerciseRepository.updateExercise(any()) } answers {
+            if (failWrites) throw IOException("offline") else Unit
+        }
+
+        viewModel.updateExercise(Exercise(id = 1, name = "Bench Press", weight = 100f))
+        advanceUntilIdle()
+
+        assertEquals(1, events.size)
+        assertTrue(events[0].canRetry)
+
+        failWrites = false
+        viewModel.retryPendingWrites()
+        advanceUntilIdle()
+
+        coVerify(exactly = 2) { exerciseRepository.updateExercise(any()) }
+        assertNotNull(syncStatusMonitor.status.value.lastSyncedAtMillis)
     }
 }

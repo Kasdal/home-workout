@@ -3,6 +3,7 @@ package com.example.workoutapp.ui.workout
 import com.example.workoutapp.data.remote.EspSensorData
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceTimeBy
@@ -16,6 +17,35 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WorkoutSensorOrchestratorTest {
+
+    @Test
+    fun `quality buckets map consecutive failures`() {
+        assertEquals(SensorConnectionQuality.GOOD, qualityForConsecutiveFailures(0))
+        assertEquals(SensorConnectionQuality.WEAK, qualityForConsecutiveFailures(1))
+        assertEquals(SensorConnectionQuality.WEAK, qualityForConsecutiveFailures(2))
+        assertEquals(SensorConnectionQuality.LOST, qualityForConsecutiveFailures(3))
+        assertEquals(SensorConnectionQuality.LOST, qualityForConsecutiveFailures(10))
+    }
+
+    @Test
+    fun `successful poll resets quality to good after weak readings`() = runTest {
+        val scriptedPolls = listOf<EspSensorData?>(
+            null,
+            null,
+            EspSensorData(reps = 1, state = "LIFTING", dist = 10)
+        )
+        val orchestrator = WorkoutSensorOrchestrator(
+            scope = this,
+            pollSensorStatus = { _, _ -> scriptedPolls.asFlow() }
+        )
+
+        orchestrator.start(ipAddress = "192.168.0.10")
+        advanceUntilIdle()
+
+        val snapshot = orchestrator.sensorSnapshot.value
+        assertTrue(snapshot.connected)
+        assertEquals(SensorConnectionQuality.GOOD, snapshot.quality)
+    }
 
     @Test
     fun `start updates snapshot from polled sensor status`() = runTest {

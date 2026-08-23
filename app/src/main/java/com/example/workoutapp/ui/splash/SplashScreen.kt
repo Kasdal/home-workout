@@ -25,7 +25,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
     
     LaunchedEffect(Unit) {
         started = true
-        delay(3000) // 3 second splash
+        delay(1000) // Short splash; content readiness gates further progress downstream
         onTimeout()
     }
 
@@ -42,7 +42,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
 
     val alpha by animateFloatAsState(
         targetValue = if (started) 1f else 0f,
-        animationSpec = tween(1000),
+        animationSpec = tween(400),
         label = "alpha"
     )
 
@@ -80,7 +80,7 @@ fun SplashScreen(onTimeout: () -> Unit) {
             Text(
                 text = "Every rep counts.\nEvery set matters.\nYou got this!",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 lineHeight = 28.sp
             )

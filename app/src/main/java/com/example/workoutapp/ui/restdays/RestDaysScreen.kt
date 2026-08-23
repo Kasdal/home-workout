@@ -142,7 +142,7 @@ fun RestDaysScreen(
 
             // Instructions
             Text(
-                text = "Tap a date to mark/unmark as rest day and add notes",
+                text = "Tap a date to mark a rest day, edit its note, or remove it",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -152,13 +152,18 @@ fun RestDaysScreen(
     }
 
     // Note dialog
-    if (showNoteDialog && selectedDate != null) {
+    val selectedDateValue = selectedDate
+    if (showNoteDialog && selectedDateValue != null) {
+        val isMarked = viewModel.isRestDay(selectedDateValue)
         AlertDialog(
             onDismissRequest = { showNoteDialog = false },
-            title = { Text("Rest Day - ${selectedDate}") },
+            title = { Text("Rest Day - $selectedDateValue") },
             text = {
                 Column {
-                    Text("Mark this day as a rest day?")
+                    Text(
+                        if (isMarked) "This day is marked as a rest day. Update your note below."
+                        else "Mark this day as a rest day?"
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = noteText,
@@ -172,23 +177,34 @@ fun RestDaysScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.toggleRestDay(selectedDate!!)
-                        if (noteText.isNotBlank()) {
+                        if (isMarked) {
                             viewModel.saveNote()
+                        } else {
+                            viewModel.markRestDay(selectedDateValue, noteText)
                         }
                         showNoteDialog = false
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = NeonGreen)
                 ) {
                     Text(
-                        if (viewModel.isRestDay(selectedDate!!)) "Remove" else "Mark as Rest Day",
+                        if (isMarked) "Save Note" else "Mark as Rest Day",
                         color = Color.Black
                     )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showNoteDialog = false }) {
-                    Text("Cancel")
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isMarked) {
+                        TextButton(onClick = {
+                            viewModel.removeRestDay(selectedDateValue)
+                            showNoteDialog = false
+                        }) {
+                            Text("Remove Rest Day", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    TextButton(onClick = { showNoteDialog = false }) {
+                        Text("Cancel")
+                    }
                 }
             }
         )
@@ -226,7 +242,7 @@ fun CalendarGrid(
             Box(
                 modifier = Modifier
                     .aspectRatio(1f)
-                    .padding(4.dp)
+                    .padding(2.dp)
                     .clip(CircleShape)
                     .background(
                         when {

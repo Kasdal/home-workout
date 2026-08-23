@@ -17,5 +17,7 @@ data class WorkoutSession(
     val calorieUserWeightKg: Float = 70f,
     val calorieMetCorrectionFactor: Float = 1f,
     val calorieActiveSeconds: Float = 0f,
-    val calorieRestSeconds: Int = 0
+    val calorieRestSeconds: Int = 0,
+    val skippedExerciseNames: List<String> = emptyList(),
+    val rpe: Int? = null
 )
