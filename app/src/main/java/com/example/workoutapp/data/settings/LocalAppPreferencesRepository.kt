@@ -37,6 +37,9 @@ class LocalAppPreferencesRepository @Inject constructor(
     private val tutorialVersionKey = intPreferencesKey("tutorial_version")
     private val sensorEnabledKey = booleanPreferencesKey("sensor_enabled")
     private val sensorIpAddressKey = stringPreferencesKey("sensor_ip_address")
+    private val showExerciseCounterKey = booleanPreferencesKey("show_exercise_counter")
+    private val showInlineRpeKey = booleanPreferencesKey("show_inline_rpe")
+    private val showExerciseNotesKey = booleanPreferencesKey("show_exercise_notes")
 
     val settings: Flow<LocalAppSettings> = context.localAppPreferencesDataStore.data
         .catch { exception ->
@@ -61,7 +64,10 @@ class LocalAppPreferencesRepository @Inject constructor(
                 tutorialCompleted = preferences[tutorialCompletedKey] ?: false,
                 tutorialVersion = preferences[tutorialVersionKey] ?: 1,
                 sensorEnabled = preferences[sensorEnabledKey] ?: false,
-                sensorIpAddress = preferences[sensorIpAddressKey] ?: "192.168.0.125"
+                sensorIpAddress = preferences[sensorIpAddressKey] ?: "192.168.0.125",
+                showExerciseCounter = preferences[showExerciseCounterKey] ?: false,
+                showInlineRpe = preferences[showInlineRpeKey] ?: false,
+                showExerciseNotes = preferences[showExerciseNotesKey] ?: false
             )
         }
 
@@ -106,6 +112,18 @@ class LocalAppPreferencesRepository @Inject constructor(
         context.localAppPreferencesDataStore.edit { preferences ->
             enabled?.let { preferences[sensorEnabledKey] = it }
             ipAddress?.let { preferences[sensorIpAddressKey] = it }
+        }
+    }
+
+    suspend fun updateSessionScreenSettings(
+        showExerciseCounter: Boolean? = null,
+        showInlineRpe: Boolean? = null,
+        showExerciseNotes: Boolean? = null
+    ) {
+        context.localAppPreferencesDataStore.edit { preferences ->
+            showExerciseCounter?.let { preferences[showExerciseCounterKey] = it }
+            showInlineRpe?.let { preferences[showInlineRpeKey] = it }
+            showExerciseNotes?.let { preferences[showExerciseNotesKey] = it }
         }
     }
 

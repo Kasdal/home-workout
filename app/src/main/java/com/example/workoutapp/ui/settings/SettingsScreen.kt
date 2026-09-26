@@ -278,6 +278,33 @@ fun SettingsScreen(
                         )
                     }
 
+                    Text(
+                        text = "Session screen",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    SettingsSwitchRow(
+                        title = "Exercise counter",
+                        description = "Show \"Exercise 2 of 12\" during a session.",
+                        checked = settings.showExerciseCounter,
+                        onCheckedChange = { viewModel.setShowExerciseCounter(it) }
+                    )
+
+                    SettingsSwitchRow(
+                        title = "RPE chips",
+                        description = "Show effort chips on the exercise card. You are always asked how an exercise went when it ends.",
+                        checked = settings.showInlineRpe,
+                        onCheckedChange = { viewModel.setShowInlineRpe(it) }
+                    )
+
+                    SettingsSwitchRow(
+                        title = "Exercise notes",
+                        description = "Show the note field on the card. Notes are also available in the end-of-exercise check.",
+                        checked = settings.showExerciseNotes,
+                        onCheckedChange = { viewModel.setShowExerciseNotes(it) }
+                    )
+
                     TimerSettingRow(
                         label = "Rest timer",
                         value = settings.restTimerDuration,

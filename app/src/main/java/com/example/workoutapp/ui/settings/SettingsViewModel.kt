@@ -92,7 +92,10 @@ class SettingsViewModel @Inject constructor(
                         tutorialCompleted = localSettings.tutorialCompleted,
                         tutorialVersion = localSettings.tutorialVersion,
                         sensorEnabled = localSettings.sensorEnabled,
-                        sensorIpAddress = localSettings.sensorIpAddress
+                        sensorIpAddress = localSettings.sensorIpAddress,
+                        showExerciseCounter = localSettings.showExerciseCounter,
+                        showInlineRpe = localSettings.showInlineRpe,
+                        showExerciseNotes = localSettings.showExerciseNotes
                     )
                 }
             }
@@ -239,6 +242,24 @@ class SettingsViewModel @Inject constructor(
     fun toggleSensor(enabled: Boolean) {
         viewModelScope.launch {
             localAppPreferencesRepository.updateSensorSettings(enabled = enabled)
+        }
+    }
+
+    fun setShowExerciseCounter(enabled: Boolean) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSessionScreenSettings(showExerciseCounter = enabled)
+        }
+    }
+
+    fun setShowInlineRpe(enabled: Boolean) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSessionScreenSettings(showInlineRpe = enabled)
+        }
+    }
+
+    fun setShowExerciseNotes(enabled: Boolean) {
+        viewModelScope.launch {
+            localAppPreferencesRepository.updateSessionScreenSettings(showExerciseNotes = enabled)
         }
     }
 

@@ -135,6 +135,61 @@ private fun CompleteSessionDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EndOfExerciseDialog(
+    exerciseName: String,
+    onConfirm: (Int?, String?) -> Unit,
+    onSkipPrompt: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var exerciseRpe by remember { mutableStateOf<Int?>(null) }
+    var exerciseNote by remember { mutableStateOf("") }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("How did $exerciseName feel?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "How hard was it? (RPE 1-10, optional)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
+                    (1..10).forEach { value ->
+                        FilterChip(
+                            selected = exerciseRpe == value,
+                            onClick = { exerciseRpe = if (exerciseRpe == value) null else value },
+                            label = { Text("$value") }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = exerciseNote,
+                    onValueChange = { exerciseNote = it },
+                    label = { Text("Note (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(exerciseRpe, exerciseNote.ifBlank { null }) }) {
+                Text("Save & continue")
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onSkipPrompt) {
+                Text("Skip prompt")
+            }
+        }
+    )
+}
+
 @Composable
 fun WorkoutScreen(
     navController: NavController,
@@ -142,6 +197,7 @@ fun WorkoutScreen(
 ) {
     val exercises by viewModel.exercises.collectAsState(initial = emptyList())
     val timerSeconds by viewModel.timerSeconds.collectAsState()
+    val timerTotalSeconds by viewModel.timerTotalSeconds.collectAsState()
     val isTimerRunning by viewModel.isTimerRunning.collectAsState()
     val isTimerPaused by viewModel.isTimerPaused.collectAsState()
     val completedSets by viewModel.completedSets.collectAsState()
@@ -151,8 +207,6 @@ fun WorkoutScreen(
     val exerciseRpeMap by viewModel.exerciseRpe.collectAsState()
     val exerciseNotesMap by viewModel.exerciseNotes.collectAsState()
     val sessionElapsedSeconds by viewModel.sessionElapsedSeconds.collectAsState()
-    val restTimerDuration by viewModel.restTimerDuration.collectAsState()
-    val exerciseSwitchDuration by viewModel.exerciseSwitchDuration.collectAsState()
     val undoLastSetEnabled by viewModel.undoLastSetEnabled.collectAsState()
     val sensorReps by viewModel.sensorReps.collectAsState()
     val sensorState by viewModel.sensorState.collectAsState()
@@ -160,6 +214,10 @@ fun WorkoutScreen(
     val sensorConnected by viewModel.sensorConnected.collectAsState()
     val activeExerciseId by viewModel.activeExerciseId.collectAsState()
     val activeExerciseMode by viewModel.activeExerciseMode.collectAsState()
+    val sensorFallbackDismissed by viewModel.sensorFallbackDismissed.collectAsState()
+    val showExerciseCounter by viewModel.showExerciseCounter.collectAsState()
+    val showInlineRpe by viewModel.showInlineRpe.collectAsState()
+    val showExerciseNotes by viewModel.showExerciseNotes.collectAsState()
     val sessionExercises by viewModel.sessionExercises.collectAsState(initial = emptyList())
     val skippedExerciseIds by viewModel.skippedExerciseIds.collectAsState()
     val isSessionPaused by viewModel.isSessionPaused.collectAsState()
@@ -243,13 +301,12 @@ fun WorkoutScreen(
         exercises = exercises,
         sessionExercises = sessionExercises,
         timerSeconds = timerSeconds,
+        timerTotalSeconds = timerTotalSeconds,
         isTimerRunning = isTimerRunning,
         isTimerPaused = isTimerPaused,
         completedSets = completedSets,
         sessionStarted = sessionStarted,
         sessionElapsedSeconds = sessionElapsedSeconds,
-        restTimerDuration = restTimerDuration,
-        exerciseSwitchDuration = exerciseSwitchDuration,
         undoLastSetEnabled = undoLastSetEnabled,
         snackbarHostState = snackbarHostState,
         onNavigate = { route -> navController.navigate(route) },
@@ -279,7 +336,7 @@ fun WorkoutScreen(
         onUndoSet = { viewModel.undoSet(it) },
         getExerciseHistory = viewModel::getExerciseHistory,
         onSkipExercise = { viewModel.skipCurrentExercise() },
-        onFinishExercise = { viewModel.finishCurrentExercise() },
+        onFinishExercise = { rpe, note -> viewModel.finishCurrentExercise(rpe, note) },
         onFallbackToManualReps = { viewModel.fallbackToManualReps() },
         skippedExerciseIds = skippedExerciseIds,
         isSessionPaused = isSessionPaused,
@@ -288,13 +345,6 @@ fun WorkoutScreen(
         },
         timerType = timerType,
         onSkipTimer = { viewModel.skipActiveTimer() },
-        onStartRestTimer = { viewModel.startRestTimer() },
-        onStartExerciseSwitchTimer = { viewModel.startExerciseSwitchTimer() },
-        onPauseTimer = { viewModel.pauseTimer() },
-        onResumeTimer = { viewModel.resumeTimer() },
-        onStopTimer = { viewModel.stopTimer() },
-        onSetRestDuration = { viewModel.setRestTimerDuration(it) },
-        onSetExerciseSwitchDuration = { viewModel.setExerciseSwitchDuration(it) },
         onUpdateExercise = { viewModel.updateExercise(it) },
         onRemoveExercisePhoto = { viewModel.removeExercisePhoto(it) },
         warmUpOnlyIds = warmUpOnlyIds,
@@ -314,7 +364,11 @@ fun WorkoutScreen(
         sensorDistance = sensorDistance,
         sensorConnected = sensorConnected,
         activeExerciseId = activeExerciseId,
-        activeExerciseMode = activeExerciseMode
+        activeExerciseMode = activeExerciseMode,
+        sensorFallbackDismissed = sensorFallbackDismissed,
+        showExerciseCounter = showExerciseCounter,
+        showInlineRpe = showInlineRpe,
+        showExerciseNotes = showExerciseNotes
     )
 }
 
@@ -324,13 +378,12 @@ fun WorkoutScreenContent(
     exercises: List<Exercise>,
     sessionExercises: List<Exercise>,
     timerSeconds: Int,
+    timerTotalSeconds: Int = 0,
     isTimerRunning: Boolean,
     isTimerPaused: Boolean,
     completedSets: Map<Int, Int>,
     sessionStarted: Boolean,
     sessionElapsedSeconds: Int,
-    restTimerDuration: Int,
-    exerciseSwitchDuration: Int,
     undoLastSetEnabled: Boolean,
     snackbarHostState: SnackbarHostState,
     templates: List<WorkoutTemplate> = emptyList(),
@@ -349,20 +402,13 @@ fun WorkoutScreenContent(
     onUndoSet: (Int) -> Unit,
     getExerciseHistory: (String) -> Flow<List<SessionExercise>>,
     onSkipExercise: () -> Unit,
-    onFinishExercise: () -> Unit,
+    onFinishExercise: (Int?, String?) -> Unit,
     onFallbackToManualReps: () -> Unit = {},
     skippedExerciseIds: Set<Int>,
     isSessionPaused: Boolean,
     onToggleSessionPause: () -> Unit,
     timerType: CountdownType,
     onSkipTimer: () -> Unit,
-    onStartRestTimer: () -> Unit,
-    onStartExerciseSwitchTimer: () -> Unit,
-    onPauseTimer: () -> Unit,
-    onResumeTimer: () -> Unit,
-    onStopTimer: () -> Unit,
-    onSetRestDuration: (Int) -> Unit,
-    onSetExerciseSwitchDuration: (Int) -> Unit,
     onUpdateExercise: (Exercise) -> Unit,
     onRemoveExercisePhoto: (Int) -> Unit,
     onCompleteSessionWithDetails: (Int?, String?) -> Unit = { _, _ -> },
@@ -372,9 +418,30 @@ fun WorkoutScreenContent(
     sensorDistance: Int,
     sensorConnected: Boolean,
     activeExerciseId: Int?,
-    activeExerciseMode: ExerciseSessionMode
+    activeExerciseMode: ExerciseSessionMode,
+    sensorFallbackDismissed: Boolean = false,
+    showExerciseCounter: Boolean = false,
+    showInlineRpe: Boolean = false,
+    showExerciseNotes: Boolean = false
 ) {
     var showCompleteDialog by remember { mutableStateOf(false) }
+    var showEndOfExerciseDialog by remember { mutableStateOf(false) }
+
+    if (showEndOfExerciseDialog) {
+        val pendingExercise = activeExerciseId?.let { id -> sessionExercises.firstOrNull { it.id == id } }
+        EndOfExerciseDialog(
+            exerciseName = pendingExercise?.name ?: "exercise",
+            onConfirm = { rpe, note ->
+                showEndOfExerciseDialog = false
+                onFinishExercise(rpe, note)
+            },
+            onSkipPrompt = {
+                showEndOfExerciseDialog = false
+                onFinishExercise(null, null)
+            },
+            onDismiss = { showEndOfExerciseDialog = false }
+        )
+    }
 
     if (showCompleteDialog) {
         CompleteSessionDialog(
@@ -448,19 +515,11 @@ fun WorkoutScreenContent(
 
                     TimerHeader(
                         seconds = timerSeconds,
+                        totalSeconds = timerTotalSeconds,
                         isRunning = isTimerRunning,
                         isPaused = isTimerPaused,
                         timerType = timerType,
-                        restTimerDuration = restTimerDuration,
-                        exerciseSwitchDuration = exerciseSwitchDuration,
-                        onStartRest = onStartRestTimer,
-                        onStartExerciseSwitch = onStartExerciseSwitchTimer,
-                        onPause = onPauseTimer,
-                        onResume = onResumeTimer,
-                        onStop = onStopTimer,
-                        onSkipTimer = onSkipTimer,
-                        onSetRestDuration = onSetRestDuration,
-                        onSetExerciseSwitchDuration = onSetExerciseSwitchDuration
+                        onSkipTimer = onSkipTimer
                     )
                 } else {
                     TopAppBar(
@@ -498,12 +557,14 @@ fun WorkoutScreenContent(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    SessionProgressHeader(
-                        exercises = sessionExercises,
-                        completedSets = completedSets,
-                        skippedExerciseIds = skippedExerciseIds,
-                        activeExerciseId = activeExercise.id
-                    )
+                    if (showExerciseCounter) {
+                        SessionProgressHeader(
+                            exercises = sessionExercises,
+                            completedSets = completedSets,
+                            skippedExerciseIds = skippedExerciseIds,
+                            activeExerciseId = activeExercise.id
+                        )
+                    }
 
                     ExerciseCard(
                         exercise = activeExercise,
@@ -528,31 +589,21 @@ fun WorkoutScreenContent(
                         warmUpOnly = activeExercise.id in warmUpOnlyIds,
                         onWarmUpOnlyChange = { onWarmUpOnlyChange(activeExercise.id, it) },
                         rpe = exerciseRpe[activeExercise.id],
-                        onRpeChange = { onExerciseRpeChange(activeExercise.id, it) },
+                        onRpeChange = if (showInlineRpe) {
+                            { onExerciseRpeChange(activeExercise.id, it) }
+                        } else null,
                         note = exerciseNotes[activeExercise.id] ?: "",
-                        onNoteChange = { onExerciseNoteChange(activeExercise.id, it) },
+                        onNoteChange = if (showExerciseNotes) {
+                            { onExerciseNoteChange(activeExercise.id, it) }
+                        } else null,
+                        showHoldButton = false,
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    if (activeExerciseMode == ExerciseSessionMode.SENSOR_REPS &&
+                        !sensorConnected &&
+                        !sensorFallbackDismissed
                     ) {
-                        OutlinedButton(
-                            onClick = onSkipExercise,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Skip exercise")
-                        }
-                        OutlinedButton(
-                            onClick = onFinishExercise,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Finish exercise")
-                        }
-                    }
-
-                    if (activeExerciseMode == ExerciseSessionMode.SENSOR_REPS && !sensorConnected) {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
@@ -578,6 +629,32 @@ fun WorkoutScreenContent(
                             }
                         }
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { showEndOfExerciseDialog = true },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Finish exercise")
+                        }
+                        OutlinedButton(
+                            onClick = onSkipExercise,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Skip exercise")
+                        }
+                    }
+
+                    HoldToCompleteButton(
+                        completedSets = setCount,
+                        totalSets = activeExercise.sets,
+                        isHoldExercise = activeExercise.exerciseType == ExerciseType.HOLD.name,
+                        onCompleteSet = { onCompleteNextSet(activeExercise.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
                 }
             } else {

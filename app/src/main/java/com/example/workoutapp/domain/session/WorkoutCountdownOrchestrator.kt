@@ -24,6 +24,9 @@ class WorkoutCountdownOrchestrator(
     private val _timerSeconds = MutableStateFlow(0)
     val timerSeconds: StateFlow<Int> = _timerSeconds.asStateFlow()
 
+    private val _timerTotalSeconds = MutableStateFlow(0)
+    val timerTotalSeconds: StateFlow<Int> = _timerTotalSeconds.asStateFlow()
+
     private val _isTimerRunning = MutableStateFlow(false)
     val isTimerRunning: StateFlow<Boolean> = _isTimerRunning.asStateFlow()
 
@@ -38,6 +41,7 @@ class WorkoutCountdownOrchestrator(
     fun startTimer(seconds: Int, type: CountdownType = CountdownType.REST) {
         timerJob?.cancel()
         _timerSeconds.value = seconds
+        _timerTotalSeconds.value = seconds
         _timerType.value = type
         _isTimerRunning.value = true
         _isTimerPaused.value = false
@@ -62,6 +66,7 @@ class WorkoutCountdownOrchestrator(
         if (_timerSeconds.value <= 0 && timerJob?.isActive != true) return
         timerJob?.cancel()
         _timerSeconds.value = 0
+        _timerTotalSeconds.value = 0
         _isTimerRunning.value = false
         _isTimerPaused.value = false
         _timerType.value = CountdownType.NONE
@@ -73,6 +78,7 @@ class WorkoutCountdownOrchestrator(
         _isTimerRunning.value = false
         _isTimerPaused.value = false
         _timerType.value = CountdownType.NONE
+        _timerTotalSeconds.value = 0
     }
 
     private fun startTimerJob() {
@@ -90,6 +96,7 @@ class WorkoutCountdownOrchestrator(
             _isTimerRunning.value = false
             _isTimerPaused.value = false
             _timerType.value = CountdownType.NONE
+            _timerTotalSeconds.value = 0
         }
     }
 }

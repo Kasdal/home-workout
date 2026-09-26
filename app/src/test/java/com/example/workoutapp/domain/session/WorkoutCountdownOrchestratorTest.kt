@@ -126,6 +126,26 @@ class WorkoutCountdownOrchestratorTest {
     }
 
     @Test
+    fun `startTimer records total seconds so the UI can draw progress`() = runTest {
+        val orchestrator = WorkoutCountdownOrchestrator(
+            scope = backgroundScope,
+            onCountdownWarning = {},
+            onTimerComplete = {}
+        )
+
+        orchestrator.startTimer(30, CountdownType.REST)
+        assertEquals(30, orchestrator.timerTotalSeconds.value)
+
+        advanceTimeBy(5000)
+        runCurrent()
+        assertEquals(25, orchestrator.timerSeconds.value)
+        assertEquals(30, orchestrator.timerTotalSeconds.value)
+
+        orchestrator.skipTimer()
+        assertEquals(0, orchestrator.timerTotalSeconds.value)
+    }
+
+    @Test
     fun `timer type is tracked while running and cleared on stop`() = runTest {
         val orchestrator = WorkoutCountdownOrchestrator(
             scope = backgroundScope,

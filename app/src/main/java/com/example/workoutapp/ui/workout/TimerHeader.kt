@@ -1,45 +1,61 @@
 package com.example.workoutapp.ui.workout
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.workoutapp.domain.session.CountdownType
 import com.example.workoutapp.ui.theme.NeonGreen
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+/**
+ * Variant B ("Command bar") timer: a progress ring wrapping the countdown digits.
+ * Tapping the ring skips the running timer (accessibility label "Skip timer").
+ * Rest/Switch durations are managed in Settings only; there are no chips here.
+ */
 @Composable
 fun TimerHeader(
     seconds: Int,
+    totalSeconds: Int,
     isRunning: Boolean,
     isPaused: Boolean,
     timerType: CountdownType,
-    restTimerDuration: Int,
-    exerciseSwitchDuration: Int,
-    onStartRest: () -> Unit,
-    onStartExerciseSwitch: () -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onStop: () -> Unit,
     onSkipTimer: () -> Unit,
-    onSetRestDuration: (Int) -> Unit,
-    onSetExerciseSwitchDuration: (Int) -> Unit
+    modifier: Modifier = Modifier
 ) {
-    var showRestDialog by remember { mutableStateOf(false) }
-    var showExerciseDialog by remember { mutableStateOf(false) }
     val showCountdown = isRunning || isPaused
+    val ringSize = 136.dp
+    val strokeWidth = 10.dp
 
-    // Flash effect confined to the digits badge
+    // Flash effect confined to the digits badge during the final 3 seconds.
     val infiniteTransition = rememberInfiniteTransition(label = "flash")
     val flashAlpha by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -51,55 +67,61 @@ fun TimerHeader(
         label = "flashAlpha"
     )
 
-    if (showRestDialog) {
-        TimerCustomDialog(
-            title = "Set Rest Timer",
-            currentValue = restTimerDuration,
-            onDismiss = { showRestDialog = false },
-            onSave = {
-                onSetRestDuration(it)
-                showRestDialog = false
-            }
-        )
-    }
-
-    if (showExerciseDialog) {
-        TimerCustomDialog(
-            title = "Set Exercise Switch Timer",
-            currentValue = exerciseSwitchDuration,
-            onDismiss = { showExerciseDialog = false },
-            onSave = {
-                onSetExerciseSwitchDuration(it)
-                showExerciseDialog = false
-            }
-        )
+    val elapsedFraction = if (showCountdown && totalSeconds > 0) {
+        ((totalSeconds - seconds).toFloat() / totalSeconds).coerceIn(0f, 1f)
+    } else {
+        0f
     }
 
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shadowElevation = 4.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(
+        Box(
             modifier = Modifier
-                .padding(8.dp)
                 .fillMaxWidth()
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Box(
+                modifier = Modifier
+                    .size(ringSize)
+                    .alpha(if (isPaused) 0.5f else 1f)
+                    .then(
+                        if (showCountdown) {
+                            Modifier
+                                .semantics { contentDescription = "Skip timer" }
+                                .clickable(
+                                    onClickLabel = "Skip timer",
+                                    role = Role.Button,
+                                    onClick = onSkipTimer
+                                )
+                        } else {
+                            Modifier
+                        }
+                    )
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                RingCanvas(
+                    elapsedFraction = elapsedFraction,
+                    strokeWidth = strokeWidth,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    progressColor = NeonGreen,
+                    modifier = Modifier.fillMaxSize()
+                )
+
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     if (showCountdown && timerType != CountdownType.NONE) {
                         Surface(
-                            shape = MaterialTheme.shapes.small,
+                            shape = RoundedCornerShape(50),
                             color = when (timerType) {
                                 CountdownType.SWITCH -> MaterialTheme.colorScheme.tertiaryContainer
                                 CountdownType.HOLD -> MaterialTheme.colorScheme.secondaryContainer
                                 else -> MaterialTheme.colorScheme.primaryContainer
-                            },
-                            modifier = Modifier.padding(bottom = 2.dp)
+                            }
                         ) {
                             Text(
                                 text = when (timerType) {
@@ -122,150 +144,21 @@ fun TimerHeader(
                         }
                     ) {
                         Text(
-                            text = String.format("%02d:%02d", seconds / 60, seconds % 60),
-                            style = MaterialTheme.typography.displayMedium,
+                            text = if (showCountdown) {
+                                String.format("%02d:%02d", seconds / 60, seconds % 60)
+                            } else {
+                                "--:--"
+                            },
+                            style = MaterialTheme.typography.displaySmall,
                             fontWeight = FontWeight.Bold,
                             color = if (showCountdown) NeonGreen else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.padding(horizontal = 6.dp)
                         )
                     }
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (isRunning) {
-                        Button(
-                            onClick = onSkipTimer,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = NeonGreen,
-                                contentColor = Color.Black
-                            )
-                        ) {
-                            Text("SKIP")
-                        }
-                        Button(
-                            onClick = onPause,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                            )
-                        ) {
-                            Text("PAUSE")
-                        }
-                        Button(
-                            onClick = onStop,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Text("STOP")
-                        }
-                    } else if (isPaused) {
-                        Button(
-                            onClick = onSkipTimer,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = NeonGreen,
-                                contentColor = Color.Black
-                            )
-                        ) {
-                            Text("SKIP")
-                        }
-                        Button(
-                            onClick = onResume,
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen, contentColor = Color.Black)
-                        ) {
-                            Text("RESUME")
-                        }
-                        Button(
-                            onClick = onStop,
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Text("STOP")
-                        }
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .combinedClickable(
-                                        onClick = onStartRest,
-                                        onLongClick = { showRestDialog = true }
-                                    )
-                                    .padding(8.dp)
-                            ) {
-                                Surface(
-                                    shape = MaterialTheme.shapes.small,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                    color = Color.Transparent
-                                ) {
-                                    Text(
-                                        text = "Rest: ${restTimerDuration}s",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { showRestDialog = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit rest timer",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .combinedClickable(
-                                        onClick = onStartExerciseSwitch,
-                                        onLongClick = { showExerciseDialog = true }
-                                    )
-                                    .padding(8.dp)
-                            ) {
-                                Surface(
-                                    shape = MaterialTheme.shapes.small,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                    color = Color.Transparent
-                                ) {
-                                    Text(
-                                        text = "Switch: ${exerciseSwitchDuration}s",
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                                        style = MaterialTheme.typography.labelLarge,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            IconButton(onClick = { showExerciseDialog = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit switch timer",
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (showCountdown) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    AssistChip(
-                        onClick = onStartRest,
-                        label = { Text("Rest: ${restTimerDuration}s") }
-                    )
-                    AssistChip(
-                        onClick = onStartExerciseSwitch,
-                        label = { Text("Switch: ${exerciseSwitchDuration}s") }
+                    Text(
+                        text = if (showCountdown) "tap = skip" else "",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -274,39 +167,38 @@ fun TimerHeader(
 }
 
 @Composable
-fun TimerCustomDialog(
-    title: String,
-    currentValue: Int,
-    onDismiss: () -> Unit,
-    onSave: (Int) -> Unit
+private fun RingCanvas(
+    elapsedFraction: Float,
+    strokeWidth: androidx.compose.ui.unit.Dp,
+    trackColor: Color,
+    progressColor: Color,
+    modifier: Modifier = Modifier
 ) {
-    var value by remember { mutableStateOf(currentValue.toString()) }
+    Canvas(modifier = modifier) {
+        val strokePx = strokeWidth.toPx()
+        val arcSize = Size(size.width - strokePx, size.height - strokePx)
+        val topLeft = Offset(strokePx / 2, strokePx / 2)
+        val stroke = Stroke(width = strokePx, cap = StrokeCap.Round)
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            OutlinedTextField(
-                value = value,
-                onValueChange = { value = it },
-                label = { Text("Seconds") },
-                modifier = Modifier.fillMaxWidth()
+        drawArc(
+            color = trackColor,
+            startAngle = 0f,
+            sweepAngle = 360f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = stroke
+        )
+        if (elapsedFraction > 0f) {
+            drawArc(
+                color = progressColor,
+                startAngle = -90f,
+                sweepAngle = 360f * elapsedFraction,
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = stroke
             )
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val seconds = value.toIntOrNull() ?: currentValue
-                    onSave(seconds)
-                }
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
         }
-    )
+    }
 }

@@ -72,37 +72,12 @@ fun ExerciseCard(
     onRpeChange: ((Int?) -> Unit)? = null,
     note: String = "",
     onNoteChange: ((String) -> Unit)? = null,
+    showHoldButton: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
     var showPhotoMenu by remember { mutableStateOf(false) }
-    var holdProgress by remember { mutableStateOf(0f) }
-    var isHolding by remember { mutableStateOf(false) }
-
-    val scale by animateFloatAsState(
-        targetValue = if (isHolding) 0.95f else 1f,
-        animationSpec = tween(200), label = ""
-    )
-
-    LaunchedEffect(isHolding) {
-        if (isHolding) {
-            val startTime = System.currentTimeMillis()
-            while (isHolding) {
-                val elapsed = System.currentTimeMillis() - startTime
-                holdProgress = (elapsed / 250f).coerceIn(0f, 1f)
-                
-                if (holdProgress >= 1f) {
-                    onCompleteSet()
-                    holdProgress = 0f
-                    isHolding = false
-                }
-                delay(16)
-            }
-        } else {
-            holdProgress = 0f
-        }
-    }
 
     if (showEditDialog) {
         ExerciseEditDialog(
@@ -214,42 +189,101 @@ fun ExerciseCard(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                // Compact header: Name, Weight controls, and Checkmarks in one row
-                val headerInteraction = if (cardMode == ExerciseCardMode.SESSION) {
-                    Modifier
-                } else {
-                    Modifier.combinedClickable(
-                        onClick = { showEditDialog = true },
-                        onLongClick = { showEditDialog = true }
-                    )
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp) // Fixed height to prevent layout shift
-                        .then(headerInteraction),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            Column(
+                modifier = Modifier.padding(
+                    if (cardMode == ExerciseCardMode.SESSION) 16.dp else 20.dp
+                )
+            ) {
+                if (cardMode == ExerciseCardMode.SESSION) {
+                    // Prototype B header: title with history subtitle on top, mode badge
+                    // right, then weight controls and set checkmarks on their own row.
                     Row(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = exercise.name,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2
+                            )
+                            if (historyProvider != null) {
+                                val historyFlow =
+                                    remember(exercise.name) { historyProvider.invoke(exercise.name) }
+                                val history by historyFlow.collectAsState(initial = emptyList())
+                                PreviousPerformanceLine(history = history)
+                            }
+                        }
+                        if (activeExerciseMode != null) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .border(
+                                        width = 1.dp,
+                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = when (activeExerciseMode) {
+                                        ExerciseSessionMode.SENSOR_REPS -> Icons.Default.Sensors
+                                        ExerciseSessionMode.HOLD_TIMER -> Icons.Default.HourglassBottom
+                                        ExerciseSessionMode.MANUAL_REPS -> Icons.Default.Repeat
+                                    },
+                                    contentDescription = when (activeExerciseMode) {
+                                        ExerciseSessionMode.SENSOR_REPS -> "Sensor Tracked"
+                                        ExerciseSessionMode.HOLD_TIMER -> "Hold Timer"
+                                        ExerciseSessionMode.MANUAL_REPS -> "Manual Reps"
+                                    },
+                                    tint = NeonGreen,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = exercise.name,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1
+                        WeightStepper(exercise = exercise, onUpdate = onUpdate)
+                        SetCheckmarks(
+                            exercise = exercise,
+                            completedSetCount = completedSetCount
                         )
-                if (cardMode == ExerciseCardMode.SESSION && historyProvider != null) {
-                    val historyFlow = remember(exercise.name) { historyProvider.invoke(exercise.name) }
-                    val history by historyFlow.collectAsState(initial = emptyList())
-                    PreviousPerformanceLine(history = history)
-                }
-
-                if (cardMode != ExerciseCardMode.SESSION) {
+                    }
+                } else {
+                    // Compact header: Name, Weight controls, and Checkmarks in one row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp) // Fixed height to prevent layout shift
+                            .combinedClickable(
+                                onClick = { showEditDialog = true },
+                                onLongClick = { showEditDialog = true }
+                            ),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = exercise.name,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1
+                            )
                             IconButton(onClick = { showEditDialog = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
@@ -258,104 +292,15 @@ fun ExerciseCard(
                                 )
                             }
                         }
-                    }
-                    
-                    // Weight controls
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Remove,
-                                contentDescription = "Decrease weight by 5 kg",
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        
-                        Text(
-                            text = formatKg(exercise.weight),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = NeonGreen,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        IconButton(
-                            onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Increase weight by 5 kg",
-                                tint = NeonGreen,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    // Checkmark indicators
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        for (i in 0 until exercise.sets) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .padding(2.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (i < completedSetCount) NeonGreen
-                                        else MaterialTheme.colorScheme.outlineVariant
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (i < completedSetCount) {
-                                    Icon(
-                                        imageVector = Icons.Default.Check,
-                                        contentDescription = null,
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
-                    if (cardMode == ExerciseCardMode.SESSION && activeExerciseMode != null) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.Top)
-                                .size(22.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.surface)
-                                .border(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = when (activeExerciseMode) {
-                                    ExerciseSessionMode.SENSOR_REPS -> Icons.Default.Sensors
-                                    ExerciseSessionMode.HOLD_TIMER -> Icons.Default.HourglassBottom
-                                    ExerciseSessionMode.MANUAL_REPS -> Icons.Default.Repeat
-                                },
-                                contentDescription = when (activeExerciseMode) {
-                                    ExerciseSessionMode.SENSOR_REPS -> "Sensor Tracked"
-                                    ExerciseSessionMode.HOLD_TIMER -> "Hold Timer"
-                                    ExerciseSessionMode.MANUAL_REPS -> "Manual Reps"
-                                },
-                                tint = NeonGreen,
-                                modifier = Modifier.size(14.dp)
-                            )
-                        }
+                        WeightStepper(exercise = exercise, onUpdate = onUpdate)
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        SetCheckmarks(
+                            exercise = exercise,
+                            completedSetCount = completedSetCount
+                        )
                     }
                 }
 
@@ -602,82 +547,199 @@ fun ExerciseCard(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (undoEnabled && completedSetCount > 0 && completedSetCount < exercise.sets) {
-                        OutlinedButton(
-                            onClick = onUndoSet,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Undo,
-                                contentDescription = "Undo",
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Undo Last Set")
-                        }
+                if (undoEnabled && completedSetCount > 0 && completedSetCount < exercise.sets) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = onUndoSet,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Undo,
+                            contentDescription = "Undo",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Undo Last Set")
                     }
                 }
 
                 // Large "Next Set" Button with Hold Progress
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .clip(MaterialTheme.shapes.medium)
-                        .background(if (completedSetCount >= exercise.sets) MaterialTheme.colorScheme.outline else NeonGreen)
-                        .pointerInput(completedSetCount) {
-                            detectTapGestures(
-                                onPress = {
-                                    isHolding = true
-                                    tryAwaitRelease()
-                                    isHolding = false
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Subtle overlay that appears during hold for better feedback
-                    if (holdProgress > 0f && completedSetCount < exercise.sets) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black.copy(alpha = holdProgress * 0.15f))
-                        )
-                    }
-                    
-                    // Dark overlay that shrinks as you hold (visual feedback)
-                    if (holdProgress > 0f && completedSetCount < exercise.sets) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(1f - holdProgress) // Shrinks from right
-                                .fillMaxHeight()
-                                .background(Color.Black.copy(alpha = 0.5f))
-                                .align(Alignment.CenterEnd)
-                        )
-                    }
-                    
-                    Text(
-                        text = if (completedSetCount >= exercise.sets) "COMPLETED" else {
-                            if (exercise.exerciseType == ExerciseType.HOLD.name) "HOLD TO COMPLETE" else "HOLD TO COMPLETE SET"
-                        },
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        color = if (completedSetCount >= exercise.sets) Color.White else Color.Black,
-                        modifier = Modifier.scale(scale)
+                if (showHoldButton) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HoldToCompleteButton(
+                        completedSets = completedSetCount,
+                        totalSets = exercise.sets,
+                        isHoldExercise = exercise.exerciseType == ExerciseType.HOLD.name,
+                        onCompleteSet = onCompleteSet,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
+            }
+        }
+    }
+}
+
+/**
+ * Hold-to-complete set button. Used inside ExerciseCard for library modes and
+ * standalone on the session screen (Variant B places it below Finish/Skip).
+ */
+@Composable
+fun HoldToCompleteButton(
+    completedSets: Int,
+    totalSets: Int,
+    isHoldExercise: Boolean,
+    onCompleteSet: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var holdProgress by remember { mutableStateOf(0f) }
+    var isHolding by remember { mutableStateOf(false) }
+
+    val scale by animateFloatAsState(
+        targetValue = if (isHolding) 0.95f else 1f,
+        animationSpec = tween(200), label = ""
+    )
+
+    LaunchedEffect(isHolding) {
+        if (isHolding) {
+            val startTime = System.currentTimeMillis()
+            while (isHolding) {
+                val elapsed = System.currentTimeMillis() - startTime
+                holdProgress = (elapsed / 250f).coerceIn(0f, 1f)
+
+                if (holdProgress >= 1f) {
+                    onCompleteSet()
+                    holdProgress = 0f
+                    isHolding = false
+                }
+                delay(16)
+            }
+        } else {
+            holdProgress = 0f
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .height(50.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .background(if (completedSets >= totalSets) MaterialTheme.colorScheme.outline else NeonGreen)
+            .pointerInput(completedSets) {
+                detectTapGestures(
+                    onPress = {
+                        isHolding = true
+                        tryAwaitRelease()
+                        isHolding = false
+                    }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        // Subtle overlay that appears during hold for better feedback
+        if (holdProgress > 0f && completedSets < totalSets) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = holdProgress * 0.15f))
+            )
+        }
+
+        // Dark overlay that shrinks as you hold (visual feedback)
+        if (holdProgress > 0f && completedSets < totalSets) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(1f - holdProgress) // Shrinks from right
+                    .fillMaxHeight()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .align(Alignment.CenterEnd)
+            )
+        }
+
+        Text(
+            text = if (completedSets >= totalSets) "COMPLETED" else {
+                if (isHoldExercise) "HOLD TO COMPLETE" else "HOLD TO COMPLETE SET"
+            },
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = if (completedSets >= totalSets) Color.White else Color.Black,
+            modifier = Modifier.scale(scale)
+        )
+    }
+}
+
+@Composable
+private fun WeightStepper(
+    exercise: Exercise,
+    onUpdate: (Exercise) -> Unit
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = { onUpdate(exercise.copy(weight = (exercise.weight - 5f).coerceAtLeast(0f))) }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Remove,
+                contentDescription = "Decrease weight by 5 kg",
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Text(
+            text = formatKg(exercise.weight),
+            style = MaterialTheme.typography.titleMedium,
+            color = NeonGreen,
+            fontWeight = FontWeight.Bold
+        )
+
+        IconButton(
+            onClick = { onUpdate(exercise.copy(weight = exercise.weight + 5f)) }
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Increase weight by 5 kg",
+                tint = NeonGreen,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SetCheckmarks(
+    exercise: Exercise,
+    completedSetCount: Int
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 0 until exercise.sets) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .padding(2.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (i < completedSetCount) NeonGreen
+                        else MaterialTheme.colorScheme.outlineVariant
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (i < completedSetCount) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
     }

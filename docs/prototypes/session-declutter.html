@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!-- PROTOTYPE — throwaway. Question: "What should the decluttered in-session screen look like?" -->
+<!-- Variants: A Focus card · B Command bar · C Minimal + overflow · D Settings options group -->
+<!-- Open directly in a browser. Switch via floating bar or ← → keys. No persistence. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — Session declutter</title>
+<style>
+  :root{
+    --bg:#0b0d10; --card:#171a21; --card2:#1f232d; --line:#2a2f3a;
+    --green:#2ee56b; --green-dim:#1d9d4c; --red:#e5484d; --purple1:#6d5df6; --purple2:#8b5cf6;
+    --txt:#e8eaf0; --dim:#9aa3b2;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; font-family:Segoe UI,Roboto,system-ui,sans-serif}
+  body{background:#05060a; color:var(--txt); min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 12px 120px}
+  h1{font-size:15px; font-weight:600; color:var(--dim); margin-bottom:4px}
+  .q{font-size:12px; color:#5b6472; margin-bottom:18px; text-align:center}
+  .phone{width:390px; background:var(--bg); border-radius:28px; border:1px solid #1a1e26; overflow:hidden; box-shadow:0 20px 60px #000c}
+  .pad{padding:14px}
+  .badge{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.08em; padding:3px 10px; border-radius:999px}
+  .btn{border:none; border-radius:14px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; color:#04140a; background:var(--green)}
+  .btn.gray{background:#3a4150; color:var(--txt)}
+  .btn.red{background:#3a2226; color:#ff8a8f}
+  .btn.ghost{background:transparent; color:var(--green); border:1px solid var(--green-dim)}
+  .btn.wide{width:100%; padding:16px; font-size:15px; letter-spacing:.06em}
+  .chip{font-size:11px; padding:7px 12px; border-radius:12px; background:var(--card2); color:var(--dim); border:1px solid var(--line); cursor:pointer}
+  .chip.on{color:#04140a; background:var(--green); border-color:var(--green); font-weight:700}
+  /* session header */
+  .sess{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:linear-gradient(90deg,var(--purple1),var(--purple2))}
+  .sess .t{font-size:19px; font-weight:800}
+  .sess .pause{display:flex; align-items:center; gap:6px; background:var(--green); color:#04140a; border:none; border-radius:999px; padding:9px 16px; font-weight:800; font-size:13px; cursor:pointer}
+  /* timer strip */
+  .timer{display:flex; align-items:center; gap:12px; padding:10px 14px; background:#12151b; border-bottom:1px solid var(--line); cursor:pointer}
+  .timer .big{font-size:34px; font-weight:800; font-variant-numeric:tabular-nums}
+  .timer .skip{margin-left:auto; font-size:11px; color:var(--dim)}
+  .rest{background:#3b2f7a}
+  /* card */
+  .card{background:var(--card); border-radius:16px; padding:14px; margin-top:12px}
+  .name{font-size:17px; font-weight:800}
+  .sub{font-size:11px; color:var(--dim); margin-top:2px}
+  .row{display:flex; align-items:center; gap:8px}
+  .weight{font-size:20px; font-weight:800; color:var(--green)}
+  .stepper{width:26px;height:26px;border-radius:8px;background:var(--card2);color:var(--txt);border:none;font-size:15px;cursor:pointer}
+  .dots{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap}
+  .dot{width:24px;height:24px;border-radius:50%;background:#262b36;color:var(--dim);font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  .dot.done{background:var(--green); color:#04140a}
+  .dot.cur{outline:2px solid var(--green)}
+  .hold{margin-top:14px; width:100%; padding:16px; border:none; border-radius:14px; background:var(--green); color:#04140a; font-size:14px; font-weight:800; letter-spacing:.08em; cursor:pointer}
+  .hold.done{background:#3a4150; color:var(--dim)}
+  .banner{display:flex; align-items:center; gap:8px; background:#4a1f24; border:1px solid #7e3038; border-radius:12px; padding:10px 12px; margin-top:12px; font-size:12px}
+  .banner button{margin-left:auto; background:none; border:none; color:var(--green); font-weight:700; cursor:pointer; font-size:12px}
+  .counter{font-size:11px; color:var(--dim); font-weight:700; letter-spacing:.04em}
+  /* bottom sheet */
+  .sheet{position:absolute; inset:0; background:#000a; display:flex; align-items:flex-end}
+  .sheet .inner{background:var(--card2); width:100%; border-radius:18px 18px 0 0; padding:18px}
+  .sheet h3{font-size:15px; margin-bottom:2px}
+  .sheet p{font-size:11px; color:var(--dim); margin-bottom:12px}
+  .rpe{display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px}
+  .rpe .chip{min-width:34px; text-align:center}
+  input.note{width:100%; background:#12151b; border:1px solid var(--line); color:var(--txt); border-radius:10px; padding:10px; font-size:12px; margin-bottom:12px}
+  /* settings */
+  .set{display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--line)}
+  .set .l{font-size:13px; font-weight:600}
+  .set .d{font-size:10px; color:var(--dim); margin-top:2px; max-width:230px}
+  .sw{width:42px; height:24px; border-radius:999px; background:#3a4150; position:relative; cursor:pointer; flex:none}
+  .sw.on{background:var(--green)}
+  .sw::after{content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .15s}
+  .sw.on::after{left:21px}
+  /* switcher bar */
+  .bar{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:10px; background:#101319; border:1px solid #2c3342; border-radius:999px; padding:8px 12px; box-shadow:0 10px 30px #000c; z-index:50}
+  .bar button{background:#1c2230; border:none; color:var(--txt); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:15px}
+  .bar .lab{font-size:12px; font-weight:700; min-width:210px; text-align:center}
+  .bar .lab span{color:var(--dim); font-weight:400}
+</style>
+</head>
+<body>
+<h1>PROTOTYPE — Session screen declutter</h1>
+<div class="q">Rest/Switch → Settings only · one unified Pause · counter/RPE/notes optional · RPE asked at exercise end · sensor banner dismisses for the session.<br>Tap the running timer = skip. Tap Pause = pauses session + timer. “Finish exercise” opens the feel-check sheet.</div>
+
+<div class="phone"><div class="pad" id="app" style="position:relative; padding:0"></div></div>
+
+<div class="bar">
+  <button onclick="cycle(-1)">←</button>
+  <div class="lab" id="lab"></div>
+  <button onclick="cycle(1)">→</button>
+</div>
+
+<script>
+const V = [
+  {k:'A', name:'Focus card — slim timer, tap to skip'},
+  {k:'B', name:'Command bar — progress ring + bottom controls'},
+  {k:'C', name:'Minimal card — overflow menu holds extras'},
+  {k:'D', name:'Settings — Session screen options group'}
+];
+
+const S = {
+  paused:false, timerType:'REST', secs:23, ex:2, total:12,
+  setsDone:2, setsTotal:5, weight:20,
+  bannerDismissed:false, sensorMode:'SENSOR',
+  rpeFor:null, rpeSel:null,
+  opts:{ counter:false, rpe:false, notes:false }   // D toggles drive A–C
+};
+let cur = location.hash.replace('#','') || 'A';
+
+function cycle(d){ const i = V.findIndex(v=>v.k===cur); cur = V[(i+d+V.length)%V.length].k; location.hash = cur; render(); }
+addEventListener('hashchange', ()=>{ if(location.hash.replace('#','')!==cur){ cur=location.hash.replace('#','')||'A'; render(); }});
+addEventListener('keydown', e=>{ if(e.target.tagName==='INPUT')return; if(e.key==='ArrowRight')cycle(1); if(e.key==='ArrowLeft')cycle(-1); });
+
+setInterval(()=>{ if(!S.paused && S.timerType){ S.secs = S.secs>0 ? S.secs-1 : 0; render(); } }, 1000);
+
+const fmt = s => String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+
+function sessionHeader(){
+  return `<div class="sess">
+    <div class="t">Session Time: ${fmt(351)}</div>
+    <button class="pause" onclick="S.paused=!S.paused;render()"> ${S.paused?'▶':'❚❚'} ${S.paused?'Resume':'Pause'}</button>
+  </div>`;
+}
+
+function timerStrip(){
+  if(!S.timerType) return '';
+  const label = S.timerType;
+  return `<div class="timer" onclick="skipTimer()" title="Tap to skip timer" style="opacity:${S.paused?.5:1}">
+    <span class="badge rest">${label}</span>
+    <span class="big">${fmt(S.secs)}</span>
+    <span class="skip">tap to skip ⏭</span>
+  </div>`;
+}
+
+function sensorBanner(){
+  if(S.sensorMode!=='SENSOR' || S.bannerDismissed) return '';
+  return `<div class="banner">⚠ Sensor disconnected. Sets already done are safe.
+    <button onclick="S.bannerDismissed=true;S.sensorMode='MANUAL';render()">Use manual counting</button></div>`;
+}
+
+function dots(){
+  let h='<div class="dots">';
+  for(let i=1;i<=S.setsTotal;i++) h+=`<span class="dot ${i<=S.setsDone?'done':''} ${i===S.setsDone+1?'cur':''}">${i}</span>`;
+  return h+'</div>';
+}
+
+function cardCore(){
+  return `
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div class="name">Bench Press ${S.opts.counter?`<span class="counter" style="margin-left:6px">${S.ex} / ${S.total}</span>`:''}</div>
+        <div class="sub">Last: 4 × 8 @ 20 kg · Best 1,440 kg vol</div>
+      </div>
+      ${S.sensorMode==='SENSOR'?'<span class="badge" style="background:#12331f;color:var(--green)">◉ sensor</span>':'<span class="badge" style="background:#3a4150;color:var(--dim)">manual</span>'}
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="stepper" onclick="S.weight=Math.max(0,S.weight-5);render()">−</button>
+      <span class="weight">${S.weight} kg</span>
+      <button class="stepper" onclick="S.weight+=5;render()">+</button>
+      <span style="flex:1"></span>
+      ${dots()}
+    </div>`;
+}
+
+function warmupRow(){
+  return `<div class="row" style="margin-top:10px">
+    <span class="chip ${S.warmup?'on':''}" onclick="S.warmup=!S.warmup;render()">Warm-up only</span>
+  </div>`;
+}
+
+function holdBtn(){
+  const done = S.setsDone>=S.setsTotal;
+  return `<button class="hold ${done?'done':''}" onclick="if(!done){S.setsDone++;startRest()}else{openSheet()}">${done?'EXERCISE DONE — TAP FOR FEEL-CHECK':'HOLD TO COMPLETE SET'}</button>`;
+}
+
+function startRest(){ S.timerType='REST'; S.secs=30; S.paused=false; render(); }
+function skipTimer(){ S.timerType=null; S.secs=0; render(); }
+function openSheet(){ S.rpeFor='Bench Press'; S.rpeSel=null; render(); }
+function closeSheet(save){ if(save){ /* would call setExerciseRpe/setExerciseNote */ } S.rpeFor=null; S.setsDone=0; S.ex=Math.min(S.total,S.ex+1); S.timerType='SWITCH'; S.secs=60; render(); }
+
+function sheet(){
+  if(!S.rpeFor) return '';
+  return `<div class="sheet"><div class="inner">
+    <h3>How did ${S.rpeFor} feel?</h3>
+    <p>Optional — helps track effort over time.</p>
+    <div class="rpe">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<span class="chip ${S.rpeSel===n?'on':''}" onclick="S.rpeSel=n;render()">${n}</span>`).join('')}</div>
+    <input class="note" placeholder="Note (optional)">
+    <div class="row">
+      <button class="btn wide" onclick="closeSheet(true)">Save &amp; continue</button>
+    </div>
+    <div class="row" style="margin-top:8px; justify-content:center">
+      <button class="btn gray" style="padding:6px 14px;font-size:11px" onclick="closeSheet(false)">Skip prompt</button>
+    </div>
+  </div></div>`;
+}
+
+function variantA(){
+  return sessionHeader() + timerStrip() + `<div class="pad">` +
+    (S.opts.counter?`<div class="counter" style="margin:8px 2px 0">EXERCISE ${S.ex} OF ${S.total}</div>`:'') +
+    `<div class="card">${cardCore()}${warmupRow()}
+       ${S.opts.rpe?`<div class="row" style="margin-top:8px"><span class="chip">RPE 7</span></div>`:''}
+       ${S.opts.notes?`<input class="note" style="margin-top:8px" placeholder="Exercise note (optional)">`:''}
+       ${sensorBanner()}
+       ${holdBtn()}
+     </div>
+     <div class="row" style="margin-top:10px; gap:8px">
+       <button class="btn gray" style="flex:1" onclick="openSheet()">Finish exercise</button>
+       <button class="btn red" style="flex:1">Skip exercise</button>
+     </div>
+   </div>` + sheet();
+}
+
+function variantB(){
+  const frac = 1 - S.secs/60;
+  return sessionHeader() + `<div class="pad">
+    <div class="row" style="justify-content:center; margin:6px 0 2px">
+      <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--green) ${frac*360}deg, #232936 0);display:flex;align-items:center;justify-content:center;cursor:pointer" onclick="skipTimer()" title="Tap to skip">
+        <div style="width:96px;height:96px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <span class="badge rest">${S.timerType||'—'}</span>
+          <span class="big" style="font-size:24px">${S.timerType?fmt(S.secs):'--:--'}</span>
+          <span style="font-size:9px;color:var(--dim)">tap = skip</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">${cardCore()}${warmupRow()}${sensorBanner()}</div>
+    <div class="row" style="margin-top:10px; gap:8px">
+      <button class="btn gray" style="flex:1" onclick="openSheet()">Finish</button>
+      <button class="btn red" style="flex:1">Skip</button>
+    </div>
+    ${holdBtn()}
+  </div>` + sheet();
+}
+
+function variantC(){
+  return sessionHeader() + timerStrip() + `<div class="pad">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        ${`<div><div class="name">Bench Press</div><div class="sub">Last: 4 × 8 @ 20 kg</div></div>`}
+        <button class="stepper" style="width:34px;height:34px;border-radius:12px" onclick="alert('Overflow: Warm-up toggle · RPE · Note · Sensor info')" title="Extras">⋯</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="stepper" onclick="S.weight=Math.max(0,S.weight-5);render()">−</button>
+        <span class="weight">${S.weight} kg</span>
+        <button class="stepper" onclick="S.weight+=5;render()">+</button>
+        <span style="flex:1"></span>
+        ${dots()}
+      </div>
+      ${sensorBanner()}
+      ${holdBtn()}
+    </div>
+    <div class="row" style="margin-top:10px; gap:8px">
+      <button class="btn gray" style="flex:1" onclick="openSheet()">Finish exercise</button>
+      <button class="btn red" style="flex:1">Skip exercise</button>
+    </div>
+    <div class="sub" style="margin-top:10px; text-align:center">Counter, RPE and note live in ⋯ or the end-of-exercise check. Durations live in Settings.</div>
+  </div>` + sheet();
+}
+
+function variantD(){
+  const t = (key,label,desc)=>`
+    <div class="set">
+      <div><div class="l">${label}</div><div class="d">${desc}</div></div>
+      <div class="sw ${S.opts[key]?'on':''}" onclick="S.opts[key]=!S.opts[key];render()"></div>
+    </div>`;
+  return sessionHeader() + `<div class="pad">
+    <div class="card">
+      <div class="name" style="margin-bottom:6px">Session screen</div>
+      ${t('counter','Exercise counter','Show “Exercise 2 of 12” during a session.')}
+      ${t('rpe','RPE chips','Show effort chips on the exercise card. You are always asked how an exercise went when it ends.')}
+      ${t('notes','Exercise notes','Show the note field on the card. Notes are also available in the end-of-exercise check.')}
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="name" style="margin-bottom:6px">Timers</div>
+      <div class="set"><div><div class="l">Rest duration</div><div class="d">30 s — change here, not mid-session.</div></div><button class="chip">Edit</button></div>
+      <div class="set" style="border:none"><div><div class="l">Exercise switch duration</div><div class="d">60 s.</div></div><button class="chip">Edit</button></div>
+    </div>
+    <div class="sub" style="margin-top:10px; text-align:center">Flip a toggle, then switch to A / B / C to see the card change.</div>
+  </div>`;
+}
+
+function render(){
+  document.getElementById('lab').innerHTML = `${cur} <span>— ${V.find(v=>v.k===cur).name}</span>`;
+  document.getElementById('app').innerHTML =
+    cur==='A'?variantA(): cur==='B'?variantB(): cur==='C'?variantC(): variantD();
+}
+render();
+</script>
+</body>
+</html>

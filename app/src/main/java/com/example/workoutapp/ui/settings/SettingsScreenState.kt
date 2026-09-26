@@ -18,5 +18,8 @@ data class SettingsScreenState(
     val undoLastSetEnabled: Boolean = true,
     val calorieIntensity: String = "normal",
     val sensorEnabled: Boolean = false,
-    val sensorIpAddress: String = "192.168.0.125"
+    val sensorIpAddress: String = "192.168.0.125",
+    val showExerciseCounter: Boolean = false,
+    val showInlineRpe: Boolean = false,
+    val showExerciseNotes: Boolean = false
 )

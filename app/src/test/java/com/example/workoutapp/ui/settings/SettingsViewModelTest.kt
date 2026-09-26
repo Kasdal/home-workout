@@ -11,10 +11,12 @@ import com.example.workoutapp.data.settings.SyncedWorkoutSettingsRepository
 import com.example.workoutapp.data.settings.WorkoutSessionSettings
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.util.SoundManager
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -22,6 +24,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -34,6 +37,7 @@ class SettingsViewModelTest {
     private lateinit var sessionHistoryRepository: SessionHistoryRepository
     private lateinit var localAppPreferencesRepository: LocalAppPreferencesRepository
     private lateinit var syncedWorkoutSettingsRepository: SyncedWorkoutSettingsRepository
+    private lateinit var localSettingsFlow: MutableStateFlow<LocalAppSettings>
     private lateinit var viewModel: SettingsViewModel
 
     @Before
@@ -44,9 +48,14 @@ class SettingsViewModelTest {
         localAppPreferencesRepository = mockk(relaxed = true)
         syncedWorkoutSettingsRepository = mockk(relaxed = true)
 
-        every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
+        localSettingsFlow = MutableStateFlow(LocalAppSettings())
+        every { localAppPreferencesRepository.settings } returns localSettingsFlow
         every { syncedWorkoutSettingsRepository.observeSessionSettings() } returns flowOf(WorkoutSessionSettings())
-        viewModel = SettingsViewModel(
+        viewModel = buildViewModel()
+    }
+
+    private fun buildViewModel(): SettingsViewModel {
+        return SettingsViewModel(
             appContext = mockk<android.content.Context>(relaxed = true),
             legacySettingsBootstrapper = LegacySettingsBootstrapper(),
             exerciseRepository = exerciseRepository,
@@ -62,6 +71,55 @@ class SettingsViewModelTest {
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `session screen options surface defaults off`() = runTest {
+        advanceUntilIdle()
+
+        val state = viewModel.settings.value
+        assertFalse(state.showExerciseCounter)
+        assertFalse(state.showInlineRpe)
+        assertFalse(state.showExerciseNotes)
+    }
+
+    @Test
+    fun `setShowExerciseCounter persists and round-trips through settings state`() = runTest {
+        advanceUntilIdle()
+        assertFalse(viewModel.settings.value.showExerciseCounter)
+
+        viewModel.setShowExerciseCounter(true)
+        localSettingsFlow.value = localSettingsFlow.value.copy(showExerciseCounter = true)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.settings.value.showExerciseCounter)
+        coVerify { localAppPreferencesRepository.updateSessionScreenSettings(showExerciseCounter = true) }
+    }
+
+    @Test
+    fun `setShowInlineRpe persists and round-trips through settings state`() = runTest {
+        advanceUntilIdle()
+        assertFalse(viewModel.settings.value.showInlineRpe)
+
+        viewModel.setShowInlineRpe(true)
+        localSettingsFlow.value = localSettingsFlow.value.copy(showInlineRpe = true)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.settings.value.showInlineRpe)
+        coVerify { localAppPreferencesRepository.updateSessionScreenSettings(showInlineRpe = true) }
+    }
+
+    @Test
+    fun `setShowExerciseNotes persists and round-trips through settings state`() = runTest {
+        advanceUntilIdle()
+        assertFalse(viewModel.settings.value.showExerciseNotes)
+
+        viewModel.setShowExerciseNotes(true)
+        localSettingsFlow.value = localSettingsFlow.value.copy(showExerciseNotes = true)
+        advanceUntilIdle()
+
+        assertTrue(viewModel.settings.value.showExerciseNotes)
+        coVerify { localAppPreferencesRepository.updateSessionScreenSettings(showExerciseNotes = true) }
     }
 
     @Test

@@ -44,6 +44,19 @@ import kotlinx.coroutines.launch
 private const val GOOGLE_ID_TOKEN_CREDENTIAL_TYPE =
     "com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN"
 
+/**
+ * Some GMS builds return the option type string as the credential type, so
+ * accept both known spellings (regression: NoCredential -> wrong-type check).
+ */
+private const val GOOGLE_ID_TOKEN_OPTION_TYPE =
+    "com.google.android.libraries.identity.googleid.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL"
+
+internal fun isGoogleIdTokenCredential(credential: androidx.credentials.Credential): Boolean {
+    return credential is CustomCredential &&
+        (credential.type == GOOGLE_ID_TOKEN_CREDENTIAL_TYPE ||
+            credential.type == GOOGLE_ID_TOKEN_OPTION_TYPE)
+}
+
 @Composable
 fun AuthGateScreen(
     startupFailed: Boolean = false,
@@ -68,12 +81,14 @@ fun AuthGateScreen(
                     .build()
                 val response = credentialManager.getCredential(context, request)
                 val credential = response.credential
-                if (credential is CustomCredential &&
-                    credential.type == GOOGLE_ID_TOKEN_CREDENTIAL_TYPE
-                ) {                    val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
+                if (isGoogleIdTokenCredential(credential)) {
+                    val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
                     viewModel.signInWithGoogleIdToken(idToken)
                 } else {
-                    Log.e("AuthGate", "Credential Manager returned unexpected credential type")
+                    Log.e(
+                        "AuthGate",
+                        "Google sign-in returned unexpected credential type=${credential.type}"
+                    )
                     viewModel.onSignInError("Google sign-in returned an unexpected credential type.")
                 }
             } catch (_: GetCredentialCancellationException) {
