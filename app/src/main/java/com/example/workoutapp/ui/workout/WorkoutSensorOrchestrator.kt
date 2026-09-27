@@ -35,6 +35,23 @@ data class SensorSetCompletionTarget(
     val targetReps: Int
 )
 
+/**
+ * What happened when the app asked the ESP to zero its rep counter.
+ *
+ * The screen must show this. A silent failure looks exactly the same as a
+ * missed tap, so the user cannot tell whether their count was thrown away.
+ */
+enum class SensorResetOutcome {
+    /** The ESP accepted the reset and the counter is now zero. */
+    SENT,
+
+    /** No ESP is connected, so there was nothing to reset. */
+    NO_DEVICE,
+
+    /** An ESP is configured but did not accept the reset. */
+    FAILED
+}
+
 class WorkoutSensorOrchestrator(
     private val scope: CoroutineScope,
     private val pollSensorStatus: (String, Long) -> Flow<EspSensorData?>,
@@ -110,18 +127,26 @@ class WorkoutSensorOrchestrator(
         lastSensorReps = 0
     }
 
-    fun resetCounterNow() {
-        val ipAddress = currentIpAddress ?: return
-        pendingResetJob?.cancel()
-        pendingResetJob = scope.launch {
-            val didReset = resetCounter(ipAddress)
-            if (!didReset || !isActive) {
-                return@launch
-            }
+    /**
+     * Resets the ESP counter and reports what actually happened.
+     *
+     * This is the only manual reset path. The automatic reset that follows a
+     * completed set is [scheduleCounterReset], which needs no outcome because
+     * nobody is watching for it.
+     */
+    suspend fun requestCounterReset(): SensorResetOutcome {
+        val ipAddress = currentIpAddress ?: return SensorResetOutcome.NO_DEVICE
 
-            resetRepTracking()
-            _sensorSnapshot.value = _sensorSnapshot.value.copy(reps = 0)
-        }
+        // A manual reset supersedes one that is still waiting out its delay,
+        // because the user is asking for the count to be zero now.
+        pendingResetJob?.cancel()
+        pendingResetJob = null
+
+        if (!resetCounter(ipAddress)) return SensorResetOutcome.FAILED
+
+        resetRepTracking()
+        _sensorSnapshot.value = _sensorSnapshot.value.copy(reps = 0)
+        return SensorResetOutcome.SENT
     }
 
     private suspend fun maybeTriggerSetCompletion(currentReps: Int) {

@@ -14,7 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -23,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -49,7 +57,9 @@ fun TimerHeader(
     isPaused: Boolean,
     timerType: CountdownType,
     onSkipTimer: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFinishExercise: (() -> Unit)? = null,
+    onSkipExercise: (() -> Unit)? = null
 ) {
     val showCountdown = isRunning || isPaused
     val ringSize = 136.dp
@@ -84,6 +94,34 @@ fun TimerHeader(
                 .padding(12.dp),
             contentAlignment = Alignment.Center
         ) {
+            // Exercise-level actions sit either side of the ring rather than in a
+            // row beneath the photo. They are icon only, with a content
+            // description, so they cost no horizontal space on a phone and free
+            // the vertical space the action buttons used to occupy.
+            if (onSkipExercise != null) {
+                HeaderActionIcon(
+                    icon = Icons.Filled.SkipNext,
+                    label = "Skip exercise",
+                    // Neutral and bright. onSurfaceVariant at 26dp was too dim to
+                    // read as an available action against near black.
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    onClick = onSkipExercise,
+                    modifier = Modifier.align(Alignment.CenterStart)
+                )
+            }
+            if (onFinishExercise != null) {
+                HeaderActionIcon(
+                    icon = Icons.Filled.DoneAll,
+                    label = "Finish exercise",
+                    // Amber, so it reads as its own thing rather than competing
+                    // with the single green primary action further down.
+                    tint = MaterialTheme.colorScheme.tertiary,
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    onClick = onFinishExercise,
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                )
+            }
             Box(
                 modifier = Modifier
                     .size(ringSize)
@@ -161,6 +199,52 @@ fun TimerHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * A single icon action in the timer header.
+ *
+ * The glyph sits on a filled circular surface so it reads as a pressable control
+ * rather than a decoration. Icon only, so it carries a content description, and
+ * the touch target is 48dp even though the glyph is 26dp, because a bare 26dp
+ * glyph is well under the accessible minimum.
+ */
+@Composable
+private fun HeaderActionIcon(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    tint: Color,
+    containerColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(
+                onClickLabel = label,
+                role = Role.Button,
+                onClick = onClick
+            )
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = containerColor,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }

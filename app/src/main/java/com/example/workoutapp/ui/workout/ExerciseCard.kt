@@ -13,18 +13,21 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
@@ -36,6 +39,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -262,6 +268,19 @@ fun ExerciseCard(
                             completedSetCount = completedSetCount
                         )
                     }
+
+                    // Warm-up sits with the weight controls on the session card, so
+                    // it no longer consumes a row of its own between the title and
+                    // the weight stepper.
+                    if (onWarmUpOnlyChange != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            WarmUpChip(
+                                warmUpOnly = warmUpOnly,
+                                onClick = { onWarmUpOnlyChange(!warmUpOnly) }
+                            )
+                        }
+                    }
                 } else {
                     // Compact header: Name, Weight controls, and Checkmarks in one row
                     Row(
@@ -309,8 +328,6 @@ fun ExerciseCard(
                 if (cardMode == ExerciseCardMode.SESSION && onWarmUpOnlyChange != null) {
                     Spacer(modifier = Modifier.height(10.dp))
                     SessionLoggingSection(
-                        warmUpOnly = warmUpOnly,
-                        onWarmUpOnlyChange = onWarmUpOnlyChange,
                         rpe = rpe,
                         onRpeChange = onRpeChange,
                         note = note,
@@ -351,9 +368,14 @@ fun ExerciseCard(
                     }
                 }
 
-                // Photo area (shown in SESSION and LIST_EXPANDED modes)
+                // Photo area. Capped at 200dp in session mode: at 300dp the photo
+                // became the largest element on the screen and pushed the primary
+                // action below the fold, for the least informative content.
                 val photoSpaceHeight = when (cardMode) {
-                    ExerciseCardMode.SESSION -> if (exercise.photoUri != null) 140.dp else 0.dp
+                    // No photo in a session. A 200dp image plus the sensor block
+                    // pushed the primary action off screen, and once you are on
+                    // set 2 you no longer need the form reference.
+                    ExerciseCardMode.SESSION -> 0.dp
                     ExerciseCardMode.LIST_COMPACT -> 0.dp
                     ExerciseCardMode.LIST_EXPANDED -> 300.dp
                 }
@@ -466,69 +488,13 @@ fun ExerciseCard(
                 }
 
                 if (cardMode == ExerciseCardMode.SESSION && sensorConnected) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (sensorState == "LIFTING") {
-                                NeonGreen.copy(alpha = 0.2f)
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            }
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = {},
-                                onLongClick = { onResetSensorCounter?.invoke() }
-                            )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Sensor",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = NeonGreen
-                                )
-                                Text(
-                                    text = sensorState,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = if (sensorState == "LIFTING") NeonGreen else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "$sensorReps",
-                                style = MaterialTheme.typography.displayMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = NeonGreen
-                            )
-                            Text(
-                                text = "reps",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Distance: ${sensorDistance}mm",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            TextButton(
-                                onClick = { onResetSensorCounter?.invoke() },
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                            ) {
-                                Text("Reset Counter")
-                            }
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    SensorRow(
+                        reps = sensorReps,
+                        state = sensorState,
+                        distanceMm = sensorDistance,
+                        onReset = onResetSensorCounter
+                    )
                 }
 
                 if (cardMode == ExerciseCardMode.LIST_EXPANDED) {
@@ -723,26 +689,84 @@ private fun SetCheckmarks(
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0 until exercise.sets) {
+            val done = i < completedSetCount
+            // A pending set is an outlined ring, not a filled dark disc. Filled
+            // discs at this size read as disabled or broken rather than pending.
             Box(
                 modifier = Modifier
                     .size(28.dp)
-                    .padding(2.dp)
                     .clip(CircleShape)
                     .background(
-                        if (i < completedSetCount) NeonGreen
-                        else MaterialTheme.colorScheme.outlineVariant
+                        if (done) NeonGreen else Color.Transparent
+                    )
+                    .border(
+                        width = 1.5.dp,
+                        color = if (done) NeonGreen
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        shape = CircleShape
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                if (i < completedSetCount) {
+                if (done) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * Quiet flag, not an action.
+ *
+ * Rendered beside the exercise title. It was a full row of its own, which made a
+ * low importance boolean compete with HOLD TO COMPLETE SET for attention and
+ * pushed the primary action further down the screen.
+ */
+@Composable
+private fun WarmUpChip(
+    warmUpOnly: Boolean,
+    onClick: () -> Unit
+) {
+    val container = if (warmUpOnly) {
+        MaterialTheme.colorScheme.tertiaryContainer
+    } else {
+        Color.Transparent
+    }
+    val content = if (warmUpOnly) {
+        MaterialTheme.colorScheme.onTertiaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(50),
+        color = container,
+        contentColor = content,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (warmUpOnly) MaterialTheme.colorScheme.tertiary
+            else MaterialTheme.colorScheme.outline
+        )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+            modifier = Modifier.padding(start = 7.dp, end = 9.dp, top = 4.dp, bottom = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.LocalFireDepartment,
+                contentDescription = null,
+                modifier = Modifier.size(13.dp)
+            )
+            Text(
+                text = "Warm-up",
+                style = MaterialTheme.typography.labelMedium
+            )
         }
     }
 }
@@ -889,8 +913,12 @@ private fun PreviousPerformanceLine(history: List<com.example.workoutapp.model.S
             }
         }
         if (best != null) {
+            // The previous label read "Best: 1040 kg" using the best session
+            // volume, which looked like a record weight. This is the heaviest
+            // weight actually lifted for the exercise, and the tonnage is shown
+            // separately underneath.
             Text(
-                text = "Best: ${formatWeightKg(best.volume)}",
+                text = "Best: ${formatWeightKg(history.maxOf { it.weight })}",
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -903,11 +931,165 @@ private fun formatWeightKg(value: Float): String {
     return if (value % 1f == 0f) "${value.toInt()} kg" else String.format(java.util.Locale.US, "%.1f kg", value)
 }
 
+/**
+ * Live sensor readout, on one line.
+ *
+ * This replaced a 190dp nested card that showed the same three numbers, plus a
+ * "Reset Counter" text button that needed a row of its own. Together they pushed
+ * HOLD TO COMPLETE SET off the bottom of a 1344x2992 screen, which meant the
+ * user had to scroll between every set.
+ *
+ * The row only renders while the sensor is connected, so the reset control needs
+ * no disabled state. If the link drops between polls the reset call itself
+ * reports [com.example.workoutapp.ui.workout.SensorResetOutcome.NO_DEVICE] and
+ * the screen says so.
+ */
+@Composable
+private fun SensorRow(
+    reps: Int,
+    state: String,
+    distanceMm: Int,
+    onReset: (() -> Unit)?
+) {
+    val isLifting = state == "LIFTING"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(start = 12.dp, end = 2.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "$reps",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+            color = NeonGreen
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "reps",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        Column(horizontalAlignment = Alignment.End) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isLifting) NeonGreen
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = state,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (isLifting) NeonGreen
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = "$distanceMm mm",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+
+        if (onReset != null) {
+            SensorResetControl(onReset = onReset)
+        }
+    }
+}
+
+/**
+ * How long the first tap stays armed before the reset is forgotten.
+ *
+ * Internal, not private, so the instrumented test can advance past the real
+ * window instead of hard-coding a second copy of the number.
+ */
+internal const val RESET_CONFIRM_WINDOW_MS = 2_600L
+
+/**
+ * Reset control for the ESP rep counter.
+ *
+ * It asks for a second tap. The counter is live data that cannot be recovered,
+ * and this button sits inside a scrolling card, so a stray tap while logging a
+ * set would zero the count with no way back. The whole sensor card used to be
+ * bound to a long-press for the same action, which was undiscoverable and sat
+ * beside an explicit button doing the same thing.
+ */
+@Composable
+private fun SensorResetControl(onReset: () -> Unit) {
+    var awaitingConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(awaitingConfirm) {
+        if (awaitingConfirm) {
+            delay(RESET_CONFIRM_WINDOW_MS)
+            awaitingConfirm = false
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = if (awaitingConfirm) {
+                    "Confirm counter reset"
+                } else {
+                    "Reset counter"
+                },
+                onClick = {
+                    if (awaitingConfirm) {
+                        awaitingConfirm = false
+                        onReset()
+                    } else {
+                        awaitingConfirm = true
+                    }
+                }
+            )
+            .semantics {
+                contentDescription = "Reset counter"
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = if (awaitingConfirm) {
+                MaterialTheme.colorScheme.tertiaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            },
+            modifier = Modifier.size(40.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Filled.RestartAlt,
+                    // The label is on the clickable parent, so the glyph itself
+                    // must not announce a second time.
+                    contentDescription = null,
+                    tint = if (awaitingConfirm) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SessionLoggingSection(
-    warmUpOnly: Boolean,
-    onWarmUpOnlyChange: (Boolean) -> Unit,
     rpe: Int?,
     onRpeChange: ((Int?) -> Unit)?,
     note: String,
@@ -919,11 +1101,6 @@ private fun SessionLoggingSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            FilterChip(
-                selected = warmUpOnly,
-                onClick = { onWarmUpOnlyChange(!warmUpOnly) },
-                label = { Text("Warm-up only") }
-            )
             if (onRpeChange != null) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(2.dp),

@@ -584,9 +584,15 @@ class WorkoutViewModel @Inject constructor(
         countdownOrchestrator.stopTimer()
     }
 
-    fun resetSensorCounter() {
-        sensorOrchestrator.resetCounterNow()
-    }
+    /**
+     * Resets the ESP rep counter.
+     *
+     * Suspends and returns the outcome so the caller can tell the user what
+     * happened. The previous fire-and-forget version could not, which left a
+     * failed reset indistinguishable from a missed tap.
+     */
+    suspend fun resetSensorCounter(): SensorResetOutcome =
+        sensorOrchestrator.requestCounterReset()
 
     // --- Set Completion Logic ---
     fun completeNextSet(exerciseId: Int) {

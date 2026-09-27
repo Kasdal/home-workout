@@ -320,4 +320,119 @@ class WorkoutSensorOrchestratorTest {
         assertEquals(listOf(21), completedExerciseIds)
         assertEquals(4, orchestrator.sensorSnapshot.value.reps)
     }
+
+    @Test
+    fun `manual reset reports SENT and clears the displayed rep count`() = runTest {
+        val resetRequests = mutableListOf<String>()
+        val orchestrator = WorkoutSensorOrchestrator(
+            scope = this,
+            pollSensorStatus = { _, _ ->
+                flowOf(EspSensorData(reps = 7, state = "LIFTING", dist = 44))
+            },
+            resetCounter = {
+                resetRequests += it
+                true
+            }
+        )
+
+        orchestrator.start(ipAddress = "192.168.0.10")
+        advanceUntilIdle()
+        assertEquals(7, orchestrator.sensorSnapshot.value.reps)
+
+        val outcome = orchestrator.requestCounterReset()
+
+        assertEquals(SensorResetOutcome.SENT, outcome)
+        assertEquals(listOf("192.168.0.10"), resetRequests)
+        assertEquals(0, orchestrator.sensorSnapshot.value.reps)
+    }
+
+    @Test
+    fun `manual reset reports NO_DEVICE when no sensor was ever started`() = runTest {
+        var resetCalls = 0
+        val orchestrator = WorkoutSensorOrchestrator(
+            scope = this,
+            pollSensorStatus = { _, _ -> flowOf(EspSensorData(reps = 1, state = "TOP", dist = 1)) },
+            resetCounter = {
+                resetCalls += 1
+                true
+            }
+        )
+
+        val outcome = orchestrator.requestCounterReset()
+
+        assertEquals(SensorResetOutcome.NO_DEVICE, outcome)
+        assertEquals(0, resetCalls)
+    }
+
+    /**
+     * The regression this whole change exists for.
+     *
+     * A rejected reset must report FAILED and must leave the rep count alone. The
+     * old fire-and-forget path did the second half but had no way to express the
+     * first, so the screen showed a confirmation for a reset that never happened.
+     */
+    @Test
+    fun `rejected manual reset reports FAILED and does not clear the rep count`() = runTest {
+        val orchestrator = WorkoutSensorOrchestrator(
+            scope = this,
+            pollSensorStatus = { _, _ ->
+                flowOf(EspSensorData(reps = 5, state = "LIFTING", dist = 33))
+            },
+            resetCounter = { false }
+        )
+
+        orchestrator.start(ipAddress = "192.168.0.10")
+        advanceUntilIdle()
+
+        val outcome = orchestrator.requestCounterReset()
+
+        assertEquals(SensorResetOutcome.FAILED, outcome)
+        assertEquals(5, orchestrator.sensorSnapshot.value.reps)
+    }
+
+    @Test
+    fun `manual reset reports NO_DEVICE after the sensor stops`() = runTest {
+        val orchestrator = WorkoutSensorOrchestrator(
+            scope = this,
+            pollSensorStatus = { _, _ -> flowOf(EspSensorData(reps = 2, state = "TOP", dist = 2)) },
+            resetCounter = { true }
+        )
+
+        orchestrator.start(ipAddress = "192.168.0.10")
+        advanceUntilIdle()
+        orchestrator.stop()
+
+        assertEquals(SensorResetOutcome.NO_DEVICE, orchestrator.requestCounterReset())
+    }
+
+    @Test
+    fun `manual reset supersedes a pending delayed auto reset`() = runTest {
+        val resetRequests = mutableListOf<String>()
+        val orchestrator = WorkoutSensorOrchestrator(
+            scope = this,
+            pollSensorStatus = { _, _ ->
+                flowOf(EspSensorData(reps = 4, state = "TOP", dist = 15))
+            },
+            currentSetCompletionTarget = {
+                SensorSetCompletionTarget(exerciseId = 21, targetReps = 4)
+            },
+            onSetCompletionTriggered = { true },
+            resetCounter = {
+                resetRequests += it
+                true
+            },
+            completionResetDelayMs = 1000
+        )
+
+        orchestrator.start(ipAddress = "192.168.0.10")
+        runCurrent()
+        assertTrue(resetRequests.isEmpty())
+
+        val outcome = orchestrator.requestCounterReset()
+        advanceTimeBy(1000)
+        advanceUntilIdle()
+
+        assertEquals(SensorResetOutcome.SENT, outcome)
+        assertEquals(listOf("192.168.0.10"), resetRequests)
+    }
 }

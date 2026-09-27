@@ -458,6 +458,7 @@ private fun WorkoutLibraryItem(
     val history by exerciseHistory.collectAsStateWithLifecycle(initialValue = emptyList())
     val recentHistory = history.sortedByDescending { it.sessionId }
     val lastEntry = recentHistory.firstOrNull()
+    val bestWeight = history.maxOfOrNull { it.weight } ?: 0f
     val bestVolume = history.maxOfOrNull { it.volume } ?: 0f
 
     LaunchedEffect(reorderMode) {
@@ -709,7 +710,10 @@ private fun WorkoutLibraryItem(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = "Best: ${formatKg(bestVolume)}",
+                                // The heaviest weight actually lifted, not the
+                                // best session tonnage. Showing volume here read
+                                // as "Best: 1040 kg" on a 20kg squat.
+                                text = "Best: ${formatKg(bestWeight)}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Bold

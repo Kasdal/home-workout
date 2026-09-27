@@ -16,6 +16,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.util.concurrent.TimeUnit
@@ -36,6 +37,12 @@ class SensorRepository @Inject constructor(
             val retrofit = Retrofit.Builder()
                 .baseUrl("http://$ipAddress/")
                 .client(okHttpClient)
+                // Scalars first. Retrofit tries converters in order, so this
+                // claims Response<String> and Gson never sees the plain-text body.
+                // With Gson alone, /reset returned a body Gson could not parse, the
+                // call threw after the ESP had already reset, and the repository
+                // reported failure for a reset that had worked.
+                .addConverterFactory(ScalarsConverterFactory.create())
                 .addConverterFactory(GsonConverterFactory.create())
                 .build()
             apiService = retrofit.create(EspApiService::class.java)

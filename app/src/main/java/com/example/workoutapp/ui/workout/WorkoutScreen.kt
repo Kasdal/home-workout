@@ -388,9 +388,16 @@ fun WorkoutScreen(
         onExerciseRpeChange = viewModel::setExerciseRpe,
         onExerciseNoteChange = viewModel::setExerciseNote,
         onResetSensorCounter = {
-            viewModel.resetSensorCounter()
+            // The old code showed "Resetting sensor counter" straight away, which
+            // claimed success before the ESP had answered. The outcome now decides
+            // the wording, so a failed reset says so.
             snackbarScope.launch {
-                snackbarHostState.showSnackbar("Resetting sensor counter")
+                val message = when (viewModel.resetSensorCounter()) {
+                    SensorResetOutcome.SENT -> "Counter reset on the ESP"
+                    SensorResetOutcome.NO_DEVICE -> "No ESP connected. Counter not reset"
+                    SensorResetOutcome.FAILED -> "ESP did not answer. Counter not reset"
+                }
+                snackbarHostState.showSnackbar(message)
             }
         },
         sensorReps = sensorReps,
@@ -495,12 +502,20 @@ fun WorkoutScreenContent(
         topBar = {
             Column {
                 if (sessionStarted) {
+                    // Neutral band. A green band behind the session clock made the
+                    // header read as a notification rather than as chrome, and
+                    // put a second large green block above the primary action.
+                    //
+                    // Rounded at the bottom only. It butted straight into the
+                    // screen with square corners while every other surface in the
+                    // app used 20dp, which is what made the top look unfinished.
                     Surface(
                         color = if (isSessionPaused) {
                             MaterialTheme.colorScheme.surfaceVariant
                         } else {
-                            MaterialTheme.colorScheme.primaryContainer
+                            MaterialTheme.colorScheme.surfaceContainerHigh
                         },
+                        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -553,7 +568,12 @@ fun WorkoutScreenContent(
                         isRunning = isTimerRunning,
                         isPaused = isTimerPaused,
                         timerType = timerType,
-                        onSkipTimer = onSkipTimer
+                        onSkipTimer = onSkipTimer,
+                        // Exercise actions moved to either side of the ring as
+                        // icons, so the row of outline buttons below the photo is
+                        // gone and the primary action sits much closer to it.
+                        onFinishExercise = { showEndOfExerciseDialog = true },
+                        onSkipExercise = onSkipExercise
                     )
                 } else {
                     TopAppBar(
@@ -658,27 +678,12 @@ fun WorkoutScreenContent(
                                     modifier = Modifier.weight(1f)
                                 )
                                 TextButton(onClick = onFallbackToManualReps) {
-                                    Text("Use manual counting")
+                                    // Not brand green. Green means "go" everywhere
+                                    // else in this app, so inside an error banner
+                                    // it read as a second call to action.
+                                    Text("Use manual counting", color = MaterialTheme.colorScheme.onErrorContainer)
                                 }
                             }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { showEndOfExerciseDialog = true },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Finish exercise")
-                        }
-                        OutlinedButton(
-                            onClick = onSkipExercise,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Skip exercise")
                         }
                     }
 
