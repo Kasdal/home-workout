@@ -728,23 +728,38 @@ class WorkoutViewModel @Inject constructor(
         sensorOrchestrator.stop()
     }
 
+    /**
+     * Resolves which exercise the sensor may auto-complete a set for.
+     *
+     * This deliberately does NOT re-scan the exercise list. An earlier version
+     * picked the first incomplete exercise that also used the sensor and was not
+     * a hold, which is a different predicate from the one
+     * `WorkoutSessionReducer.selectActiveExercise` uses to decide what the user
+     * is actually looking at. With a hold exercise first and a sensor exercise
+     * second, the reducer showed the hold while the sensor completed sets on the
+     * second exercise, silently corrupting volume, set counts and personal
+     * records.
+     *
+     * The active exercise id is the single source of truth for what is on
+     * screen, so the sensor follows it. If that exercise cannot be tracked by the
+     * sensor, the sensor does nothing.
+     */
     private suspend fun getSensorSetCompletionTarget(): SensorSetCompletionTarget? {
-        val exerciseList = exercises.first()
-        val skipped = _skippedExerciseIds.value
-        val incompleteExercise = exerciseList.firstOrNull { exercise ->
-            val completedSets = _completedSets.value[exercise.id] ?: 0
-            exercise.id !in skipped &&
-                completedSets < exercise.sets &&
-                exercise.usesSensor &&
-                exercise.exerciseType != ExerciseType.HOLD.name
-        }
+        val activeExerciseId = _activeExerciseId.value ?: return null
+        val activeExercise = exercises.first()
+            .firstOrNull { it.id == activeExerciseId }
+            ?: return null
 
-        return incompleteExercise?.let { exercise ->
-            SensorSetCompletionTarget(
-                exerciseId = exercise.id,
-                targetReps = exercise.reps
-            )
-        }
+        if (!activeExercise.usesSensor) return null
+        if (activeExercise.exerciseType == ExerciseType.HOLD.name) return null
+
+        val completed = _completedSets.value[activeExercise.id] ?: 0
+        if (completed >= activeExercise.sets) return null
+
+        return SensorSetCompletionTarget(
+            exerciseId = activeExercise.id,
+            targetReps = activeExercise.reps
+        )
     }
 
     private suspend fun onSensorSetCompletionTriggered(exerciseId: Int): Boolean {

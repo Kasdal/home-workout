@@ -3,6 +3,7 @@ package com.example.workoutapp.ui.workout
 import android.net.Uri
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
+import com.example.workoutapp.model.ExerciseType
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.ExerciseRepository
@@ -51,6 +52,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -509,6 +511,102 @@ class WorkoutViewModelTest {
         runCurrent()
 
         assertEquals(0, viewModel.sensorReps.value)
+
+        localSettingsFlow.value = localSettingsFlow.value.copy(sensorEnabled = false)
+        runCurrent()
+        viewModel.pauseSession()
+    }
+
+    /**
+     * Regression: the sensor used to re-scan the exercise list for the first
+     * incomplete exercise that also used the sensor and was not a hold. That is a
+     * different predicate from the one the reducer uses to choose the exercise
+     * the user is looking at, so with a hold first and a sensor exercise second
+     * the sensor completed sets on an exercise that was not on screen, corrupting
+     * volume, set counts and personal records.
+     */
+    @Test
+    fun `sensor does not complete a set for an exercise that is not the active one`() = runTest {
+        localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
+        val sensorEvents = MutableSharedFlow<EspSensorData?>()
+        sensorStatusFlow = sensorEvents
+        sensorResetResult = true
+
+        // A hold exercise first, so the reducer selects it as the active one,
+        // and a sensor-tracked exercise second.
+        exercisesFlow.value = listOf(
+            Exercise(
+                id = 1,
+                name = "Plank",
+                weight = 0f,
+                reps = 10,
+                sets = 3,
+                exerciseType = ExerciseType.HOLD.name,
+                holdDurationSeconds = 30,
+                usesSensor = false,
+                activeInSession = true
+            ),
+            Exercise(
+                id = 2,
+                name = "Bench Press",
+                weight = 100f,
+                reps = 10,
+                sets = 4,
+                usesSensor = true,
+                activeInSession = true
+            )
+        )
+
+        viewModel.startSession()
+        runCurrent()
+
+        // The hold is what the user is being shown.
+        assertEquals(1, viewModel.activeExerciseId.value)
+
+        sensorEvents.emit(EspSensorData(reps = 10, state = "TOP", dist = 20))
+        runCurrent()
+
+        assertNull(
+            "Sensor completed a set on an exercise that is not the active one",
+            viewModel.completedSets.value[2]
+        )
+        assertEquals(1, viewModel.activeExerciseId.value)
+
+        localSettingsFlow.value = localSettingsFlow.value.copy(sensorEnabled = false)
+        runCurrent()
+        viewModel.pauseSession()
+    }
+
+    @Test
+    fun `sensor completes a set once the sensor exercise becomes the active one`() = runTest {
+        localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
+        val sensorEvents = MutableSharedFlow<EspSensorData?>()
+        sensorStatusFlow = sensorEvents
+        sensorResetResult = true
+
+        exercisesFlow.value = listOf(
+            Exercise(
+                id = 1,
+                name = "Bench Press",
+                weight = 100f,
+                reps = 10,
+                sets = 4,
+                usesSensor = true,
+                activeInSession = true
+            )
+        )
+
+        viewModel.startSession()
+        runCurrent()
+
+        sensorEvents.emit(EspSensorData(reps = 10, state = "TOP", dist = 20))
+        runCurrent()
+
+        assertEquals(
+            "Sensor must still complete a set for the active sensor exercise",
+            1,
+            viewModel.completedSets.value[1]
+        )
 
         localSettingsFlow.value = localSettingsFlow.value.copy(sensorEnabled = false)
         runCurrent()
