@@ -263,7 +263,12 @@ fun HistoryScreen(
 
     val trendExercise = trendExerciseName
     if (trendExercise != null) {
-        val trendPoints by viewModel.exerciseTrend(trendExercise).collectAsState(initial = emptyList())
+        // Remember the flow. exerciseTrend is a combine over two Firestore
+        // listeners, and collectAsState keys its effect on the flow instance, so
+        // building it inline re-subscribed both listeners on every recomposition
+        // of this screen while the dialog was open.
+        val trendFlow = remember(trendExercise) { viewModel.exerciseTrend(trendExercise) }
+        val trendPoints by trendFlow.collectAsState(initial = emptyList())
         ExerciseTrendDialog(
             exerciseName = trendExercise,
             points = trendPoints,

@@ -384,9 +384,18 @@ fun WorkoutsScreenContent(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     itemsIndexed(displayExercises, key = { _, exercise -> exercise.id }) { index, exercise ->
+                        // Remember the flow per item. Calling getExerciseHistory
+                        // inline built a brand new cold flow on every
+                        // recomposition, and collectAsState uses the flow
+                        // instance as its effect key, so each recomposition
+                        // cancelled and re-attached a Firestore listener for
+                        // every visible card. ExerciseCard already used this
+                        // pattern for its own history.
+                        val exerciseHistoryFlow =
+                            remember(exercise.name) { getExerciseHistory(exercise.name) }
                         WorkoutLibraryItem(
                             exercise = exercise,
-                            exerciseHistory = getExerciseHistory(exercise.name),
+                            exerciseHistory = exerciseHistoryFlow,
                             canMoveUp = index > 0,
                             canMoveDown = index < displayExercises.lastIndex,
                             reorderMode = reorderMode,
