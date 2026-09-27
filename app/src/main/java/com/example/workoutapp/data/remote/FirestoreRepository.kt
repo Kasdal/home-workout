@@ -1,13 +1,16 @@
 package com.example.workoutapp.data.remote
 
 import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseStats
 import com.example.workoutapp.model.RestDay
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.Settings
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.remote.model.CloudCategory
+import com.example.workoutapp.data.remote.model.CloudExerciseStats
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
+import com.example.workoutapp.data.remote.model.CloudSessionExercise
 import com.example.workoutapp.data.remote.model.CloudSettings
 import com.example.workoutapp.data.remote.model.toCloud
 import com.example.workoutapp.data.remote.model.toLocal
@@ -456,7 +459,11 @@ class FirestoreRepository @Inject constructor(
             ?.toLocal()
     }
 
-    suspend fun saveSessionExercises(uid: String, exercises: List<SessionExercise>) {
+    suspend fun saveSessionExercises(
+        uid: String,
+        exercises: List<SessionExercise>,
+        sessionDateMillis: Long
+    ) {
         if (exercises.isEmpty()) return
         val root = userRoot(uid)
         val unassignedCount = exercises.count { it.id <= 0 }
@@ -476,7 +483,139 @@ class FirestoreRepository @Inject constructor(
             }
             batch.commit().await()
         }
+
+        mergeExerciseStats(root, exercises, sessionDateMillis)
     }
+
+    /**
+     * Folds a finished session into the denormalised per-exercise aggregates.
+     *
+     * The History screen used to derive personal records, per-exercise PRs and
+     * weight trends by reading every sessionExercise document ever written, which
+     * grew by one document per exercise per workout. These aggregates keep the
+     * read bounded by the number of distinct exercises instead.
+     *
+     * The merge is a read followed by a write per exercise, so it costs a handful
+     * of reads per completed session. That is a fraction of what the History tab
+     * previously spent on every snapshot, and it is bounded regardless of how
+     * much history the user accumulates.
+     */
+    private suspend fun mergeExerciseStats(
+        root: com.google.firebase.firestore.DocumentReference,
+        exercises: List<SessionExercise>,
+        sessionDateMillis: Long
+    ) {
+        val statsRef = root.collection("exerciseStats")
+        val byName = exercises.groupBy { it.exerciseName }
+
+        for ((name, entries) in byName) {
+            if (name.isBlank()) continue
+            val docRef = statsRef.document(exerciseStatsDocId(name))
+            val current = try {
+                docRef.get().await().toObject<CloudExerciseStats>()?.toLocal()
+                    ?: ExerciseStats(name = name)
+            } catch (e: Exception) {
+                ExerciseStats(name = name)
+            }
+
+            val sessionId = entries.first().sessionId
+            val merged = current.mergedWith(
+                sessionId = sessionId,
+                dateMillis = sessionDateMillis,
+                entries = entries
+            )
+            docRef.set(merged.toCloud(), SetOptions.merge()).await()
+        }
+    }
+
+    /**
+     * Firestore document ids may not contain a forward slash, and exercise names
+     * are free text, so encode to a stable id that round-trips the name stored in
+     * the document body.
+     */
+    internal fun exerciseStatsDocId(name: String): String =
+        java.net.URLEncoder.encode(name, "UTF-8").replace(".", "_")
+
+    /**
+     * One-time rebuild of the denormalised per-exercise aggregates from history
+     * that predates them.
+     *
+     * Without this, an existing account sees empty personal records, zero total
+     * volume and no trends until it happens to log a new session, because the
+     * History screen no longer reads sessionExercises.
+     *
+     * Reads every sessionExercise once, groups by exercise name and session, and
+     * writes one document per distinct exercise. Safe to run more than once,
+     * because the merge is keyed on session id.
+     *
+     * @return the number of aggregate documents written.
+     */
+    suspend fun backfillExerciseStats(uid: String): Int {
+        val root = userRoot(uid)
+        val existing = root.collection("sessionExercises").get().await()
+            .mapNotNull { it.toObject<CloudSessionExercise>()?.toLocal() }
+        if (existing.isEmpty()) return 0
+
+        val sessionDates = root.collection("sessions").get().await()
+            .mapNotNull { doc ->
+                val id = doc.getLong("id")?.toInt() ?: doc.id.toIntOrNull()
+                val date = doc.getLong("date")
+                if (id != null && date != null) id to date else null
+            }
+            .toMap()
+
+        val aggregated = mutableMapOf<String, ExerciseStats>()
+        existing
+            .groupBy { it.exerciseName }
+            .forEach { (name, entries) ->
+                if (name.isBlank()) return@forEach
+                var stats = ExerciseStats(name = name)
+                entries.groupBy { it.sessionId }.toSortedMap().forEach { (sessionId, sessionEntries) ->
+                    stats = stats.mergedWith(
+                        sessionId = sessionId,
+                        dateMillis = sessionDates[sessionId] ?: 0L,
+                        entries = sessionEntries
+                    )
+                }
+                aggregated[name] = stats
+            }
+
+        val batch = firestore.batch()
+        aggregated.forEach { (name, stats) ->
+            batch.set(
+                root.collection("exerciseStats").document(exerciseStatsDocId(name)),
+                stats.toCloud(),
+                SetOptions.merge()
+            )
+        }
+        batch.commit().await()
+        return aggregated.size
+    }
+
+    fun observeExerciseStats(uid: String): Flow<List<ExerciseStats>> = callbackFlow {
+        var listener: com.google.firebase.firestore.ListenerRegistration? = null
+        try {
+            listener = userRoot(uid)
+                .collection("exerciseStats")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+
+                    val items = snapshot?.documents
+                        ?.mapNotNull { it.toObject<CloudExerciseStats>()?.toLocal() }
+                        ?: emptyList()
+
+                    trySend(items)
+                }
+        } catch (e: Exception) {
+            listener?.remove()
+            trySend(emptyList())
+        }
+
+        awaitClose { listener?.remove() }
+    }.conflate()
 
     fun observeSessionExercises(uid: String, sessionId: Int): Flow<List<SessionExercise>> = callbackFlow {
         var listener: com.google.firebase.firestore.ListenerRegistration? = null

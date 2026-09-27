@@ -2,6 +2,7 @@ package com.example.workoutapp.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.workoutapp.model.ExerciseStats
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.WorkoutSession
 import com.example.workoutapp.data.repository.SessionHistoryRepository
@@ -33,8 +34,13 @@ class HistoryViewModel @Inject constructor(
 ) : ViewModel() {
     val sessions = repository.getSessions()
         .catch { Timber.e(it, "sessions flow error") }
-    val sessionExercises = repository.getAllSessionExercises()
-        .catch { Timber.e(it, "sessionExercises flow error") }
+
+    /**
+     * Denormalised per-exercise aggregates. Replaces getAllSessionExercises, which
+     * downloaded every session exercise ever logged on every History snapshot.
+     */
+    val exerciseStats = repository.observeExerciseStats()
+        .catch { Timber.e(it, "exerciseStats flow error") }
 
     private val _selectedSession = MutableStateFlow<WorkoutSession?>(null)
     val selectedSession: StateFlow<WorkoutSession?> = _selectedSession.asStateFlow()
@@ -59,31 +65,44 @@ class HistoryViewModel @Inject constructor(
     }
 
     fun exerciseTrend(exerciseName: String): Flow<List<ExerciseTrendPoint>> =
-        combine(sessions, sessionExercises) { sessionList, allEntries ->
+        combine(sessions, exerciseStats) { sessionList, stats ->
+            val point = stats.firstOrNull { it.name == exerciseName }?.recent ?: emptyList()
             ExerciseTrendCalculator.build(
-                entries = allEntries.filter { it.exerciseName == exerciseName },
+                entries = point.map {
+                    SessionExercise(
+                        id = it.sessionId,
+                        sessionId = it.sessionId,
+                        exerciseName = exerciseName,
+                        weight = it.weight,
+                        sets = 0,
+                        reps = 0,
+                        volume = it.volume
+                    )
+                },
                 sessionDates = sessionList.associate { it.id to it.date }
             )
         }
 
-    val personalRecords: Flow<PersonalRecords> = combine(sessions, sessionExercises) { sessionList, exercises ->
+    val personalRecords: Flow<PersonalRecords> = combine(sessions, exerciseStats) { sessionList, stats ->
         try {
-            calculatePersonalRecords(sessionList, exercises)
+            calculatePersonalRecords(sessionList, stats)
         } catch (e: Exception) {
             Timber.e(e, "calculatePersonalRecords error")
             PersonalRecords(emptyMap(), 0f, 0, 0, 0, 0f, 0)
         }
     }
 
-    val exercisePrs: Flow<List<ExercisePr>> = sessionExercises.map { exercises ->        try {
-            exercises
-                .groupBy { it.exerciseName }
-                .map { (name, entries) ->
-                    val best = entries.maxOfOrNull { it.weight } ?: 0f
-                    val totalVolume = entries.sumOf { it.volume.toDouble() }.toFloat()
-                    val sessionCount = entries.map { it.sessionId }.distinct().size
-                    val trend = computeExerciseTrend(entries)
-                    ExercisePr(name = name, bestWeight = best, totalVolume = totalVolume, sessionCount = sessionCount, trend = trend)
+    val exercisePrs: Flow<List<ExercisePr>> = exerciseStats.map { stats ->
+        try {
+            stats
+                .map { statsEntry ->
+                    ExercisePr(
+                        name = statsEntry.name,
+                        bestWeight = statsEntry.bestWeight,
+                        totalVolume = statsEntry.totalVolume,
+                        sessionCount = statsEntry.sessionCount,
+                        trend = computeExerciseTrend(statsEntry)
+                    )
                 }
                 .sortedByDescending { it.sessionCount }
                 .take(10)
@@ -161,12 +180,20 @@ class HistoryViewModel @Inject constructor(
         }.reversed()
     }
 
-    private fun computeExerciseTrend(entries: List<SessionExercise>): ExerciseTrend {
-        if (entries.size < 2) return ExerciseTrend.FLAT
-        val sorted = entries.sortedBy { it.sessionId }
-        val mid = sorted.size / 2
-        val firstHalfAvg = sorted.take(mid).map { it.weight }.average().toFloat()
-        val secondHalfAvg = sorted.drop(mid).map { it.weight }.average().toFloat()
+    /**
+     * Direction arrow for one exercise, over its per-session best weight.
+     *
+     * Previously this averaged every SessionExercise row, so an exercise done
+     * three times in one session counted three times. It now averages the
+     * per-session points, which is the same two-half comparison over one value per
+     * session.
+     */
+    private fun computeExerciseTrend(stats: ExerciseStats): ExerciseTrend {
+        val weights = stats.recent.sortedBy { it.sessionId }.map { it.weight }
+        if (weights.size < 2) return ExerciseTrend.FLAT
+        val mid = weights.size / 2
+        val firstHalfAvg = weights.take(mid).average().toFloat()
+        val secondHalfAvg = weights.drop(mid).average().toFloat()
         val pctChange = if (firstHalfAvg > 0) ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100) else 0f
         return when {
             pctChange > 5 -> ExerciseTrend.UP
@@ -177,7 +204,7 @@ class HistoryViewModel @Inject constructor(
 
     private fun calculatePersonalRecords(
         sessions: List<WorkoutSession>,
-        allExercises: List<SessionExercise>
+        exerciseStats: List<ExerciseStats>
     ): PersonalRecords {
         if (sessions.isEmpty()) {
             return PersonalRecords(
@@ -191,9 +218,8 @@ class HistoryViewModel @Inject constructor(
             )
         }
 
-        val heaviestByExercise = allExercises
-            .groupBy { it.exerciseName }
-            .mapValues { (_, entries) -> entries.maxOf { it.weight } }
+        val heaviestByExercise = exerciseStats
+            .associate { it.name to it.bestWeight }
 
         val mostVolume = sessions.maxOfOrNull { it.totalVolume } ?: 0f
         val longestSession = (sessions.maxOfOrNull { it.durationSeconds } ?: 0L).toInt() / 60

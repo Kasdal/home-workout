@@ -232,7 +232,7 @@ class WorkoutViewModelTest {
         runCurrent()
 
         coEvery { sessionHistoryRepository.saveSession(any()) } returns 1L
-        coEvery { sessionHistoryRepository.saveSessionExercises(any()) } just Runs
+        coEvery { sessionHistoryRepository.saveSessionExercises(any(), any()) } just Runs
 
         viewModel.completeSession(onComplete = { session ->
             assertEquals(0L, session.durationSeconds)
@@ -241,7 +241,7 @@ class WorkoutViewModelTest {
         runCurrent()
 
         coVerify { sessionHistoryRepository.saveSession(any()) }
-        coVerify { sessionHistoryRepository.saveSessionExercises(any()) }
+        coVerify { sessionHistoryRepository.saveSessionExercises(any(), any()) }
 
         assertFalse(viewModel.sessionStarted.value)
         assertEquals(0, viewModel.sessionElapsedSeconds.value)

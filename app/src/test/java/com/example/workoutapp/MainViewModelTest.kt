@@ -37,6 +37,7 @@ class MainViewModelTest {
     private lateinit var updateChecker: UpdateChecker
     private lateinit var appContext: Context
     private lateinit var legacyPhotoMigrator: LegacyPhotoMigrator
+    private lateinit var exerciseStatsBackfiller: com.example.workoutapp.data.repository.ExerciseStatsBackfiller
     private val testDispatcher = StandardTestDispatcher()
 
     @Before
@@ -49,6 +50,7 @@ class MainViewModelTest {
         updateChecker = mockk(relaxed = true)
         appContext = mockk(relaxed = true)
         legacyPhotoMigrator = mockk(relaxed = true)
+        exerciseStatsBackfiller = mockk(relaxed = true)
 
         every { localAppPreferencesRepository.settings } returns flowOf(LocalAppSettings())
         every { appLaunchCoordinator.appEntryState() } returns flowOf(AppEntryState.Ready("workout"))
@@ -66,7 +68,8 @@ class MainViewModelTest {
         updateChecker = updateChecker,
         appLaunchCoordinator = appLaunchCoordinator,
         appContext = appContext,
-        legacyPhotoMigrator = legacyPhotoMigrator
+        legacyPhotoMigrator = legacyPhotoMigrator,
+        exerciseStatsBackfiller = exerciseStatsBackfiller
     )
 
     @Test

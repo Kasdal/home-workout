@@ -2,6 +2,7 @@ package com.example.workoutapp.domain.session
 
 import com.example.workoutapp.model.Exercise
 import com.example.workoutapp.model.ExerciseSessionMode
+import com.example.workoutapp.model.ExerciseStats
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
@@ -136,6 +137,13 @@ class WorkoutSessionCoordinatorTest {
     private class FakeSessionHistoryRepository : SessionHistoryRepository {
         var savedSession: WorkoutSession? = null
         var savedSessionExercises: List<SessionExercise> = emptyList()
+        var savedSessionDateMillis: Long? = null
+        var observeExerciseStatsResult: List<ExerciseStats> = emptyList()
+
+        override fun observeExerciseStats(): Flow<List<ExerciseStats>> =
+            flowOf(observeExerciseStatsResult)
+
+        override suspend fun backfillExerciseStats(): Int = 0
 
         override fun getSessions(): Flow<List<WorkoutSession>> = flowOf(emptyList())
 
@@ -148,8 +156,12 @@ class WorkoutSessionCoordinatorTest {
 
         override suspend fun deleteSession(sessionId: Int) = Unit
 
-        override suspend fun saveSessionExercises(exercises: List<SessionExercise>) {
+        override suspend fun saveSessionExercises(
+            exercises: List<SessionExercise>,
+            sessionDateMillis: Long
+        ) {
             savedSessionExercises = exercises
+            savedSessionDateMillis = sessionDateMillis
         }
 
         override fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>> = flowOf(emptyList())

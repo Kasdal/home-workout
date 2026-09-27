@@ -29,6 +29,7 @@ class MainViewModel @Inject constructor(
     private val updateChecker: UpdateChecker,
     @ApplicationContext private val appContext: Context,
     private val legacyPhotoMigrator: LegacyPhotoMigrator,
+    private val exerciseStatsBackfiller: com.example.workoutapp.data.repository.ExerciseStatsBackfiller,
     private val appLaunchCoordinator: AppLaunchCoordinator
 ) : ViewModel() {
 
@@ -53,6 +54,7 @@ class MainViewModel @Inject constructor(
     init {
         migrateLegacyThemeIfNeeded()
         legacyPhotoMigrator.start(viewModelScope)
+        exerciseStatsBackfiller.start(viewModelScope)
     }
 
     private fun migrateLegacyThemeIfNeeded() {

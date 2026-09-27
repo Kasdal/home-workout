@@ -3,6 +3,7 @@ package com.example.workoutapp.data.repository
 import com.example.workoutapp.auth.AuthManager
 import com.example.workoutapp.model.Category
 import com.example.workoutapp.model.Exercise
+import com.example.workoutapp.model.ExerciseStats
 import com.example.workoutapp.model.RestDay
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.Settings
@@ -125,8 +126,11 @@ class CloudWorkoutRepository @Inject constructor(
         return firestoreRepository.getRestDayByDate(requireUid(), date)
     }
 
-    override suspend fun saveSessionExercises(exercises: List<SessionExercise>) = tracked {
-        firestoreRepository.saveSessionExercises(requireUid(), exercises)
+    override suspend fun saveSessionExercises(
+        exercises: List<SessionExercise>,
+        sessionDateMillis: Long
+    ) = tracked {
+        firestoreRepository.saveSessionExercises(requireUid(), exercises, sessionDateMillis)
     }
 
     override fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>> = authManager.currentUser.flatMapLatest { user ->
@@ -139,6 +143,14 @@ class CloudWorkoutRepository @Inject constructor(
 
     override fun getAllSessionExercises(): Flow<List<SessionExercise>> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeAllSessionExercises(user.uid)
+    }
+
+    override fun observeExerciseStats(): Flow<List<ExerciseStats>> = authManager.currentUser.flatMapLatest { user ->
+        if (user == null) flowOf(emptyList()) else firestoreRepository.observeExerciseStats(user.uid)
+    }
+
+    override suspend fun backfillExerciseStats(): Int = tracked {
+        firestoreRepository.backfillExerciseStats(requireUid())
     }
 
     override fun observeActiveCategories(): Flow<List<Category>> = authManager.currentUser.flatMapLatest { user ->

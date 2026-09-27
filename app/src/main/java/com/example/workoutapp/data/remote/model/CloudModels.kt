@@ -339,3 +339,53 @@ fun CloudWorkoutTemplate.toLocal() = com.example.workoutapp.model.WorkoutTemplat
     exerciseIds = exerciseIds.map { it.toInt() },
     sortOrder = sortOrder
 )
+
+/**
+ * Denormalised per-exercise analytics document. One per distinct exercise name
+ * under users/{uid}/exerciseStats, so the History screen reads a bounded number
+ * of small documents instead of every SessionExercise ever logged.
+ */
+data class CloudExerciseStats(
+    val name: String = "",
+    val bestWeight: Float = 0f,
+    val totalVolume: Float = 0f,
+    val sessionIds: List<Int> = emptyList(),
+    val recent: List<CloudSessionPoint> = emptyList()
+)
+
+data class CloudSessionPoint(
+    val sessionId: Int = 0,
+    val dateMillis: Long = 0L,
+    val weight: Float = 0f,
+    val volume: Float = 0f
+)
+
+fun com.example.workoutapp.model.ExerciseStats.toCloud() = CloudExerciseStats(
+    name = name,
+    bestWeight = bestWeight,
+    totalVolume = totalVolume,
+    sessionIds = sessionIds,
+    recent = recent.map {
+        CloudSessionPoint(
+            sessionId = it.sessionId,
+            dateMillis = it.dateMillis,
+            weight = it.weight,
+            volume = it.volume
+        )
+    }
+)
+
+fun CloudExerciseStats.toLocal() = com.example.workoutapp.model.ExerciseStats(
+    name = name,
+    bestWeight = bestWeight,
+    totalVolume = totalVolume,
+    sessionIds = sessionIds,
+    recent = recent.map {
+        com.example.workoutapp.model.ExerciseStats.SessionPoint(
+            sessionId = it.sessionId,
+            dateMillis = it.dateMillis,
+            weight = it.weight,
+            volume = it.volume
+        )
+    }
+)

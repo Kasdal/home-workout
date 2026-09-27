@@ -201,7 +201,10 @@ class WorkoutSessionCoordinator @Inject constructor(
         }
 
         if (sessionExercises.isNotEmpty()) {
-            sessionHistoryRepository.saveSessionExercises(sessionExercises)
+            sessionHistoryRepository.saveSessionExercises(
+                exercises = sessionExercises,
+                sessionDateMillis = completion.session.date
+            )
         }
 
         return WorkoutSessionPersistenceResult(
