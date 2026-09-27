@@ -1,5 +1,7 @@
 package com.example.workoutapp
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -10,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,11 +40,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
-            val localSettings by mainViewModel.themeMode.collectAsState(
-                initial = com.example.workoutapp.data.settings.LocalAppSettings()
+            val localSettings by mainViewModel.themeMode.collectAsStateWithLifecycle(
+                initialValue = com.example.workoutapp.data.settings.LocalAppSettings()
             )
             var showSplash by remember { mutableStateOf(true) }
-            val appEntryState by mainViewModel.appEntryState.collectAsState()
+            val appEntryState by mainViewModel.appEntryState.collectAsStateWithLifecycle()
 
             val darkTheme = when (localSettings.themeMode) {
                 "light" -> false
@@ -123,9 +124,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            val updateInfo by mainViewModel.updateInfo.collectAsState()
-                            val showWhatsNew by mainViewModel.showWhatsNew.collectAsState()
-                            val whatsNewChangelog by mainViewModel.whatsNewChangelog.collectAsState()
+                            val updateInfo by mainViewModel.updateInfo.collectAsStateWithLifecycle()
+                            val showWhatsNew by mainViewModel.showWhatsNew.collectAsStateWithLifecycle()
+                            val whatsNewChangelog by mainViewModel.whatsNewChangelog.collectAsStateWithLifecycle()
 
                             updateInfo?.let { info ->
                                 UpdateAvailableBottomSheet(

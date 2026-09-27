@@ -49,9 +49,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -221,33 +221,33 @@ fun WorkoutScreen(
     navController: NavController,
     viewModel: WorkoutViewModel = hiltViewModel()
 ) {
-    val exercises by viewModel.exercises.collectAsState(initial = emptyList())
-    val timerSeconds by viewModel.timerSeconds.collectAsState()
-    val timerTotalSeconds by viewModel.timerTotalSeconds.collectAsState()
-    val isTimerRunning by viewModel.isTimerRunning.collectAsState()
-    val isTimerPaused by viewModel.isTimerPaused.collectAsState()
-    val completedSets by viewModel.completedSets.collectAsState()
-    val sessionStarted by viewModel.sessionStarted.collectAsState()
-    val templates by viewModel.templates.collectAsState(initial = emptyList())
-    val warmUpOnlyIds by viewModel.warmUpOnlyExerciseIds.collectAsState()
-    val exerciseRpeMap by viewModel.exerciseRpe.collectAsState()
-    val exerciseNotesMap by viewModel.exerciseNotes.collectAsState()
-    val sessionElapsedSeconds by viewModel.sessionElapsedSeconds.collectAsState()
-    val undoLastSetEnabled by viewModel.undoLastSetEnabled.collectAsState()
-    val sensorReps by viewModel.sensorReps.collectAsState()
-    val sensorState by viewModel.sensorState.collectAsState()
-    val sensorDistance by viewModel.sensorDistance.collectAsState()
-    val sensorConnected by viewModel.sensorConnected.collectAsState()
-    val activeExerciseId by viewModel.activeExerciseId.collectAsState()
-    val activeExerciseMode by viewModel.activeExerciseMode.collectAsState()
-    val sensorFallbackDismissed by viewModel.sensorFallbackDismissed.collectAsState()
-    val showExerciseCounter by viewModel.showExerciseCounter.collectAsState()
-    val showInlineRpe by viewModel.showInlineRpe.collectAsState()
-    val showExerciseNotes by viewModel.showExerciseNotes.collectAsState()
-    val sessionExercises by viewModel.sessionExercises.collectAsState(initial = emptyList())
-    val skippedExerciseIds by viewModel.skippedExerciseIds.collectAsState()
-    val isSessionPaused by viewModel.isSessionPaused.collectAsState()
-    val timerType by viewModel.timerType.collectAsState()
+    val exercises by viewModel.exercises.collectAsStateWithLifecycle(initialValue = emptyList())
+    val timerSeconds by viewModel.timerSeconds.collectAsStateWithLifecycle()
+    val timerTotalSeconds by viewModel.timerTotalSeconds.collectAsStateWithLifecycle()
+    val isTimerRunning by viewModel.isTimerRunning.collectAsStateWithLifecycle()
+    val isTimerPaused by viewModel.isTimerPaused.collectAsStateWithLifecycle()
+    val completedSets by viewModel.completedSets.collectAsStateWithLifecycle()
+    val sessionStarted by viewModel.sessionStarted.collectAsStateWithLifecycle()
+    val templates by viewModel.templates.collectAsStateWithLifecycle(initialValue = emptyList())
+    val warmUpOnlyIds by viewModel.warmUpOnlyExerciseIds.collectAsStateWithLifecycle()
+    val exerciseRpeMap by viewModel.exerciseRpe.collectAsStateWithLifecycle()
+    val exerciseNotesMap by viewModel.exerciseNotes.collectAsStateWithLifecycle()
+    val sessionElapsedSeconds by viewModel.sessionElapsedSeconds.collectAsStateWithLifecycle()
+    val undoLastSetEnabled by viewModel.undoLastSetEnabled.collectAsStateWithLifecycle()
+    val sensorReps by viewModel.sensorReps.collectAsStateWithLifecycle()
+    val sensorState by viewModel.sensorState.collectAsStateWithLifecycle()
+    val sensorDistance by viewModel.sensorDistance.collectAsStateWithLifecycle()
+    val sensorConnected by viewModel.sensorConnected.collectAsStateWithLifecycle()
+    val activeExerciseId by viewModel.activeExerciseId.collectAsStateWithLifecycle()
+    val activeExerciseMode by viewModel.activeExerciseMode.collectAsStateWithLifecycle()
+    val sensorFallbackDismissed by viewModel.sensorFallbackDismissed.collectAsStateWithLifecycle()
+    val showExerciseCounter by viewModel.showExerciseCounter.collectAsStateWithLifecycle()
+    val showInlineRpe by viewModel.showInlineRpe.collectAsStateWithLifecycle()
+    val showExerciseNotes by viewModel.showExerciseNotes.collectAsStateWithLifecycle()
+    val sessionExercises by viewModel.sessionExercises.collectAsStateWithLifecycle(initialValue = emptyList())
+    val skippedExerciseIds by viewModel.skippedExerciseIds.collectAsStateWithLifecycle()
+    val isSessionPaused by viewModel.isSessionPaused.collectAsStateWithLifecycle()
+    val timerType by viewModel.timerType.collectAsStateWithLifecycle()
 
     var showSummary by remember { mutableStateOf(false) }
     var lastSession by remember { mutableStateOf<WorkoutSession?>(null) }

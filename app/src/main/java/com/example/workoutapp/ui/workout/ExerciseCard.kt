@@ -1,5 +1,7 @@
 package com.example.workoutapp.ui.workout
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -211,7 +213,7 @@ fun ExerciseCard(
                             if (historyProvider != null) {
                                 val historyFlow =
                                     remember(exercise.name) { historyProvider.invoke(exercise.name) }
-                                val history by historyFlow.collectAsState(initial = emptyList())
+                                val history by historyFlow.collectAsStateWithLifecycle(initialValue = emptyList())
                                 PreviousPerformanceLine(history = history)
                             }
                         }

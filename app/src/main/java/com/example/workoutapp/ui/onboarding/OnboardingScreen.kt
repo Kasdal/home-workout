@@ -1,5 +1,7 @@
 package com.example.workoutapp.ui.onboarding
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -18,7 +20,7 @@ fun OnboardingScreen(
     navController: NavController,
     viewModel: OnboardingViewModel = hiltViewModel()
 ) {
-    val hasProfiles by viewModel.hasProfiles.collectAsState()
+    val hasProfiles by viewModel.hasProfiles.collectAsStateWithLifecycle()
 
     if (hasProfiles) {
         LaunchedEffect(Unit) {

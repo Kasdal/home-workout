@@ -74,8 +74,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -123,10 +123,10 @@ fun WorkoutsScreen(
     navController: NavController,
     viewModel: com.example.workoutapp.ui.workout.WorkoutViewModel = hiltViewModel()
 ) {
-    val exercises by viewModel.exercises.collectAsState(initial = emptyList())
-    val categories by viewModel.categories.collectAsState(initial = emptyList())
-    val templates by viewModel.templates.collectAsState(initial = emptyList())
-    val sessionDates by viewModel.sessions.collectAsState(initial = emptyList())
+    val exercises by viewModel.exercises.collectAsStateWithLifecycle(initialValue = emptyList())
+    val categories by viewModel.categories.collectAsStateWithLifecycle(initialValue = emptyList())
+    val templates by viewModel.templates.collectAsStateWithLifecycle(initialValue = emptyList())
+    val sessionDates by viewModel.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarScope = rememberCoroutineScope()
     val successMessage = stringResource(R.string.photo_upload_success)
@@ -455,7 +455,7 @@ private fun WorkoutLibraryItem(
     var showCategoryDialog by remember { mutableStateOf(false) }
     var dragDistance by remember { mutableStateOf(0f) }
     var cardHeightPx by remember { mutableStateOf(0f) }
-    val history by exerciseHistory.collectAsState(initial = emptyList())
+    val history by exerciseHistory.collectAsStateWithLifecycle(initialValue = emptyList())
     val recentHistory = history.sortedByDescending { it.sessionId }
     val lastEntry = recentHistory.firstOrNull()
     val bestVolume = history.maxOfOrNull { it.volume } ?: 0f

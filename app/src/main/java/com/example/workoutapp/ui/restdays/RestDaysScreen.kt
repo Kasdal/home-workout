@@ -1,5 +1,7 @@
 package com.example.workoutapp.ui.restdays
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,9 +37,9 @@ fun RestDaysScreen(
     viewModel: RestDaysViewModel = hiltViewModel()
 ) {
     var currentMonth by remember { mutableStateOf(YearMonth.now()) }
-    val restDays by viewModel.restDays.collectAsState()
-    val selectedDate by viewModel.selectedDate.collectAsState()
-    val noteText by viewModel.noteText.collectAsState()
+    val restDays by viewModel.restDays.collectAsStateWithLifecycle()
+    val selectedDate by viewModel.selectedDate.collectAsStateWithLifecycle()
+    val noteText by viewModel.noteText.collectAsStateWithLifecycle()
     var showNoteDialog by remember { mutableStateOf(false) }
 
     Scaffold(

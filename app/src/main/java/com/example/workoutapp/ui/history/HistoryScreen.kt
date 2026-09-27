@@ -39,7 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,9 +71,9 @@ fun HistoryScreen(
     navController: NavController,
     viewModel: HistoryViewModel = hiltViewModel()
 ) {
-    val sessions by viewModel.sessions.collectAsState(initial = emptyList())
-    val selectedSession by viewModel.selectedSession.collectAsState()
-    val selectedSessionExercises by viewModel.selectedSessionExercises.collectAsState(initial = emptyList())
+    val sessions by viewModel.sessions.collectAsStateWithLifecycle(initialValue = emptyList())
+    val selectedSession by viewModel.selectedSession.collectAsStateWithLifecycle()
+    val selectedSessionExercises by viewModel.selectedSessionExercises.collectAsStateWithLifecycle(initialValue = emptyList())
     var selectedDate by remember { mutableStateOf<Calendar?>(null) }
     var currentMonth by remember { mutableStateOf(Calendar.getInstance()) }
     var trendExerciseName by remember { mutableStateOf<String?>(null) }
@@ -91,7 +91,7 @@ fun HistoryScreen(
             )
         }
     ) { padding ->
-    val personalRecords by viewModel.personalRecords.collectAsState(initial = PersonalRecords(
+    val personalRecords by viewModel.personalRecords.collectAsStateWithLifecycle(initialValue = PersonalRecords(
         heaviestLiftByExercise = emptyMap(),
         mostVolume = 0f,
         longestSession = 0,
@@ -99,16 +99,16 @@ fun HistoryScreen(
         totalWorkouts = 0
     ))
 
-    val weeklyOverview by viewModel.weeklyOverview.collectAsState(initial = WeeklyOverview(
+    val weeklyOverview by viewModel.weeklyOverview.collectAsStateWithLifecycle(initialValue = WeeklyOverview(
         workoutsThisWeek = 0, workoutsLastWeek = 0, volumeThisWeek = 0f,
         volumeLastWeek = 0f, avgDurationMin = 0, caloriesThisWeek = 0f,
         bestWeek = 0, totalWorkouts = 0
     ))
-    val exercisePrs by viewModel.exercisePrs.collectAsState(initial = emptyList())
-    val milestones by viewModel.milestones.collectAsState(initial = emptyList())
-    val volumeTrend by viewModel.volumeTrend.collectAsState(initial = emptyList())
-    val weeklyFrequency by viewModel.weeklyFrequency.collectAsState(initial = listOf(0, 0, 0, 0))
-    val insights by viewModel.insights.collectAsState(initial = emptyList())
+    val exercisePrs by viewModel.exercisePrs.collectAsStateWithLifecycle(initialValue = emptyList())
+    val milestones by viewModel.milestones.collectAsStateWithLifecycle(initialValue = emptyList())
+    val volumeTrend by viewModel.volumeTrend.collectAsStateWithLifecycle(initialValue = emptyList())
+    val weeklyFrequency by viewModel.weeklyFrequency.collectAsStateWithLifecycle(initialValue = listOf(0, 0, 0, 0))
+    val insights by viewModel.insights.collectAsStateWithLifecycle(initialValue = emptyList())
 
     Column(
         modifier = Modifier
@@ -268,7 +268,7 @@ fun HistoryScreen(
         // building it inline re-subscribed both listeners on every recomposition
         // of this screen while the dialog was open.
         val trendFlow = remember(trendExercise) { viewModel.exerciseTrend(trendExercise) }
-        val trendPoints by trendFlow.collectAsState(initial = emptyList())
+        val trendPoints by trendFlow.collectAsStateWithLifecycle(initialValue = emptyList())
         ExerciseTrendDialog(
             exerciseName = trendExercise,
             points = trendPoints,

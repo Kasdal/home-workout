@@ -1,5 +1,7 @@
 package com.example.workoutapp.ui.settings
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -36,8 +38,8 @@ fun SettingsScreen(
     navController: NavController,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
-    val settings by viewModel.settings.collectAsState()
-    val remindersEnabled by viewModel.remindersEnabled.collectAsState()
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val remindersEnabled by viewModel.remindersEnabled.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var showRestTimerDialog by remember { mutableStateOf(false) }
     var showSwitchTimerDialog by remember { mutableStateOf(false) }
@@ -94,7 +96,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // Cloud Sync Status Section
-            val syncStatus by viewModel.syncStatus.collectAsState()
+            val syncStatus by viewModel.syncStatus.collectAsStateWithLifecycle()
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -410,7 +412,7 @@ fun SettingsScreen(
                         placeholder = { Text("192.168.0.125") }
                     )
 
-                    val connectionState by viewModel.sensorConnectionState.collectAsState()
+                    val connectionState by viewModel.sensorConnectionState.collectAsStateWithLifecycle()
                     val sensorActionInProgress = connectionState == "Testing..." || connectionState == "Searching local network..."
                     Row(
                         modifier = Modifier.fillMaxWidth(),

@@ -26,7 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -114,10 +114,10 @@ fun SensorTestScreen(
     navController: NavController,
     viewModel: SensorTestViewModel = hiltViewModel()
 ) {
-    val configuredIp by viewModel.configuredIp.collectAsState()
-    val testResult by viewModel.testResult.collectAsState()
-    val liveData by viewModel.liveData.collectAsState()
-    val quality by viewModel.quality.collectAsState()
+    val configuredIp by viewModel.configuredIp.collectAsStateWithLifecycle()
+    val testResult by viewModel.testResult.collectAsStateWithLifecycle()
+    val liveData by viewModel.liveData.collectAsStateWithLifecycle()
+    val quality by viewModel.quality.collectAsStateWithLifecycle()
 
     var ipText by remember(configuredIp) { mutableStateOf(configuredIp.ifBlank { "192.168.0.125" }) }
 

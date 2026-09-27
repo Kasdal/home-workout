@@ -1,5 +1,7 @@
 package com.example.workoutapp.ui.profile
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,8 +25,8 @@ fun ProfileScreen(
     navController: NavController,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    val profiles by viewModel.allProfiles.collectAsState(initial = emptyList())
-    val currentProfile by viewModel.currentProfile.collectAsState()
+    val profiles by viewModel.allProfiles.collectAsStateWithLifecycle(initialValue = emptyList())
+    val currentProfile by viewModel.currentProfile.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var editingProfile by remember { mutableStateOf<UserMetrics?>(null) }
 
