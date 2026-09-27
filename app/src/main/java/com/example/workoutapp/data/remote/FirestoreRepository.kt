@@ -6,7 +6,6 @@ import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.Settings
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
-import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.data.remote.model.CloudCategory
 import com.example.workoutapp.data.remote.model.CloudMigrationMeta
 import com.example.workoutapp.data.remote.model.CloudSettings
@@ -347,29 +346,6 @@ class FirestoreRepository @Inject constructor(
         }
     }
 
-    fun observeSettings(uid: String): Flow<Settings?> = callbackFlow {
-        var listener: com.google.firebase.firestore.ListenerRegistration? = null
-        try {
-            listener = userRoot(uid)
-                .collection("settings")
-                .document("default")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(null)
-                        return@addSnapshotListener
-                    }
-
-                    val settings = snapshot?.toObject(CloudSettings::class.java)?.toLocal()
-                    trySend(settings)
-                }
-        } catch (e: Exception) {
-            listener?.remove()
-            trySend(null)
-        }
-
-        awaitClose { listener?.remove() }
-    }.conflate()
-
     fun observeSyncedWorkoutSettings(uid: String): Flow<WorkoutSessionSettings> = callbackFlow {
         var listener: com.google.firebase.firestore.ListenerRegistration? = null
         try {
@@ -410,10 +386,6 @@ class FirestoreRepository @Inject constructor(
 
         awaitClose { listener?.remove() }
     }.conflate()
-
-    suspend fun saveSettings(uid: String, settings: Settings) {
-        userRoot(uid).collection("settings").document("default").set(settings.toCloud()).await()
-    }
 
     suspend fun saveSyncedWorkoutSettings(uid: String, settings: WorkoutSessionSettings) {
         userRoot(uid)
@@ -560,33 +532,6 @@ class FirestoreRepository @Inject constructor(
         awaitClose { listener?.remove() }
     }.conflate()
 
-    fun observeAllExerciseNames(uid: String): Flow<List<String>> = callbackFlow {
-        var listener: com.google.firebase.firestore.ListenerRegistration? = null
-        try {
-            listener = userRoot(uid)
-                .collection("sessionExercises")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(emptyList())
-                        return@addSnapshotListener
-                    }
-
-                    val names = snapshot?.documents
-                        ?.mapNotNull { it.getString("exerciseName") }
-                        ?.distinct()
-                        ?.sorted()
-                        ?: emptyList()
-
-                    trySend(names)
-                }
-        } catch (e: Exception) {
-            listener?.remove()
-            trySend(emptyList())
-        }
-
-        awaitClose { listener?.remove() }
-    }.conflate()
-
     fun observeAllSessionExercises(uid: String): Flow<List<SessionExercise>> = callbackFlow {
         var listener: com.google.firebase.firestore.ListenerRegistration? = null
         try {
@@ -608,41 +553,6 @@ class FirestoreRepository @Inject constructor(
         } catch (e: Exception) {
             listener?.remove()
             trySend(emptyList())
-        }
-
-        awaitClose { listener?.remove() }
-    }.conflate()
-
-    fun observeWorkoutStats(uid: String): Flow<WorkoutStats?> = callbackFlow {
-        var listener: com.google.firebase.firestore.ListenerRegistration? = null
-        try {
-            listener = userRoot(uid)
-                .collection("sessions")
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null) {
-                        trySend(null)
-                        return@addSnapshotListener
-                    }
-
-                    val sessions = snapshot?.documents
-                        ?.mapNotNull { it.toObject<com.example.workoutapp.data.remote.model.CloudWorkoutSession>()?.toLocal() }
-                        ?: emptyList()
-
-                    val totalWorkouts = sessions.size
-                    val totalWeight = sessions.sumOf { it.totalWeightLifted.toDouble() }.toFloat()
-                    val totalDuration = sessions.sumOf { it.durationSeconds }
-
-                    trySend(
-                        WorkoutStats(
-                            totalWorkouts = totalWorkouts,
-                            totalWeightLifted = totalWeight,
-                            totalDurationSeconds = totalDuration
-                        )
-                    )
-                }
-        } catch (e: Exception) {
-            listener?.remove()
-            trySend(null)
         }
 
         awaitClose { listener?.remove() }

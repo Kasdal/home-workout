@@ -8,7 +8,6 @@ import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.Settings
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
-import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.model.WorkoutTemplate
 import com.example.workoutapp.data.remote.FirestoreRepository
 import com.example.workoutapp.data.remote.model.CloudCategory
@@ -32,7 +31,7 @@ class CloudWorkoutRepository @Inject constructor(
     private val firestoreRepository: FirestoreRepository,
     private val photoUploader: PhotoUploader,
     private val syncStatusMonitor: SyncStatusMonitor
-) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SettingsRepository, SyncedWorkoutSettingsStore, CategoryRepository, TemplateRepository {
+) : ProfileRepository, SessionHistoryRepository, RestDayRepository, ExerciseRepository, SyncedWorkoutSettingsStore, CategoryRepository, TemplateRepository {
 
     private suspend fun <T> tracked(block: suspend () -> T): T {
         return syncStatusMonitor.track(block)
@@ -91,20 +90,12 @@ class CloudWorkoutRepository @Inject constructor(
         return firestoreRepository.getSession(requireUid(), sessionId)
     }
 
-    override fun getWorkoutStats(): Flow<WorkoutStats?> = authManager.currentUser.flatMapLatest { user ->
-        if (user == null) flowOf(null) else firestoreRepository.observeWorkoutStats(user.uid)
-    }
-
     override suspend fun saveSession(session: WorkoutSession): Long = tracked {
         firestoreRepository.saveSession(requireUid(), session)
     }
 
     override suspend fun deleteSession(sessionId: Int) = tracked {
         firestoreRepository.deleteSession(requireUid(), sessionId)
-    }
-
-    override fun getSettings(): Flow<Settings?> = authManager.currentUser.flatMapLatest { user ->
-        if (user == null) flowOf(null) else firestoreRepository.observeSettings(user.uid)
     }
 
     override fun observeSyncedWorkoutSettings(): Flow<WorkoutSessionSettings> {
@@ -144,10 +135,6 @@ class CloudWorkoutRepository @Inject constructor(
 
     override fun getExerciseHistory(exerciseName: String): Flow<List<SessionExercise>> = authManager.currentUser.flatMapLatest { user ->
         if (user == null) flowOf(emptyList()) else firestoreRepository.observeExerciseHistory(user.uid, exerciseName)
-    }
-
-    override fun getAllExerciseNames(): Flow<List<String>> = authManager.currentUser.flatMapLatest { user ->
-        if (user == null) flowOf(emptyList()) else firestoreRepository.observeAllExerciseNames(user.uid)
     }
 
     override fun getAllSessionExercises(): Flow<List<SessionExercise>> = authManager.currentUser.flatMapLatest { user ->

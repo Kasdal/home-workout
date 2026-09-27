@@ -5,7 +5,6 @@ import com.example.workoutapp.model.ExerciseSessionMode
 import com.example.workoutapp.model.SessionExercise
 import com.example.workoutapp.model.UserMetrics
 import com.example.workoutapp.model.WorkoutSession
-import com.example.workoutapp.model.WorkoutStats
 import com.example.workoutapp.data.repository.SessionHistoryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -142,8 +141,6 @@ class WorkoutSessionCoordinatorTest {
 
         override suspend fun getSession(sessionId: Int): WorkoutSession? = null
 
-        override fun getWorkoutStats(): Flow<WorkoutStats?> = flowOf(null)
-
         override suspend fun saveSession(session: WorkoutSession): Long {
             savedSession = session.copy(id = 101)
             return 101L
@@ -158,9 +155,6 @@ class WorkoutSessionCoordinatorTest {
         override fun getSessionExercises(sessionId: Int): Flow<List<SessionExercise>> = flowOf(emptyList())
 
         override fun getExerciseHistory(exerciseName: String): Flow<List<SessionExercise>> = flowOf(emptyList())
-
-        override fun getAllExerciseNames(): Flow<List<String>> = flowOf(emptyList())
-
         override fun getAllSessionExercises(): Flow<List<SessionExercise>> = flowOf(emptyList())
     }
 }

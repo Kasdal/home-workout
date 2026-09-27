@@ -10,7 +10,6 @@ import com.example.workoutapp.data.repository.ExerciseRepository
 import com.example.workoutapp.data.repository.ProfileRepository
 import com.example.workoutapp.data.repository.RestDayRepository
 import com.example.workoutapp.data.repository.SessionHistoryRepository
-import com.example.workoutapp.data.repository.SettingsRepository
 import com.example.workoutapp.data.repository.CategoryRepository
 import com.example.workoutapp.data.storage.PhotoUploader
 import android.content.Context
@@ -104,12 +103,6 @@ object AppModule {
     fun provideExerciseRepository(
         cloudWorkoutRepository: CloudWorkoutRepository
     ): ExerciseRepository = cloudWorkoutRepository
-
-    @Provides
-    @Singleton
-    fun provideSettingsRepository(
-        cloudWorkoutRepository: CloudWorkoutRepository
-    ): SettingsRepository = cloudWorkoutRepository
 
     @Provides
     @Singleton
