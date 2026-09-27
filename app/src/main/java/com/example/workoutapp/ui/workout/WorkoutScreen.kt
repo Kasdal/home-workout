@@ -39,6 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarDuration
@@ -190,6 +191,31 @@ private fun EndOfExerciseDialog(
     )
 }
 
+/**
+ * Intercepts system Back for as long as a workout session is running.
+ *
+ * `WorkoutViewModel` is scoped to the workout navigation entry, so a Back press
+ * pops that entry, Hilt clears the ViewModel, and every field of the in-progress
+ * session is destroyed with no confirmation and no way to recover. Completed sets,
+ * RPE, notes and the exercise queue all vanish from a single mis-tap.
+ *
+ * While a session is active this handler consumes Back and pauses instead. The
+ * session stays intact and the user returns through the existing Resume control.
+ * When no session is running the handler is disabled, so Back navigates normally.
+ */
+@Composable
+internal fun WorkoutSessionBackHandler(
+    sessionStarted: Boolean,
+    isSessionPaused: Boolean,
+    onPauseRequested: () -> Unit
+) {
+    BackHandler(enabled = sessionStarted) {
+        if (!isSessionPaused) {
+            onPauseRequested()
+        }
+    }
+}
+
 @Composable
 fun WorkoutScreen(
     navController: NavController,
@@ -240,6 +266,14 @@ fun WorkoutScreen(
             window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
     }
+
+    // System Back must never pop the workout destination while a session is
+    // running. See WorkoutSessionBackHandler for why.
+    WorkoutSessionBackHandler(
+        sessionStarted = sessionStarted,
+        isSessionPaused = isSessionPaused,
+        onPauseRequested = viewModel::pauseSession
+    )
 
     LaunchedEffect(Unit) {
         viewModel.sessionStartErrors.collect { error ->
