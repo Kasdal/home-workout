@@ -41,6 +41,33 @@ jobs:
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
 
+      # The release keystore is not in version control. It is restored from
+      # secrets into the runner's workspace, which is ephemeral, and the
+      # signing values are written to the gitignored keystore/signing.properties
+      # that app/build.gradle.kts reads. A file input keeps Gradle's
+      # configuration cache honest, unlike System.getenv at configuration time.
+      - name: Restore release keystore from GitHub secret
+        env:
+          KEYSTORE_FILE_B64: ${{ secrets.KEYSTORE_FILE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_FILE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing keystore secrets. Set KEYSTORE_FILE_B64, KEYSTORE_PASSWORD and KEY_PASSWORD in repository secrets."
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$KEYSTORE_FILE_B64" | base64 --decode > keystore/release-ci.jks
+          chmod 600 keystore/release-ci.jks
+          umask 077
+          {
+            echo "storeFile=keystore/release-ci.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEY_PASSWORD"
+            echo "keyAlias=workoutapp"
+          } > keystore/signing.properties
+
       # Gate builds (and therefore releases) on the full unit suite.
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
@@ -120,6 +147,30 @@ jobs:
           fi
           printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > app/google-services.json
 
+      # The release job runs Axion, which invokes Gradle, so it needs the same
+      # keystore restore as the build job. Each job gets a fresh checkout.
+      - name: Restore release keystore from GitHub secret
+        env:
+          KEYSTORE_FILE_B64: ${{ secrets.KEYSTORE_FILE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_FILE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing keystore secrets. Set KEYSTORE_FILE_B64, KEYSTORE_PASSWORD and KEY_PASSWORD in repository secrets."
+            exit 1
+          fi
+          mkdir -p keystore
+          printf '%s' "$KEYSTORE_FILE_B64" | base64 --decode > keystore/release-ci.jks
+          chmod 600 keystore/release-ci.jks
+          umask 077
+          {
+            echo "storeFile=keystore/release-ci.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyPassword=$KEY_PASSWORD"
+            echo "keyAlias=workoutapp"
+          } > keystore/signing.properties
+
       - name: Compute next version from conventional commits
         id: version
         run: |
@@ -131,11 +182,11 @@ jobs:
         if: steps.version.outputs.VERSION != 'none'
         run: ./gradlew release -Prelease.version=${{ steps.version.outputs.VERSION }} -Prelease.pushTags=true --console=plain
 
-      - name: Download Debug APK
+      - name: Download Release APK
         if: steps.version.outputs.VERSION != 'none'
         uses: actions/download-artifact@v4
         with:
-          name: app-debug
+          name: app-release
           path: ./artifacts
 
       - name: Download Release APK
@@ -213,14 +264,16 @@ jobs:
             ${{ steps.changelog.outputs.CHANGELOG }}
 
             ### Downloads
-            - **app-debug.apk**: Debug build for testing
             - **app-release.apk**: Release build (signed)
+
+            The debug APK is no longer published. It shared the package name and
+            signing key with the release build, so installing it would silently
+            downgrade a real install to a debuggable, unminified app.
 
             ### Installation
             Download the APK and install on your Android device.
             You may need to enable "Install from Unknown Sources" in your device settings.
           files: |
-            ./artifacts/app-debug.apk
             ./artifacts/app-release.apk
           draft: false
           prerelease: false

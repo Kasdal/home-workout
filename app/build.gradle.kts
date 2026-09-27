@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -23,6 +25,42 @@ fun getVersionCode(version: String): Int {
 
 val appVersion = rootProject.version.toString()
 
+// Release signing material is never committed. Values come from, in order:
+//   1. Gradle properties passed on the command line (-PstoreFile=...)
+//   2. Environment variables (used by CI)
+//   3. keystore/signing.properties, which is gitignored (used for local builds)
+// If none resolve, only the debug build type is signed and release signing
+// fails loudly instead of silently shipping an unsigned APK.
+val signingProps = Properties().apply {
+    val local = rootProject.file("keystore/signing.properties")
+    if (local.exists()) local.inputStream().use { load(it) }
+}
+fun signingValue(vararg keys: String): String? =
+    keys.firstNotNullOfOrNull { key ->
+        (project.findProperty(key) as String?)?.takeIf { it.isNotBlank() }
+            ?: System.getenv(key)?.takeIf { it.isNotBlank() }
+            ?: signingProps.getProperty(key)?.takeIf { it.isNotBlank() }
+    }
+
+// storeFile may be given as a bare filename or as a path relative to the repo
+// root. Try the literal value first, then the keystore/ directory, so a bare
+// "release-v2.jks" resolves the way a human expects it to.
+val releaseStoreFile = signingValue("storeFile", "KEYSTORE_FILE")?.let { raw ->
+    val direct = rootProject.file(raw)
+    val underKeystore = rootProject.file("keystore/$raw")
+    when {
+        direct.isFile -> direct
+        underKeystore.isFile -> underKeystore
+        else -> direct
+    }
+}
+val releaseStorePassword = signingValue("storePassword", "KEYSTORE_PASSWORD")
+val releaseKeyPassword = signingValue("keyPassword", "KEY_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "KEY_ALIAS") ?: "workoutapp"
+val signingConfigured = releaseStoreFile != null &&
+    !releaseStorePassword.isNullOrBlank() &&
+    !releaseKeyPassword.isNullOrBlank()
+
 android {
     namespace = "com.example.workoutapp"
     compileSdk = 34
@@ -44,30 +82,34 @@ android {
     }
 
     signingConfigs {
-        // Project keystore committed at keystore/release.jks, used for BOTH debug and
-        // release so every build (local, CI debug, CI release) shares one fingerprint.
-        // Register its SHA-1 (BA:3A:D6:BE:43:2E:92:BB:E4:AA:68:D7:0D:BF:A0:B7:E7:84:2A:DC)
-        // in Firebase (Project settings -> Your apps) or Google sign-in fails with a
-        // status-code error on builds signed by any other key.
-        // NOTE: the keystore and its password are public in this repo; fine for
-        // GitHub-release sideloading, NOT acceptable for Play Console (use a private
-        // keystore there).
-        create("release") {
-            storeFile = file("../keystore/release.jks")
-            storePassword = "W0rk0ut!App2026"
-            keyAlias = "workoutapp"
-            keyPassword = "W0rk0ut!App2026"
+        // The keystore lives outside version control. Local builds read
+        // keystore/signing.properties (gitignored). CI supplies the same values
+        // as KEYSTORE_FILE / KEYSTORE_PASSWORD / KEY_PASSWORD env vars, which the
+        // release workflow base64-decodes into a temporary file.
+        if (signingConfigured) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("release")
+            // Debug builds sign with a local debug key so they can never collide
+            // with, or silently overwrite, a real release install.
+            if (signingConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            if (signingConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
