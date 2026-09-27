@@ -189,7 +189,8 @@ class WorkoutViewModelTest {
 
     /** Never ticks on its own, so `advanceUntilIdle` cannot loop forever on virtual time. */
     private class ManualSessionClock : com.example.workoutapp.domain.session.WorkoutSessionClock(
-        kotlinx.coroutines.MainScope()
+        kotlinx.coroutines.MainScope(),
+        { 0L }
     ) {
         override fun start() { }
         override fun pause() { }
