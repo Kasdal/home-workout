@@ -14,5 +14,8 @@ data class LocalAppSettings(
     val tutorialCompleted: Boolean = false,
     val tutorialVersion: Int = 1,
     val sensorEnabled: Boolean = false,
-    val sensorIpAddress: String = "192.168.0.125"
+    val sensorIpAddress: String = "192.168.0.125",
+    val showExerciseCounter: Boolean = false,
+    val showInlineRpe: Boolean = false,
+    val showExerciseNotes: Boolean = false
 )

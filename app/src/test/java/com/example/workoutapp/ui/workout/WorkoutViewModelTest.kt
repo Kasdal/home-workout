@@ -344,6 +344,98 @@ class WorkoutViewModelTest {
     }
 
     @Test
+    fun `pauseSession pauses the session clock and the exercise timer together`() = runTest {
+        viewModel.startSession()
+        runCurrent()
+        viewModel.completeNextSet(1)
+        runCurrent()
+
+        assertTrue(viewModel.isTimerRunning.value)
+        assertFalse(viewModel.isSessionPaused.value)
+
+        viewModel.pauseSession()
+        runCurrent()
+
+        assertTrue(viewModel.isSessionPaused.value)
+        assertTrue(viewModel.isTimerPaused.value)
+
+        viewModel.resumeSession()
+        runCurrent()
+        assertFalse(viewModel.isSessionPaused.value)
+        assertTrue(viewModel.isTimerRunning.value)
+    }
+
+    @Test
+    fun `session screen display options surface through view model state`() = runTest {
+        advanceUntilIdle()
+
+        assertFalse(viewModel.showExerciseCounter.value)
+        assertFalse(viewModel.showInlineRpe.value)
+        assertFalse(viewModel.showExerciseNotes.value)
+
+        localSettingsFlow.value = LocalAppSettings(
+            showExerciseCounter = true,
+            showInlineRpe = true,
+            showExerciseNotes = true
+        )
+        runCurrent()
+
+        assertTrue(viewModel.showExerciseCounter.value)
+        assertTrue(viewModel.showInlineRpe.value)
+        assertTrue(viewModel.showExerciseNotes.value)
+    }
+
+    @Test
+    fun `finishCurrentExercise stores rpe and note before advancing`() = runTest {
+        viewModel.startSession()
+        runCurrent()
+
+        viewModel.finishCurrentExercise(rpe = 7, note = "felt strong")
+        advanceUntilIdle()
+
+        assertEquals(7, viewModel.exerciseRpe.value[1])
+        assertEquals("felt strong", viewModel.exerciseNotes.value[1])
+        assertEquals(2, viewModel.activeExerciseId.value)
+    }
+
+    @Test
+    fun `finishCurrentExercise without feedback skips storing and still advances`() = runTest {
+        viewModel.startSession()
+        runCurrent()
+
+        viewModel.finishCurrentExercise(rpe = null, note = "   ")
+        advanceUntilIdle()
+
+        assertFalse(viewModel.exerciseRpe.value.containsKey(1))
+        assertFalse(viewModel.exerciseNotes.value.containsKey(1))
+        assertEquals(2, viewModel.activeExerciseId.value)
+    }
+
+    @Test
+    fun `fallbackToManualReps suppresses the sensor banner until process restart`() = runTest {
+        localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
+
+        viewModel.startSession()
+        runCurrent()
+        viewModel.completeNextSet(1)
+        runCurrent()
+
+        assertEquals(ExerciseSessionMode.SENSOR_REPS, viewModel.activeExerciseMode.value)
+        assertFalse(viewModel.sensorFallbackDismissed.value)
+
+        viewModel.fallbackToManualReps()
+        assertEquals(ExerciseSessionMode.MANUAL_REPS, viewModel.activeExerciseMode.value)
+        assertTrue(viewModel.sensorFallbackDismissed.value)
+
+        // Session state updates re-select the exercise mode, but the dismissal sticks.
+        viewModel.completeNextSet(1)
+        runCurrent()
+
+        assertEquals(ExerciseSessionMode.SENSOR_REPS, viewModel.activeExerciseMode.value)
+        assertTrue(viewModel.sensorFallbackDismissed.value)
+    }
+
+    @Test
     fun `sensor state is surfaced through observable view model state`() = runTest {
         localSettingsFlow.value = LocalAppSettings(sensorEnabled = true, sensorIpAddress = "10.0.0.5")
         val sensorEvents = MutableSharedFlow<EspSensorData?>()

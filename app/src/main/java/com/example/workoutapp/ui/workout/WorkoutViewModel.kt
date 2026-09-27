@@ -109,6 +109,7 @@ class WorkoutViewModel @Inject constructor(
     )
     // Timer State (rest timer between sets/exercises)
     val timerSeconds: StateFlow<Int> = countdownOrchestrator.timerSeconds
+    val timerTotalSeconds: StateFlow<Int> = countdownOrchestrator.timerTotalSeconds
     val isTimerRunning: StateFlow<Boolean> = countdownOrchestrator.isTimerRunning
     val isTimerPaused: StateFlow<Boolean> = countdownOrchestrator.isTimerPaused
     val timerType: StateFlow<CountdownType> = countdownOrchestrator.timerType
@@ -209,6 +210,21 @@ class WorkoutViewModel @Inject constructor(
     private val _activeExerciseMode = MutableStateFlow(ExerciseSessionMode.MANUAL_REPS)
     val activeExerciseMode: StateFlow<ExerciseSessionMode> = _activeExerciseMode.asStateFlow()
 
+    // Sensor fallback banner dismissal. Non-persisted by design: the banner may
+    // return after process death, but not within one app session.
+    private val _sensorFallbackDismissed = MutableStateFlow(false)
+    val sensorFallbackDismissed: StateFlow<Boolean> = _sensorFallbackDismissed.asStateFlow()
+
+    // Session screen display options (Settings -> "Session screen").
+    private val _showExerciseCounter = MutableStateFlow(false)
+    val showExerciseCounter: StateFlow<Boolean> = _showExerciseCounter.asStateFlow()
+
+    private val _showInlineRpe = MutableStateFlow(false)
+    val showInlineRpe: StateFlow<Boolean> = _showInlineRpe.asStateFlow()
+
+    private val _showExerciseNotes = MutableStateFlow(false)
+    val showExerciseNotes: StateFlow<Boolean> = _showExerciseNotes.asStateFlow()
+
     init {
         initializeDefaultExercises()
         observeSyncedSettings()
@@ -256,6 +272,9 @@ class WorkoutViewModel @Inject constructor(
                 silentModeBehavior = settings.silentModeBehavior
                 sensorEnabled = settings.sensorEnabled
                 sensorIpAddress = settings.sensorIpAddress
+                _showExerciseCounter.value = settings.showExerciseCounter
+                _showInlineRpe.value = settings.showInlineRpe
+                _showExerciseNotes.value = settings.showExerciseNotes
                 if (_sessionStarted.value && sensorEnabled && !sensorOrchestrator.isPolling) {
                     startSensorPolling()
                 } else if (!sensorEnabled && sensorOrchestrator.isPolling) {
@@ -365,6 +384,21 @@ class WorkoutViewModel @Inject constructor(
         }
     }
 
+    /**
+     * End-of-exercise feel-check entry point: stores the optional RPE/note for
+     * the active exercise, then advances to the next one.
+     */
+    fun finishCurrentExercise(rpe: Int?, note: String?) {
+        val currentId = _activeExerciseId.value ?: return
+        if (rpe != null) {
+            setExerciseRpe(currentId, rpe)
+        }
+        if (!note.isNullOrBlank()) {
+            setExerciseNote(currentId, note.trim())
+        }
+        finishCurrentExercise()
+    }
+
     fun toggleActiveInSession(exercise: Exercise) {
         launchSyncedWrite("Update exercise") {
             exerciseRepository.updateExercise(
@@ -387,6 +421,7 @@ class WorkoutViewModel @Inject constructor(
 
     fun fallbackToManualReps() {
         _activeExerciseMode.value = ExerciseSessionMode.MANUAL_REPS
+        _sensorFallbackDismissed.value = true
     }
 
     fun setExerciseWarmUpOnly(exerciseId: Int, isWarmUpOnly: Boolean) {

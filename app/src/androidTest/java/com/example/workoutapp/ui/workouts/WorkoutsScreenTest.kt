@@ -46,10 +46,12 @@ class WorkoutsScreenTest {
         }
 
         composeTestRule.onNodeWithText("Workout Library").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Workouts").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Workouts")
+        composeTestRule.onNodeWithText("Workouts")
             .assertIsDisplayed()
             .assertIsSelected()
+        composeTestRule.onNodeWithContentDescription("Workouts", useUnmergedTree = true)
+            .assertIsDisplayed()
+        composeTestRule.onAllNodesWithContentDescription("Back").assertCountEquals(0)
         composeTestRule.onAllNodesWithContentDescription("Back").assertCountEquals(0)
     }
 }
