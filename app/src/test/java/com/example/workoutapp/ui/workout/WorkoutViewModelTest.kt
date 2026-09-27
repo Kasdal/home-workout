@@ -137,7 +137,11 @@ class WorkoutViewModelTest {
             com.example.workoutapp.domain.session.WorkoutCountdownOrchestrator(
                 scope = firstArg(),
                 onCountdownWarning = secondArg(),
-                onTimerComplete = thirdArg()
+                onTimerComplete = thirdArg(),
+                // Tied to the test dispatcher's virtual time so a running countdown
+                // actually advances. A frozen clock here would make the deadline
+                // unreachable, and advanceUntilIdle would then spin forever.
+                nowElapsedRealtime = { testDispatcher.scheduler.currentTime }
             )
         }
         every { sessionClockFactory.create(any()) } returns sessionClock
